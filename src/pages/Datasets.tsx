@@ -9,7 +9,7 @@ import {
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
 
-export default function Datasets({
+export default function Knowledge({
   datasets,
   onChanged,
 }: {
@@ -55,10 +55,14 @@ export default function Datasets({
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-4">Datasets</h1>
+      <h1 className="text-2xl font-semibold mb-1">Knowledge</h1>
+      <p className="text-sm text-white/40 mb-4">
+        Construye inteligencia anclada a tus datos (DASA + SHARD). Cada base es una
+        fuente que el chat puede usar sin alucinar.
+      </p>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
-        <h2 className="font-medium mb-3">Construir inteligencia desde un JSON</h2>
+        <h2 className="font-medium mb-3">Construir desde un JSON</h2>
 
         <div className="flex flex-col gap-3">
           <button

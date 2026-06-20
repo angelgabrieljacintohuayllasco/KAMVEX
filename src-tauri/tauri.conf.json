@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dasa-ui",
+  "productName": "KAMVEX",
   "version": "0.1.0",
-  "identifier": "com.dasa.ui",
+  "identifier": "com.kamvex.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "dasa-ui",
-        "width": 800,
-        "height": 600
+        "title": "KAMVEX",
+        "width": 1200,
+        "height": 800
       }
     ],
     "security": {

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    dasa_ui_lib::run()
+    kamvex_lib::run()
 }
