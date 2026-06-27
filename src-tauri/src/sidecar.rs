@@ -49,6 +49,7 @@ pub fn port_open(port: u16) -> bool {
 }
 
 /// Block until the port is open or `timeout` elapses.
+#[allow(dead_code)]
 pub fn wait_ready(port: u16, timeout: Duration) -> bool {
     let start = Instant::now();
     while start.elapsed() < timeout {

@@ -1,7 +1,7 @@
 //! Auto-tune: hardware + model size → optimal llama-server flags.
 
 use serde::Serialize;
-use crate::hardware::{HwInfo, GpuInfo};
+use crate::hardware::HwInfo;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Prescription {
@@ -68,6 +68,7 @@ pub fn autotune(hw: &HwInfo, model_size_mb: u64, preset: Preset) -> Prescription
 }
 
 /// Convert a Prescription to llama-server CLI flags.
+#[allow(dead_code)]
 pub fn prescription_to_flags(p: &Prescription) -> Vec<String> {
     let mut flags = vec![
         "-ngl".to_string(), p.ngl.to_string(),
@@ -90,6 +91,7 @@ pub fn prescription_to_flags(p: &Prescription) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hardware::GpuInfo;
 
     fn mock_hw(ram_gb: f64, cores: usize, gpus: Vec<GpuInfo>) -> HwInfo {
         HwInfo {

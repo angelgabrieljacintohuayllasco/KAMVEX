@@ -51,6 +51,7 @@ pub struct LlamaState {
 }
 
 /// Resolve which backend to use based on hardware.
+#[allow(dead_code)]
 pub fn resolve_backend(has_vulkan: bool, has_cuda: bool) -> Backend {
     if has_cuda {
         Backend::Cuda
@@ -173,6 +174,7 @@ pub fn port_open(port: u16) -> bool {
 }
 
 /// Block until the port is open or timeout.
+#[allow(dead_code)]
 pub fn wait_ready(port: u16, timeout: Duration) -> bool {
     let start = Instant::now();
     while start.elapsed() < timeout {
