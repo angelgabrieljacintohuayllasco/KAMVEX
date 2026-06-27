@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { waitForSidecar, listDatasets, chat, Dataset, Fragment } from "./api/client";
+import { waitForSidecar, listDatasets, chat, inferenceStatus, Dataset, Fragment } from "./api/client";
 import Chat from "./pages/Chat";
 import Knowledge from "./pages/Datasets";
 import Models from "./pages/Models";
 import Settings from "./pages/Settings";
+import type { AgentBMode } from "./components/ModeSelector";
 
 export type Message = {
   role: "user" | "assistant";
@@ -29,6 +30,8 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agentBMode, setAgentBMode] = useState<AgentBMode>("statistical");
+  const [inferenceRunning, setInferenceRunning] = useState(false);
 
   async function refresh() {
     try {
@@ -46,6 +49,10 @@ export default function App() {
       setFailed(!ok);
       if (ok) refresh();
     });
+    const interval = setInterval(() => {
+      inferenceStatus().then((s) => setInferenceRunning(s.connected)).catch(() => {});
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
@@ -91,7 +98,7 @@ export default function App() {
     );
 
     try {
-      const res = await chat(selectedDataset, query);
+      const res = await chat(selectedDataset, query, agentBMode);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === convId
@@ -198,6 +205,9 @@ export default function App() {
             busy={busy}
             error={error}
             goKnowledge={() => setView("knowledge")}
+            agentBMode={agentBMode}
+            setAgentBMode={setAgentBMode}
+            inferenceRunning={inferenceRunning}
           />
         )}
         {view === "knowledge" && (

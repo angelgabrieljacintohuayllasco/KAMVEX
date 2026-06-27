@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Dataset } from "../api/client";
 import type { Conversation } from "../App";
+import ModeSelector, { type AgentBMode } from "../components/ModeSelector";
 
 export default function Chat({
   conversation,
@@ -11,6 +12,9 @@ export default function Chat({
   busy,
   error,
   goKnowledge,
+  agentBMode,
+  setAgentBMode,
+  inferenceRunning,
 }: {
   conversation: Conversation | null;
   datasets: Dataset[];
@@ -20,6 +24,9 @@ export default function Chat({
   busy: boolean;
   error: string | null;
   goKnowledge: () => void;
+  agentBMode: AgentBMode;
+  setAgentBMode: (m: AgentBMode) => void;
+  inferenceRunning: boolean;
 }) {
   const [query, setQuery] = useState("");
   const empty = !conversation || conversation.messages.length === 0;
@@ -56,19 +63,26 @@ export default function Chat({
               ＋ Construir conocimiento
             </button>
           ) : (
-            <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
-              <span className="text-white/40">📚</span>
-              <select
-                value={selectedDataset ?? ""}
-                onChange={(e) => setSelectedDataset(e.target.value)}
-                className="bg-transparent outline-none text-white/80"
-              >
-                {datasets.map((d) => (
-                  <option key={d.name} value={d.name} className="bg-[#0b0e14]">
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
+                <span className="text-white/40">📚</span>
+                <select
+                  value={selectedDataset ?? ""}
+                  onChange={(e) => setSelectedDataset(e.target.value)}
+                  className="bg-transparent outline-none text-white/80"
+                >
+                  {datasets.map((d) => (
+                    <option key={d.name} value={d.name} className="bg-[#0b0e14]">
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <ModeSelector
+                mode={agentBMode}
+                onChange={setAgentBMode}
+                disabled={agentBMode !== "statistical" && !inferenceRunning}
+              />
             </div>
           )}
           <button
