@@ -1,3 +1,4 @@
+mod autotune;
 mod hardware;
 mod llama;
 mod sidecar;
@@ -79,6 +80,21 @@ fn llama_binary_present(backend_str: String) -> bool {
     llama::is_binary_present(&backend)
 }
 
+/// Compute optimal flags for a model given hardware + preset.
+#[tauri::command]
+fn autotune_flags(
+    model_size_mb: u64,
+    preset: String,
+) -> Result<autotune::Prescription, String> {
+    let hw = hardware::detect_hardware();
+    let preset = match preset.as_str() {
+        "eco" => autotune::Preset::Eco,
+        "max" => autotune::Preset::Max,
+        _ => autotune::Preset::Balanced,
+    };
+    Ok(autotune::autotune(&hw, model_size_mb, preset))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let sc_port = sidecar::free_port();
@@ -106,7 +122,8 @@ pub fn run() {
             llama_start,
             llama_stop,
             llama_ensure_binary,
-            llama_binary_present
+            llama_binary_present,
+            autotune_flags
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
