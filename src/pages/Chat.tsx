@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Dataset } from "../api/client";
 import type { Conversation } from "../App";
 import ModeSelector, { type AgentBMode } from "../components/ModeSelector";
+import MetricsPanel from "../components/MetricsPanel";
+import SamplerControls, { type Samplers } from "../components/SamplerControls";
 
 export default function Chat({
   conversation,
@@ -20,7 +22,7 @@ export default function Chat({
   datasets: Dataset[];
   selectedDataset: string | null;
   setSelectedDataset: (s: string) => void;
-  onSend: (q: string) => void;
+  onSend: (q: string, samplers?: Samplers) => void;
   busy: boolean;
   error: string | null;
   goKnowledge: () => void;
@@ -29,13 +31,20 @@ export default function Chat({
   inferenceRunning: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [samplers, setSamplers] = useState<Samplers>({
+    temperature: 0.1,
+    top_p: 0.95,
+    top_k: 40,
+    repeat_penalty: 1.0,
+  });
   const empty = !conversation || conversation.messages.length === 0;
+  const showSamplers = agentBMode !== "statistical" && inferenceRunning;
 
   function submit() {
     const q = query.trim();
     if (!q || busy) return;
     setQuery("");
-    onSend(q);
+    onSend(q, showSamplers ? samplers : undefined);
   }
 
   const InputCard = (
@@ -63,7 +72,7 @@ export default function Chat({
               ＋ Construir conocimiento
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
                 <span className="text-white/40">📚</span>
                 <select
@@ -83,6 +92,7 @@ export default function Chat({
                 onChange={setAgentBMode}
                 disabled={agentBMode !== "statistical" && !inferenceRunning}
               />
+              <MetricsPanel />
             </div>
           )}
           <button
@@ -93,6 +103,11 @@ export default function Chat({
             {busy ? "…" : "↑"}
           </button>
         </div>
+        {showSamplers && (
+          <div className="mt-2">
+            <SamplerControls samplers={samplers} onChange={setSamplers} />
+          </div>
+        )}
       </div>
       {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
     </div>

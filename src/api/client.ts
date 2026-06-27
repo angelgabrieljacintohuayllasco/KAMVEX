@@ -75,7 +75,7 @@ export async function listDatasets(): Promise<Dataset[]> {
 export async function pickJsonFile(): Promise<string | null> {
   const selected = await open({
     multiple: false,
-    filters: [{ name: "JSON", extensions: ["json"] }],
+    filters: [{ name: "Data files", extensions: ["json", "jsonl", "csv"] }],
   });
   return typeof selected === "string" ? selected : null;
 }
@@ -120,11 +120,18 @@ export async function streamBuild(
   });
 }
 
-export async function chat(dataset: string, query: string, agentBMode: string = "statistical"): Promise<ChatResponse> {
+export async function chat(
+  dataset: string,
+  query: string,
+  agentBMode: string = "statistical",
+  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
+): Promise<ChatResponse> {
+  const body: Record<string, unknown> = { dataset, query, agent_b_mode: agentBMode };
+  if (samplers) Object.assign(body, samplers);
   const r = await fetch(`${await base()}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataset, query, agent_b_mode: agentBMode }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`chat ${r.status}: ${await r.text()}`);
   return r.json();
@@ -177,5 +184,71 @@ export async function inferenceDisconnect(): Promise<void> {
 export async function inferenceStatus(): Promise<{ connected: boolean; alive?: boolean }> {
   const r = await fetch(`${await base()}/inference/status`);
   if (!r.ok) return { connected: false };
+  return r.json();
+}
+
+export type InferenceMetrics = {
+  connected: boolean;
+  active_slots: number;
+  total_decoded: number;
+  slots: Array<{ id: number; is_processing: boolean; n_ctx: number; next_token?: { n_decoded: number } }>;
+};
+
+export async function inferenceMetrics(): Promise<InferenceMetrics> {
+  const r = await fetch(`${await base()}/inference/metrics`);
+  if (!r.ok) return { connected: false, active_slots: 0, total_decoded: 0, slots: [] };
+  return r.json();
+}
+
+// ── Oregano Test (anti-hallucination quality audit) ─────────────────────────
+
+export type OreganoDetail = {
+  query: string;
+  forbidden: string[];
+  forbidden_found: string[];
+  passed: boolean;
+  answer_preview: string;
+};
+
+export type OreganoResult = {
+  dataset: string;
+  score: number;
+  total: number;
+  passed: number;
+  hallucinations: number;
+  details: OreganoDetail[];
+};
+
+export async function runOreganoTest(dataset: string): Promise<OreganoResult> {
+  const r = await fetch(`${await base()}/oregano/${encodeURIComponent(dataset)}`, {
+    method: "POST",
+  });
+  if (!r.ok) throw new Error(`oregano ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── HuggingFace Hub (curated GGUF) ──────────────────────────────────────────
+
+export type HubModel = {
+  repo: string;
+  file: string;
+  name: string;
+  size_mb: number;
+  desc: string;
+};
+
+export async function listHubModels(): Promise<HubModel[]> {
+  const r = await fetch(`${await base()}/models/hub`);
+  if (!r.ok) throw new Error(`listHubModels ${r.status}`);
+  return r.json();
+}
+
+export async function downloadHubModel(repo: string, file: string): Promise<{ status: string; path?: string; error?: string }> {
+  const r = await fetch(`${await base()}/models/hub/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repo, file }),
+  });
+  if (!r.ok) throw new Error(`downloadHubModel ${r.status}`);
   return r.json();
 }

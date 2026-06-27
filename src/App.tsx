@@ -69,7 +69,7 @@ export default function App() {
     setError(null);
   }
 
-  async function send(query: string) {
+  async function send(query: string, samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number }) {
     if (!selectedDataset) {
       setError("Selecciona o construye conocimiento primero (pestaña Knowledge).");
       return;
@@ -98,7 +98,7 @@ export default function App() {
     );
 
     try {
-      const res = await chat(selectedDataset, query, agentBMode);
+      const res = await chat(selectedDataset, query, agentBMode, samplers);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === convId

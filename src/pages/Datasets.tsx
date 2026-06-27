@@ -4,7 +4,9 @@ import {
   pickJsonFile,
   startBuild,
   streamBuild,
+  runOreganoTest,
   BuildEvent,
+  OreganoResult,
 } from "../api/client";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
@@ -22,6 +24,8 @@ export default function Knowledge({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<BuildEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [oreganoBusy, setOreganoBusy] = useState<string | null>(null);
+  const [oreganoResults, setOreganoResults] = useState<Record<string, OreganoResult>>({});
 
   async function pick() {
     const p = await pickJsonFile();
@@ -29,7 +33,7 @@ export default function Knowledge({
       setJsonPath(p);
       if (!name) {
         const base = p.replace(/\\/g, "/").split("/").pop() ?? "dataset";
-        setName(base.replace(/\.json$/i, ""));
+        setName(base.replace(/\.(json|jsonl|csv)$/i, ""));
       }
     }
   }
@@ -53,6 +57,19 @@ export default function Knowledge({
     }
   }
 
+  async function runOregano(datasetName: string) {
+    setOreganoBusy(datasetName);
+    setError(null);
+    try {
+      const result = await runOreganoTest(datasetName);
+      setOreganoResults((prev) => ({ ...prev, [datasetName]: result }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setOreganoBusy(null);
+    }
+  }
+
   return (
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-semibold mb-1">Knowledge</h1>
@@ -62,14 +79,14 @@ export default function Knowledge({
       </p>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
-        <h2 className="font-medium mb-3">Construir desde un JSON</h2>
+        <h2 className="font-medium mb-3">Construir desde un archivo</h2>
 
         <div className="flex flex-col gap-3">
           <button
             onClick={pick}
             className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
           >
-            {jsonPath ? "Cambiar archivo JSON" : "Elegir archivo JSON"}
+            {jsonPath ? "Cambiar archivo" : "Elegir archivo (JSON / JSONL / CSV)"}
           </button>
           {jsonPath && (
             <p className="text-xs text-white/50 break-all">{jsonPath}</p>
@@ -125,23 +142,68 @@ export default function Knowledge({
         </div>
       </div>
 
-      <h2 className="font-medium mb-2">Construidos</h2>
+      <h2 className="font-medium mb-2">Inteligencias construidas</h2>
       {datasets.length === 0 ? (
-        <p className="text-sm text-white/40">Aún no hay datasets.</p>
+        <p className="text-sm text-white/40">Aún no hay datasets. Construye uno arriba.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {datasets.map((d) => (
-            <li
-              key={d.name}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm flex justify-between"
-            >
-              <span className="font-medium">{d.name}</span>
-              <span className="text-white/50">
-                {d.n_records} registros · {d.profile}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="grid grid-cols-1 gap-3">
+          {datasets.map((d) => {
+            const oregano = oreganoResults[d.name];
+            return (
+              <div
+                key={d.name}
+                className="rounded-xl border border-white/10 bg-white/5 p-4"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="font-medium text-base">{d.name}</span>
+                    <p className="text-xs text-white/40 mt-1">
+                      {d.n_records} registros · perfil {d.profile} · {d.dim ?? "?"} dim
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => runOregano(d.name)}
+                    disabled={oreganoBusy === d.name}
+                    className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-3 py-1.5 text-xs"
+                    title="Auditar calidad anti-alucinación"
+                  >
+                    {oreganoBusy === d.name ? "Auditando…" : "🧪 Oregano Test"}
+                  </button>
+                </div>
+
+                {oregano && (
+                  <div className="mt-3 rounded-lg bg-black/30 border border-white/10 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg font-bold">
+                        {oregano.score >= 80 ? "🟢" : oregano.score >= 50 ? "🟡" : "🔴"}
+                      </span>
+                      <span className="text-2xl font-bold">{oregano.score}</span>
+                      <span className="text-xs text-white/40">/ 100 confianza anti-alucinación</span>
+                    </div>
+                    <p className="text-xs text-white/50 mb-1">
+                      {oregano.passed} de {oregano.total} tests pasaron · {oregano.hallucinations} alucinaciones detectadas
+                    </p>
+                    {oregano.details.length > 0 && (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-xs text-white/40">Detalle</summary>
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {oregano.details.map((det, i) => (
+                            <li key={i} className={`text-xs ${det.passed ? "text-emerald-400" : "text-red-400"}`}>
+                              {det.passed ? "✓" : "✗"} {det.query}
+                              {!det.passed && det.forbidden_found.length > 0 && (
+                                <span className="text-white/30"> — términos alucinados: {det.forbidden_found.join(", ")}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

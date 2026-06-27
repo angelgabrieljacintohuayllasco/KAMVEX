@@ -1,11 +1,12 @@
 """
-Dataset build job: JSON -> embeddings -> SHARD shards -> IVF-PQ index.
+Dataset build job: JSON/JSONL/CSV -> embeddings -> SHARD shards -> IVF-PQ index.
 
 Runs in a background thread and reports progress through a queue so the HTTP
 layer can stream Server-Sent Events. All heavy lifting reuses DASA + SHARD;
 this file only orchestrates and reports progress.
 """
 
+import csv
 import json
 import queue
 from pathlib import Path
@@ -43,6 +44,44 @@ def _unique_keys(keys):
     return out
 
 
+def read_records(file_path: str) -> list[dict]:
+    """Read records from a JSON array, JSONL, or CSV file."""
+    p = Path(file_path)
+    ext = p.suffix.lower()
+
+    if ext == ".jsonl":
+        records = []
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+        if not records:
+            raise ValueError("El archivo JSONL no contiene registros válidos.")
+        return records
+
+    if ext == ".csv":
+        records = []
+        with p.open(encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                records.append(dict(row))
+        if not records:
+            raise ValueError("El archivo CSV no contiene registros (¿tiene cabecera?).")
+        return records
+
+    # Default: JSON array
+    records = json.loads(p.read_text(encoding="utf-8"))
+    if not isinstance(records, list) or not records:
+        raise ValueError("El JSON debe ser un array no vacío de objetos.")
+    return records
+
+
+def compute_num_shards(n_records: int) -> int:
+    """Auto-compute num_shards using SHARD's ShardRouter.recommended_shards."""
+    from shard.core.sharding import ShardRouter
+    return ShardRouter.recommended_shards(n_records)
+
+
 class BuildJob:
     def __init__(self):
         self.q: "queue.Queue[dict]" = queue.Queue()
@@ -57,11 +96,14 @@ def run_build(job: BuildJob, *, name, json_path, profile, data_dir, num_shards,
               embedding_engine, shard_writer_cls, build_ivfpq_fn):
     """Execute the full build pipeline, emitting progress on `job`."""
     try:
-        job.emit("read", 2, "Leyendo JSON")
-        records = json.loads(Path(json_path).read_text(encoding="utf-8"))
-        if not isinstance(records, list) or not records:
-            raise ValueError("El JSON debe ser un array no vacío de objetos.")
+        job.emit("read", 2, f"Leyendo {Path(json_path).suffix.upper()}")
+        records = read_records(json_path)
         n = len(records)
+
+        # Auto-compute num_shards if not explicitly set
+        if num_shards is None or num_shards <= 0:
+            num_shards = compute_num_shards(n)
+            job.emit("read", 5, f"num_shards auto: {num_shards}")
 
         db = Path(data_dir) / name
         db.mkdir(parents=True, exist_ok=True)

@@ -8,7 +8,10 @@ import {
   inferenceConnect,
   inferenceDisconnect,
   inferenceStatus,
+  listHubModels,
+  downloadHubModel,
   type Prescription,
+  type HubModel,
 } from "../api/client";
 
 const PRESETS = ["eco", "balanced", "max"] as const;
@@ -23,9 +26,12 @@ export default function Models() {
   const [error, setError] = useState<string | null>(null);
   const [binaryReady, setBinaryReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [hubModels, setHubModels] = useState<HubModel[]>([]);
+  const [hubBusy, setHubBusy] = useState<string | null>(null);
 
   useEffect(() => {
     inferenceStatus().then((s) => setRunning(s.connected)).catch(() => {});
+    listHubModels().then(setHubModels).catch(() => {});
   }, []);
 
   async function pickModel() {
@@ -222,6 +228,46 @@ export default function Models() {
           )}
         </div>
         {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      </section>
+
+      {/* HuggingFace Hub */}
+      <section className="rounded-xl border border-white/10 bg-white/5 p-5 mt-4">
+        <h2 className="font-medium mb-3">Descargar desde HuggingFace</h2>
+        {hubModels.length === 0 ? (
+          <p className="text-xs text-white/40">Cargando lista…</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {hubModels.map((m) => (
+              <div
+                key={m.repo + m.file}
+                className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-4 py-2"
+              >
+                <div>
+                  <span className="text-sm font-medium">{m.name}</span>
+                  <p className="text-xs text-white/40">{m.desc} · ~{m.size_mb} MB</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setHubBusy(m.file);
+                    try {
+                      const res = await downloadHubModel(m.repo, m.file);
+                      if (res.status === "error") setError(res.error ?? "error");
+                      else setModelPath(res.path ?? "");
+                    } catch (e) {
+                      setError(String(e));
+                    } finally {
+                      setHubBusy(null);
+                    }
+                  }}
+                  disabled={hubBusy !== null}
+                  className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 px-3 py-1.5 text-xs"
+                >
+                  {hubBusy === m.file ? "Descargando…" : "↓ Descargar"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
