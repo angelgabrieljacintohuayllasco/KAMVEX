@@ -70,7 +70,28 @@ def test_build_and_chat():
                str(target.get("lemma", "")) in top_text, f"unexpected top: {top_text!r}"
         print(f"OK — answer={resp['answer'][:60]!r}  frags={len(resp['fragments'])}")
 
+        # Agent B mode: statistical should work without inference engine
+        resp2 = client.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "statistical"}).json()
+        assert resp2["mode"] == "statistical"
+        assert "answer" in resp2
+
+        # Agent B mode: grounded without inference engine → 400
+        r400 = client.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "grounded"})
+        assert r400.status_code == 400
+
+        # Inference status: disconnected by default
+        assert client.get("/inference/status").json()["connected"] is False
+
+
+def test_llama_connector_protocol():
+    """LlamaCppConnector follows the (messages) -> str callable protocol."""
+    from llama_connector import LlamaCppConnector
+    c = LlamaCppConnector("127.0.0.1", 9999)
+    assert callable(c)
+    assert c.is_alive() is False  # no server on port 9999
+
 
 if __name__ == "__main__":
     test_build_and_chat()
+    test_llama_connector_protocol()
     print("OK")

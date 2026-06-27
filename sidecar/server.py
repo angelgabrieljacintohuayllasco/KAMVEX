@@ -37,6 +37,7 @@ from shard.storage.shard_writer import ShardWriter
 from shard.index.ivfpq_builder import build_ivfpq
 
 from jobs import BuildJob, run_build
+from llama_connector import LlamaCppConnector
 
 NUM_SHARDS = 64
 DATA_DIR = Path(os.environ.get("DASA_UI_DATA", _HERE.parent / "appdata" / "datasets"))
@@ -50,6 +51,7 @@ app.add_middleware(
 _JOBS: "dict[str, BuildJob]" = {}
 _PIPELINES: "dict[str, DASAPipeline]" = {}
 _embedding_engine = EmbeddingEngine(DASAConfig())   # model loads lazily on first use
+_LLAMA_CONNECTOR: LlamaCppConnector | None = None
 
 
 # ── Models ──────────────────────────────────────────────────────────────────
@@ -62,6 +64,13 @@ class BuildReq(BaseModel):
 class ChatReq(BaseModel):
     dataset: str
     query: str
+    agent_b_mode: str = "statistical"
+
+
+class InferenceConnectReq(BaseModel):
+    host: str = "127.0.0.1"
+    port: int
+    model: str = "local"
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
@@ -142,6 +151,21 @@ def chat(req: ChatReq):
         _PIPELINES[req.dataset] = pipe
 
     fragments = pipe.agent_a.search(req.query)
+
+    mode = req.agent_b_mode
+    if mode == "statistical":
+        pipe.agent_b._llm_callable = None
+    elif mode == "grounded":
+        if _LLAMA_CONNECTOR is None:
+            raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
+        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
+    elif mode == "free":
+        if _LLAMA_CONNECTOR is None:
+            raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
+        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
+    else:
+        raise HTTPException(400, f"modo agent_b inválido: {mode}")
+
     answer = pipe.agent_b.synthesize(req.query, fragments) or \
         "No se encontró información relevante en el corpus para esta consulta."
     return {
@@ -150,7 +174,30 @@ def chat(req: ChatReq):
             {"text": f.text, "score": float(f.score), "source_id": f.source_id}
             for f in fragments
         ],
+        "mode": mode,
     }
+
+
+@app.post("/inference/connect")
+def inference_connect(req: InferenceConnectReq):
+    """Register the llama-server endpoint so Agent B can use it."""
+    global _LLAMA_CONNECTOR
+    _LLAMA_CONNECTOR = LlamaCppConnector(req.host, req.port, req.model)
+    return {"status": "connected", "alive": _LLAMA_CONNECTOR.is_alive()}
+
+
+@app.post("/inference/disconnect")
+def inference_disconnect():
+    global _LLAMA_CONNECTOR
+    _LLAMA_CONNECTOR = None
+    return {"status": "disconnected"}
+
+
+@app.get("/inference/status")
+def inference_status():
+    if _LLAMA_CONNECTOR is None:
+        return {"connected": False}
+    return {"connected": True, "alive": _LLAMA_CONNECTOR.is_alive()}
 
 
 def main():
