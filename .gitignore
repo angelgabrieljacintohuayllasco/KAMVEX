@@ -24,6 +24,12 @@ __pycache__/
 # App data (built datasets + indexes — never commit)
 sidecar/appdata/
 
+# Local inference binaries (llama-server etc. — downloaded on demand)
+binarios/
+
+# Local GGUF model files (user-imported — never commit)
+models/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
