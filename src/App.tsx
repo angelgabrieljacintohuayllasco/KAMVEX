@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { waitForSidecar, listDatasets, chat, Dataset, Fragment } from "./api/client";
 import Chat from "./pages/Chat";
 import Knowledge from "./pages/Datasets";
-import Hub from "./pages/Hub";
+import Models from "./pages/Models";
 import Settings from "./pages/Settings";
 
 export type Message = {
@@ -17,7 +17,7 @@ export type Conversation = {
   messages: Message[];
 };
 
-type View = "chat" | "knowledge" | "hub" | "settings";
+type View = "chat" | "knowledge" | "models" | "settings";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -182,7 +182,7 @@ export default function App() {
 
         <div className="border-t border-white/10 p-2 flex flex-col gap-0.5">
           <NavBtn v="knowledge" label="Knowledge" icon="📚" />
-          <NavBtn v="hub" label="Hub" icon="◳" />
+          <NavBtn v="models" label="Models" icon="🎮" />
           <NavBtn v="settings" label="Settings" icon="⚙" />
         </div>
       </nav>
@@ -203,7 +203,7 @@ export default function App() {
         {view === "knowledge" && (
           <Knowledge datasets={datasets} onChanged={refresh} />
         )}
-        {view === "hub" && <Hub datasets={datasets} />}
+        {view === "models" && <Models />}
         {view === "settings" && <Settings />}
       </main>
     </div>

@@ -18,6 +18,29 @@ export type HwInfo = {
   logical_cores: number;
   total_ram_gb: number;
   available_ram_gb: number;
+  gpus: GpuInfo[];
+  has_vulkan: boolean;
+  has_cuda: boolean;
+};
+
+export type GpuInfo = {
+  vendor: string;
+  name: string;
+  vram_mb: number;
+  backend: string;
+};
+
+export type Prescription = {
+  backend: string;
+  ngl: number;
+  threads: number;
+  ctx: number;
+  batch: number;
+  ctk: string;
+  ctv: string;
+  flash_attn: boolean;
+  mlock: boolean;
+  draft_model: string | null;
 };
 
 let _base: string | null = null;
@@ -97,12 +120,62 @@ export async function streamBuild(
   });
 }
 
-export async function chat(dataset: string, query: string): Promise<ChatResponse> {
+export async function chat(dataset: string, query: string, agentBMode: string = "statistical"): Promise<ChatResponse> {
   const r = await fetch(`${await base()}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataset, query }),
+    body: JSON.stringify({ dataset, query, agent_b_mode: agentBMode }),
   });
   if (!r.ok) throw new Error(`chat ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── Inference engine (llama-server) ─────────────────────────────────────────
+
+export async function llamaPort(): Promise<number> {
+  return invoke<number>("llama_port");
+}
+
+export async function llamaReady(): Promise<boolean> {
+  return invoke<boolean>("llama_ready");
+}
+
+export async function llamaStart(model: string, flags: string[]): Promise<string> {
+  return invoke<string>("llama_start", { model, flags });
+}
+
+export async function llamaStop(): Promise<void> {
+  return invoke<void>("llama_stop");
+}
+
+export async function llamaEnsureBinary(backend: string): Promise<string> {
+  return invoke<string>("llama_ensure_binary", { backendStr: backend });
+}
+
+export async function llamaBinaryPresent(backend: string): Promise<boolean> {
+  return invoke<boolean>("llama_binary_present", { backendStr: backend });
+}
+
+export async function autotuneFlags(modelSizeMb: number, preset: string): Promise<Prescription> {
+  return invoke<Prescription>("autotune_flags", { modelSizeMb, preset });
+}
+
+export async function inferenceConnect(port: number): Promise<{ status: string; alive: boolean }> {
+  const r = await fetch(`${await base()}/inference/connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ port }),
+  });
+  if (!r.ok) throw new Error(`inferenceConnect ${r.status}`);
+  return r.json();
+}
+
+export async function inferenceDisconnect(): Promise<void> {
+  await fetch(`${await base()}/inference/disconnect`, { method: "POST" });
+}
+
+export async function inferenceStatus(): Promise<{ connected: boolean; alive?: boolean }> {
+  const r = await fetch(`${await base()}/inference/status`);
+  if (!r.ok) return { connected: false };
   return r.json();
 }
