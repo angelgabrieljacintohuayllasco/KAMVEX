@@ -1,9 +1,11 @@
+import { useI18n } from "../i18n";
+
 export type AgentBMode = "statistical" | "grounded" | "free";
 
-const MODES: { value: AgentBMode; label: string; color: string; desc: string }[] = [
-  { value: "statistical", label: "Statistical", color: "emerald", desc: "0 alucinación — vocabulario bloqueado" },
-  { value: "grounded", label: "LLM-grounded", color: "amber", desc: "LLM formatea sin inventar" },
-  { value: "free", label: "LLM-free", color: "white", desc: "Chat libre con system prompt" },
+const MODES: { value: AgentBMode; labelKey: string; color: string; descKey: string }[] = [
+  { value: "statistical", labelKey: "mode.statistical", color: "emerald", descKey: "mode.statistical.desc" },
+  { value: "grounded", labelKey: "mode.grounded", color: "amber", descKey: "mode.grounded.desc" },
+  { value: "free", labelKey: "mode.free", color: "white", descKey: "mode.free.desc" },
 ];
 
 export default function ModeSelector({
@@ -15,6 +17,7 @@ export default function ModeSelector({
   onChange: (m: AgentBMode) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-1 py-0.5 text-xs">
       {MODES.map((m) => {
@@ -29,12 +32,12 @@ export default function ModeSelector({
             key={m.value}
             onClick={() => onChange(m.value)}
             disabled={disabled}
-            title={m.desc}
+            title={t(m.descKey)}
             className={`rounded-full border px-2 py-1 transition-colors ${
               active ? colorClasses : "border-transparent text-white/40 hover:text-white/60"
             } disabled:opacity-30`}
           >
-            {m.label}
+            {t(m.labelKey)}
           </button>
         );
       })}

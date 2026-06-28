@@ -13,6 +13,7 @@ import os
 import queue
 import sys
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -95,6 +96,84 @@ def list_datasets():
             except json.JSONDecodeError:
                 continue
     return out
+
+
+def _load_pipeline(dataset_name: str) -> DASAPipeline:
+    """Load and cache a pipeline for a dataset."""
+    db = DATA_DIR / dataset_name
+    meta = json.loads((db / "meta.json").read_text(encoding="utf-8"))
+    pipe = _PIPELINES.get(dataset_name)
+    if pipe is None:
+        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
+                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
+        pipe = DASAPipeline(cfg)
+        pipe.load(str(db))
+        _PIPELINES[dataset_name] = pipe
+    return pipe
+
+
+@app.post("/federated")
+def federated_query(req: ChatReq):
+    """
+    MoE semantic router: query ALL datasets, pick the one with the best
+    top-fragment score, and answer from that dataset. This enables
+    multi-dataset federation — the user doesn't need to pick a dataset.
+    """
+    datasets = list_datasets()
+    if not datasets:
+        raise HTTPException(404, "No hay datasets disponibles.")
+
+    best_dataset = None
+    best_score = -1.0
+    best_fragments = []
+    best_pipe = None
+
+    for ds in datasets:
+        name = ds["name"]
+        try:
+            pipe = _load_pipeline(name)
+            fragments = pipe.agent_a.search(req.query)
+            if fragments:
+                top_score = max(f.score for f in fragments)
+                if top_score > best_score:
+                    best_score = top_score
+                    best_dataset = name
+                    best_fragments = fragments
+                    best_pipe = pipe
+        except Exception:
+            continue
+
+    if best_pipe is None or best_score < 0.2:
+        return {
+            "answer": "No se encontró información relevante en ningún corpus.",
+            "fragments": [],
+            "mode": req.agent_b_mode,
+            "dataset": None,
+            "score": 0.0,
+        }
+
+    mode = req.agent_b_mode
+    if mode == "statistical":
+        best_pipe.agent_b._llm_callable = None
+    elif mode in ("grounded", "free"):
+        if _LLAMA_CONNECTOR is None:
+            raise HTTPException(400, "No hay motor de inferencia activo.")
+        _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
+        best_pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
+
+    answer = best_pipe.agent_b.synthesize(req.query, best_fragments) or \
+        "No se encontró información relevante."
+
+    return {
+        "answer": answer,
+        "fragments": [
+            {"text": f.text, "score": float(f.score), "source_id": f.source_id}
+            for f in best_fragments
+        ],
+        "mode": mode,
+        "dataset": best_dataset,
+        "score": best_score,
+    }
 
 
 @app.post("/datasets/build")
@@ -285,6 +364,183 @@ def oregano_test(dataset: str):
         _PIPELINES[dataset] = pipe
 
     return run_oregano_test(pipe, dataset)
+
+
+@app.get("/datasets/{dataset}/export")
+def export_dataset(dataset: str):
+    """Export a dataset as a .kamvex file (portable zip of shards + index + meta)."""
+    import io
+    import zipfile
+    db = DATA_DIR / dataset
+    if not (db / "meta.json").exists():
+        raise HTTPException(404, f"dataset desconocido: {dataset}")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in db.rglob("*"):
+            if f.is_file():
+                zf.write(f, f.relative_to(db))
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={dataset}.kamvex"},
+    )
+
+
+# ── OpenAI-compatible API out (Kamvex as backend for other apps) ────────────
+
+class OAIMessage(BaseModel):
+    role: str
+    content: str
+
+
+class OAIRequest(BaseModel):
+    model: str = "kamvex"
+    messages: list[OAIMessage] = []
+    stream: bool = False
+    temperature: float = 0.1
+
+
+@app.get("/v1/models", tags=["openai-compatible"])
+def v1_models():
+    """List available 'models' — each dataset is a model in OpenAI terms."""
+    out = []
+    for d in sorted(DATA_DIR.iterdir()) if DATA_DIR.exists() else []:
+        meta = d / "meta.json"
+        if d.is_dir() and meta.exists():
+            try:
+                m = json.loads(meta.read_text(encoding="utf-8"))
+                out.append({
+                    "id": m["name"],
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "kamvex",
+                })
+            except (json.JSONDecodeError, KeyError):
+                continue
+    if not out:
+        out.append({"id": "kamvex", "object": "model", "created": 0, "owned_by": "kamvex"})
+    return {"object": "list", "data": out}
+
+
+@app.post("/v1/chat/completions", tags=["openai-compatible"])
+def v1_chat_completions(req: OAIRequest):
+    """
+    OpenAI-compatible endpoint. Other apps (Jan, Open WebUI, etc.) can use
+    Kamvex as a backend. The `model` field maps to a dataset name.
+    Supports stream=true (SSE) and stream=false (JSON).
+    """
+    # Extract user message and system prompt
+    user_content = ""
+    system_content = ""
+    for msg in reversed(req.messages):
+        if msg.role == "user" and not user_content:
+            user_content = msg.content.strip()
+        elif msg.role == "system" and not system_content:
+            system_content = msg.content.strip()
+
+    if not user_content:
+        raise HTTPException(400, "No se encontró mensaje con role='user'.")
+
+    # Map model → dataset; default to first available
+    dataset_name = req.model
+    if dataset_name == "kamvex" or not (DATA_DIR / dataset_name / "meta.json").exists():
+        # Fall back to first available dataset
+        for d in sorted(DATA_DIR.iterdir()) if DATA_DIR.exists() else []:
+            if d.is_dir() and (d / "meta.json").exists():
+                dataset_name = d.name
+                break
+
+    if not (DATA_DIR / dataset_name / "meta.json").exists():
+        raise HTTPException(404, f"No hay datasets disponibles. Construye uno en Knowledge.")
+
+    db = DATA_DIR / dataset_name
+    meta = json.loads((db / "meta.json").read_text(encoding="utf-8"))
+
+    pipe = _PIPELINES.get(dataset_name)
+    if pipe is None:
+        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
+                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
+        pipe = DASAPipeline(cfg)
+        pipe.load(str(db))
+        _PIPELINES[dataset_name] = pipe
+
+    # Apply client's system prompt to free mode
+    if system_content and hasattr(pipe.agent_b, "_free_system_prompt"):
+        pipe.agent_b._free_system_prompt = system_content
+
+    # Use statistical mode by default; grounded/free if LLM is connected
+    if _LLAMA_CONNECTOR is not None and _LLAMA_CONNECTOR.is_alive():
+        _LLAMA_CONNECTOR.set_samplers(req.temperature, 0.95, 40, 1.0)
+        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
+    else:
+        pipe.agent_b._llm_callable = None
+
+    fragments = pipe.agent_a.search(user_content)
+    response_text = pipe.agent_b.synthesize(user_content, fragments) or \
+        "No se encontró información relevante en el corpus para esta consulta."
+
+    req_id = f"chatcmpl-kamvex-{int(time.time() * 1000)}"
+    created = int(time.time())
+
+    if req.stream:
+        def _stream():
+            words = response_text.split(" ")
+            for i, word in enumerate(words):
+                chunk_content = word + (" " if i < len(words) - 1 else "")
+                chunk = {
+                    "id": req_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": req.model,
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"content": chunk_content},
+                        "finish_reason": None,
+                    }],
+                }
+                yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+            final_chunk = {
+                "id": req_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": req.model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": "stop",
+                }],
+            }
+            yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            _stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    return {
+        "id": req_id,
+        "object": "chat.completion",
+        "created": created,
+        "model": req.model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": response_text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": len(user_content.split()),
+            "completion_tokens": len(response_text.split()),
+            "total_tokens": len(user_content.split()) + len(response_text.split()),
+        },
+        "system_fingerprint": "kamvex-local",
+    }
 
 
 def main():

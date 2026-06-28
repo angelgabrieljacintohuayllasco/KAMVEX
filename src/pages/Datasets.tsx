@@ -5,6 +5,7 @@ import {
   startBuild,
   streamBuild,
   runOreganoTest,
+  exportDatasetUrl,
   BuildEvent,
   OreganoResult,
 } from "../api/client";
@@ -161,14 +162,28 @@ export default function Knowledge({
                       {d.n_records} registros · perfil {d.profile} · {d.dim ?? "?"} dim
                     </p>
                   </div>
-                  <button
-                    onClick={() => runOregano(d.name)}
-                    disabled={oreganoBusy === d.name}
-                    className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-3 py-1.5 text-xs"
-                    title="Auditar calidad anti-alucinación"
-                  >
-                    {oreganoBusy === d.name ? "Auditando…" : "🧪 Oregano Test"}
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => runOregano(d.name)}
+                      disabled={oreganoBusy === d.name}
+                      className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-3 py-1.5 text-xs"
+                      title="Auditar calidad anti-alucinación"
+                    >
+                      {oreganoBusy === d.name ? "Auditando…" : "🧪 Oregano Test"}
+                    </button>
+                    <a
+                      href={`#`}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        const url = await exportDatasetUrl(d.name);
+                        window.open(url, "_blank");
+                      }}
+                      className="rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
+                      title="Exportar como .kamvex"
+                    >
+                      📦 Export
+                    </a>
+                  </div>
                 </div>
 
                 {oregano && (

@@ -5,6 +5,7 @@ import Knowledge from "./pages/Datasets";
 import Models from "./pages/Models";
 import Settings from "./pages/Settings";
 import type { AgentBMode } from "./components/ModeSelector";
+import { useI18n } from "./i18n";
 
 export type Message = {
   role: "user" | "assistant";
@@ -21,6 +22,7 @@ export type Conversation = {
 type View = "chat" | "knowledge" | "models" | "settings";
 
 export default function App() {
+  const { t } = useI18n();
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [view, setView] = useState<View>("chat");
@@ -71,7 +73,7 @@ export default function App() {
 
   async function send(query: string, samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number }) {
     if (!selectedDataset) {
-      setError("Selecciona o construye conocimiento primero (pestaña Knowledge).");
+      setError(t("chat.noDataset"));
       return;
     }
     setError(null);
@@ -124,12 +126,12 @@ export default function App() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <p className="text-xl font-semibold tracking-tight">
-            {failed ? "No se pudo iniciar KAMVEX" : "Iniciando KAMVEX…"}
+            {failed ? t("app.failed") : t("app.starting")}
           </p>
           <p className="text-sm text-white/40 mt-2">
             {failed
-              ? "Revisa que Python y las dependencias del backend estén instalados."
-              : "Levantando el motor local."}
+              ? t("app.checkPython")
+              : t("app.startingEngine")}
           </p>
         </div>
       </div>
@@ -160,16 +162,16 @@ export default function App() {
             onClick={newChat}
             className="w-full rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-sm text-left"
           >
-            ＋ New Chat
+            {t("app.newChat")}
           </button>
         </div>
 
         <div className="px-4 pt-4 pb-1 text-xs uppercase tracking-wider text-white/30">
-          Recents
+          {t("app.recents")}
         </div>
         <div className="flex-1 overflow-y-auto px-2">
           {conversations.length === 0 && (
-            <p className="px-2 py-1 text-xs text-white/30">Sin conversaciones.</p>
+            <p className="px-2 py-1 text-xs text-white/30">{t("app.noConvos")}</p>
           )}
           {conversations.map((c) => (
             <button
@@ -182,7 +184,7 @@ export default function App() {
               }`}
               title={c.title}
             >
-              {c.title || "Nueva conversación"}
+              {c.title || t("app.newConvo")}
             </button>
           ))}
         </div>

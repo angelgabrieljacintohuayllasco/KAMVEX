@@ -7,6 +7,8 @@ use std::sync::Mutex;
 use sidecar::Sidecar;
 use llama::{LlamaState, Backend};
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
 
 /// Frontend reads this to know where the sidecar listens.
 #[tauri::command]
@@ -63,6 +65,7 @@ fn llama_ensure_binary(backend_str: String) -> Result<String, String> {
     let backend = match backend_str.as_str() {
         "vulkan" => Backend::Vulkan,
         "cuda" => Backend::Cuda,
+        "bitnet" => Backend::Bitnet,
         _ => Backend::Cpu,
     };
     let path = llama::ensure_binary(&backend)?;
@@ -75,6 +78,7 @@ fn llama_binary_present(backend_str: String) -> bool {
     let backend = match backend_str.as_str() {
         "vulkan" => Backend::Vulkan,
         "cuda" => Backend::Cuda,
+        "bitnet" => Backend::Bitnet,
         _ => Backend::Cpu,
     };
     llama::is_binary_present(&backend)
@@ -113,6 +117,49 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(sidecar_state)
         .manage(llama_state)
+        .setup(|app| {
+            let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+
+            let _tray = TrayIconBuilder::new()
+                .menu(&menu)
+                .tooltip("KAMVEX")
+                .show_menu_on_left_click(false)
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.unminimize();
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(w) = app.get_webview_window("main") {
+                            if w.is_visible().unwrap_or(false) {
+                                let _ = w.hide();
+                            } else {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             sidecar_port,
             sidecar_ready,
@@ -141,6 +188,10 @@ pub fn run() {
                         }
                     }
                 }
+            }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
             }
         })
         .run(tauri::generate_context!())

@@ -19,6 +19,7 @@ pub enum Backend {
     Cpu,
     Vulkan,
     Cuda,
+    Bitnet,
 }
 
 impl Backend {
@@ -27,11 +28,15 @@ impl Backend {
             Backend::Cpu => "bin-win-cpu-x64.zip",
             Backend::Vulkan => "bin-win-vulkan-x64.zip",
             Backend::Cuda => "bin-win-cuda-12.4-x64.zip",
+            Backend::Bitnet => "",  // bitnet.cpp has its own release pattern
         }
     }
 
     fn binary_name(&self) -> &'static str {
-        "llama-server.exe"
+        match self {
+            Backend::Cpu | Backend::Vulkan | Backend::Cuda => "llama-server.exe",
+            Backend::Bitnet => "bitnet-server.exe",
+        }
     }
 
     fn subdir(&self) -> &'static str {
@@ -39,6 +44,7 @@ impl Backend {
             Backend::Cpu => "cpu",
             Backend::Vulkan => "vulkan",
             Backend::Cuda => "cuda",
+            Backend::Bitnet => "bitnet",
         }
     }
 }

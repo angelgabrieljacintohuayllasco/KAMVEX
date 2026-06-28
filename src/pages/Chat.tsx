@@ -4,6 +4,7 @@ import type { Conversation } from "../App";
 import ModeSelector, { type AgentBMode } from "../components/ModeSelector";
 import MetricsPanel from "../components/MetricsPanel";
 import SamplerControls, { type Samplers } from "../components/SamplerControls";
+import { useI18n } from "../i18n";
 
 export default function Chat({
   conversation,
@@ -30,6 +31,7 @@ export default function Chat({
   setAgentBMode: (m: AgentBMode) => void;
   inferenceRunning: boolean;
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [samplers, setSamplers] = useState<Samplers>({
     temperature: 0.1,
@@ -60,7 +62,7 @@ export default function Chat({
             }
           }}
           rows={2}
-          placeholder="Pregunta lo que quieras…"
+          placeholder={t("chat.placeholder")}
           className="w-full resize-none bg-transparent outline-none text-sm placeholder:text-white/30"
         />
         <div className="flex items-center justify-between pt-2">
@@ -69,7 +71,7 @@ export default function Chat({
               onClick={goKnowledge}
               className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-300"
             >
-              ＋ Construir conocimiento
+              {t("chat.buildKnowledge")}
             </button>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
@@ -116,11 +118,11 @@ export default function Chat({
   if (empty) {
     return (
       <div className="h-full flex flex-col items-center justify-center px-6">
-        <h1 className="text-4xl font-semibold mb-2">Hola 👋</h1>
-        <p className="text-white/50 mb-8">¿En qué te ayudo hoy?</p>
+        <h1 className="text-4xl font-semibold mb-2">{t("chat.greeting")}</h1>
+        <p className="text-white/50 mb-8">{t("chat.howHelp")}</p>
         {InputCard}
         <p className="mt-4 text-xs text-white/30">
-          Respuestas ancladas al corpus — sin alucinaciones.
+          {t("chat.grounded")}
         </p>
       </div>
     );
@@ -143,7 +145,7 @@ export default function Chat({
                 {m.fragments && m.fragments.length > 0 && (
                   <details className="mt-2 text-xs text-white/50">
                     <summary className="cursor-pointer">
-                      {m.fragments.length} fragmento(s) fuente
+                      {m.fragments.length} {t("chat.fragments")}
                     </summary>
                     <ul className="mt-2 flex flex-col gap-1">
                       {m.fragments.map((f, j) => (

@@ -252,3 +252,33 @@ export async function downloadHubModel(repo: string, file: string): Promise<{ st
   if (!r.ok) throw new Error(`downloadHubModel ${r.status}`);
   return r.json();
 }
+
+// ── Federated query (MoE semantic router) ───────────────────────────────────
+
+export type FederatedResponse = ChatResponse & {
+  dataset: string | null;
+  score: number;
+};
+
+export async function federatedChat(
+  query: string,
+  agentBMode: string = "statistical",
+  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
+): Promise<FederatedResponse> {
+  const body: Record<string, unknown> = { query, agent_b_mode: agentBMode };
+  if (samplers) Object.assign(body, samplers);
+  const r = await fetch(`${await base()}/federated`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`federated ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── Dataset export (.kamvex) ────────────────────────────────────────────────
+
+export async function exportDatasetUrl(dataset: string): Promise<string> {
+  const b = await base();
+  return `${b}/datasets/${encodeURIComponent(dataset)}/export`;
+}
