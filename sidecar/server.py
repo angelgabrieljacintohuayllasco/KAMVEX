@@ -378,12 +378,49 @@ def inference_status():
     return {"connected": True, "alive": _LLAMA_CONNECTOR.is_alive()}
 
 
+def _get_vram_usage():
+    """Try to get VRAM usage via nvidia-smi. Returns (used_mb, total_mb) or None."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            parts = r.stdout.strip().split(", ")
+            if len(parts) >= 2:
+                return (int(parts[0]), int(parts[1]))
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        pass
+    return None
+
+
 @app.get("/inference/metrics")
 def inference_metrics():
-    """Fetch live metrics from llama-server (tokens/s, active slots, etc.)."""
+    """Fetch live metrics from llama-server: tokens/s, TTFT, context, RAM, VRAM."""
     if _LLAMA_CONNECTOR is None:
-        return {"connected": False, "active_slots": 0, "total_decoded": 0, "slots": []}
-    return {"connected": True, **_LLAMA_CONNECTOR.get_metrics()}
+        return {
+            "connected": False, "active_slots": 0, "total_decoded": 0,
+            "tokens_per_second": 0, "ttft_ms": 0,
+            "context_used": 0, "context_total": 0, "context_pct": 0,
+            "slots": [],
+        }
+    m = _LLAMA_CONNECTOR.get_metrics()
+
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        m["ram_used_gb"] = round(vm.used / 1e9, 1)
+        m["ram_total_gb"] = round(vm.total / 1e9, 1)
+    except ImportError:
+        pass
+
+    vram = _get_vram_usage()
+    if vram:
+        m["vram_used_mb"] = vram[0]
+        m["vram_total_mb"] = vram[1]
+
+    return {"connected": True, **m}
 
 
 # ── HuggingFace model hub (curated GGUF list) ──────────────────────────────

@@ -1,6 +1,7 @@
 # DASA-UI sidecar — thin FastAPI server that reuses DASA + SHARD.
 fastapi>=0.110
 uvicorn>=0.29
+psutil>=5.9
 
 # DASA-main and SHARD-main are added to sys.path at runtime (sibling repos).
 # They provide: numpy, scikit-learn (build-time), sentence-transformers, torch.

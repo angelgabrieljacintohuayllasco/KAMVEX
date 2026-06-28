@@ -191,12 +191,21 @@ export type InferenceMetrics = {
   connected: boolean;
   active_slots: number;
   total_decoded: number;
+  tokens_per_second: number;
+  ttft_ms: number;
+  context_used: number;
+  context_total: number;
+  context_pct: number;
+  ram_used_gb?: number;
+  ram_total_gb?: number;
+  vram_used_mb?: number;
+  vram_total_mb?: number;
   slots: Array<{ id: number; is_processing: boolean; n_ctx: number; next_token?: { n_decoded: number } }>;
 };
 
 export async function inferenceMetrics(): Promise<InferenceMetrics> {
   const r = await fetch(`${await base()}/inference/metrics`);
-  if (!r.ok) return { connected: false, active_slots: 0, total_decoded: 0, slots: [] };
+  if (!r.ok) return { connected: false, active_slots: 0, total_decoded: 0, tokens_per_second: 0, ttft_ms: 0, context_used: 0, context_total: 0, context_pct: 0, slots: [] };
   return r.json();
 }
 

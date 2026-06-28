@@ -68,19 +68,62 @@ class LlamaCppConnector:
             return False
 
     def get_metrics(self) -> dict:
-        """Fetch metrics from llama-server's /slots endpoint."""
+        """Fetch metrics from llama-server's /slots endpoint.
+
+        Extracts: active_slots, total_decoded, tokens_per_second (predicted),
+        ttft_ms (prompt processing time), context_used, context_total, context_pct.
+        """
+        empty = {
+            "active_slots": 0, "total_decoded": 0,
+            "tokens_per_second": 0.0, "ttft_ms": 0.0,
+            "context_used": 0, "context_total": 0, "context_pct": 0.0,
+            "slots": [],
+        }
         try:
             req = urllib.request.Request(self._slots_url)
             with urllib.request.urlopen(req, timeout=3) as resp:
                 slots = json.loads(resp.read())
-                # Aggregate metrics from active slots
+
                 total_decoded = 0
                 active = 0
+                tokens_per_second = 0.0
+                ttft_ms = 0.0
+                context_used = 0
+                context_total = 0
+
                 for slot in slots:
                     if slot.get("is_processing"):
                         active += 1
+
                     nt = slot.get("next_token", {})
                     total_decoded += nt.get("n_decoded", 0)
-                return {"active_slots": active, "total_decoded": total_decoded, "slots": slots}
+
+                    timings = slot.get("timings") or {}
+                    tps = timings.get("predicted_per_second", 0.0)
+                    if tps > tokens_per_second:
+                        tokens_per_second = tps
+                    pms = timings.get("prompt_ms", 0.0)
+                    if pms > ttft_ms:
+                        ttft_ms = pms
+
+                    ctx_total = slot.get("n_ctx", 0)
+                    ctx_used = slot.get("n_tokens", 0)
+                    if ctx_total > context_total:
+                        context_total = ctx_total
+                    if ctx_used > context_used:
+                        context_used = ctx_used
+
+                context_pct = round(context_used / context_total * 100, 1) if context_total > 0 else 0.0
+
+                return {
+                    "active_slots": active,
+                    "total_decoded": total_decoded,
+                    "tokens_per_second": round(tokens_per_second, 1),
+                    "ttft_ms": round(ttft_ms, 1),
+                    "context_used": context_used,
+                    "context_total": context_total,
+                    "context_pct": context_pct,
+                    "slots": slots,
+                }
         except Exception:
-            return {"active_slots": 0, "total_decoded": 0, "slots": []}
+            return empty

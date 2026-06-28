@@ -9,7 +9,7 @@ const dict: Dict = {
   // Chat
   "chat.greeting": { es: "Hola 👋", en: "Hello 👋" },
   "chat.howHelp": { es: "¿En qué te ayudo hoy?", en: "How can I help you today?" },
-  "chat.placeholder": { es: "Pregunta lo que quieráŠ¦", en: "Ask anything…" },
+  "chat.placeholder": { es: "Pregunta lo que quieras…", en: "Ask anything…" },
   "chat.buildKnowledge": { es: "＋ Construir conocimiento", en: "＋ Build knowledge" },
   "chat.grounded": { es: "Respuestas ancladas al corpus — sin alucinaciones.", en: "Grounded answers — no hallucinations." },
   "chat.fragments": { es: "fragmento(s) fuente", en: "source fragment(s)" },
@@ -74,7 +74,7 @@ const dict: Dict = {
   "settings.totalRam": { es: "RAM total", en: "Total RAM" },
   "settings.availableRam": { es: "RAM disponible", en: "Available RAM" },
   "settings.detecting": { es: "Detectando…", en: "Detecting…" },
-  "settings.autotuneSoon": { es: "La auto-configuración por hardware (recomendar modelo + perfil + flags) llega en el siguiente slice.", en: "Hardware auto-tuning (model + profile + flags recommendation) coming in the next slice." },
+  "settings.autotuneSoon": { es: "La auto-configuración por hardware está disponible en la pestaña Models.", en: "Hardware auto-tuning is available in the Models tab." },
   "settings.language": { es: "Idioma", en: "Language" },
   "settings.theme": { es: "Tema", en: "Theme" },
   "settings.themeDark": { es: "Oscuro", en: "Dark" },
@@ -108,6 +108,12 @@ const dict: Dict = {
   // Metrics
   "metrics.noEngine": { es: "Sin motor", en: "No engine" },
   "metrics.tokensDecoded": { es: "tokens decodificados", en: "tokens decoded" },
+  "metrics.tokensPerSec": { es: "tokens/s", en: "tokens/s" },
+  "metrics.ttft": { es: "TTFT", en: "TTFT" },
+  "metrics.context": { es: "Contexto", en: "Context" },
+  "metrics.ram": { es: "RAM", en: "RAM" },
+  "metrics.vram": { es: "VRAM", en: "VRAM" },
+  "metrics.active": { es: "activo", en: "active" },
 };
 
 type I18nContextType = {
