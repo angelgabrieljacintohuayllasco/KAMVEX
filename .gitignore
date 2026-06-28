@@ -30,6 +30,9 @@ binarios/
 # Local GGUF model files (user-imported — never commit)
 models/
 
+# Sidecar binaries (built by PyInstaller, not committed)
+src-tauri/binaries/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

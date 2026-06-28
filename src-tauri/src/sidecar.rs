@@ -22,6 +22,7 @@ pub fn free_port() -> u16 {
 }
 
 /// Path to sidecar/server.py. In dev it sits next to src-tauri/.
+/// In production, the PyInstaller-built binary is in the app's resource dir.
 fn server_script() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -29,12 +30,49 @@ fn server_script() -> PathBuf {
         .join("server.py")
 }
 
+/// In production, the sidecar is bundled as a PyInstaller exe.
+/// Tauri resolves it via the externalBin mechanism with target-triple suffix.
+fn sidecar_binary() -> Option<PathBuf> {
+    let target = if cfg!(target_os = "windows") {
+        "kamvex-sidecar-x86_64-pc-windows-msvc.exe"
+    } else if cfg!(target_os = "macos") {
+        "kamvex-sidecar-aarch64-apple-darwin"
+    } else {
+        "kamvex-sidecar-x86_64-unknown-linux-gnu"
+    };
+
+    // Check resource dir (production)
+    if let Ok(res) = std::env::var("TAURI_RESOURCE_DIR") {
+        let p = PathBuf::from(res).join(target);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    // Check dev binaries dir
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join(target);
+    if dev.exists() {
+        return Some(dev);
+    }
+
+    None
+}
+
 fn python_exe() -> String {
     std::env::var("DASA_UI_PYTHON").unwrap_or_else(|_| "python".to_string())
 }
 
-/// Launch `python sidecar/server.py --port <port>`.
+/// Launch the sidecar. In production, uses the PyInstaller binary.
+/// In dev, uses `python sidecar/server.py`.
 pub fn spawn(port: u16) -> std::io::Result<Child> {
+    if let Some(bin) = sidecar_binary() {
+        return Command::new(&bin)
+            .arg("--port")
+            .arg(port.to_string())
+            .spawn();
+    }
     Command::new(python_exe())
         .arg(server_script())
         .arg("--port")
