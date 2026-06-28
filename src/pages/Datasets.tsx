@@ -3,6 +3,7 @@ import {
   Dataset,
   pickJsonFile,
   startBuild,
+  startBuildText,
   streamBuild,
   runOreganoTest,
   exportDatasetUrl,
@@ -11,6 +12,7 @@ import {
 } from "../api/client";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
+type BuildMode = "file" | "text";
 
 export default function Knowledge({
   datasets,
@@ -27,6 +29,9 @@ export default function Knowledge({
   const [error, setError] = useState<string | null>(null);
   const [oreganoBusy, setOreganoBusy] = useState<string | null>(null);
   const [oreganoResults, setOreganoResults] = useState<Record<string, OreganoResult>>({});
+  const [buildMode, setBuildMode] = useState<BuildMode>("file");
+  const [rawText, setRawText] = useState("");
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
 
   async function pick() {
     const p = await pickJsonFile();
@@ -39,17 +44,42 @@ export default function Knowledge({
     }
   }
 
+  async function pickPdf() {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (typeof selected === "string") {
+      setPdfPath(selected);
+      if (!name) {
+        const base = selected.replace(/\\/g, "/").split("/").pop() ?? "dataset";
+        setName(base.replace(/\.pdf$/i, ""));
+      }
+    }
+  }
+
   async function build() {
-    if (!name || !jsonPath) return;
+    if (!name) return;
+    if (buildMode === "file" && !jsonPath) return;
+    if (buildMode === "text" && !rawText.trim() && !pdfPath) return;
     setBusy(true);
     setError(null);
     setProgress({ stage: "start", pct: 0, msg: "Iniciando" });
     try {
-      const jid = await startBuild(name, jsonPath, profile);
+      let jid: string;
+      if (buildMode === "text") {
+        const res = await startBuildText(name, rawText, profile, pdfPath ?? undefined);
+        jid = res.job_id;
+      } else {
+        jid = await startBuild(name, jsonPath!, profile);
+      }
       await streamBuild(jid, (e) => setProgress(e));
       onChanged();
       setProgress(null);
       setJsonPath(null);
+      setRawText("");
+      setPdfPath(null);
     } catch (e) {
       setError(String(e));
       setProgress(null);
@@ -80,17 +110,53 @@ export default function Knowledge({
       </p>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
-        <h2 className="font-medium mb-3">Construir desde un archivo</h2>
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setBuildMode("file")}
+            className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "file" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+          >
+            📁 Archivo
+          </button>
+          <button
+            onClick={() => setBuildMode("text")}
+            className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "text" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+          >
+            ✏️ Texto
+          </button>
+        </div>
 
         <div className="flex flex-col gap-3">
-          <button
-            onClick={pick}
-            className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
-          >
-            {jsonPath ? "Cambiar archivo" : "Elegir archivo (JSON / JSONL / CSV)"}
-          </button>
-          {jsonPath && (
-            <p className="text-xs text-white/50 break-all">{jsonPath}</p>
+          {buildMode === "file" ? (
+            <>
+              <button
+                onClick={pick}
+                className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
+              >
+                {jsonPath ? "Cambiar archivo" : "Elegir archivo (JSON / JSONL / CSV)"}
+              </button>
+              {jsonPath && (
+                <p className="text-xs text-white/50 break-all">{jsonPath}</p>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                rows={6}
+                placeholder="Pega aquí el texto que quieres convertir en conocimiento…"
+                className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm resize-none placeholder:text-white/30"
+              />
+              <button
+                onClick={pickPdf}
+                className="self-start rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
+              >
+                {pdfPath ? "Cambiar PDF" : "📄 Importar PDF"}
+              </button>
+              {pdfPath && (
+                <p className="text-xs text-white/50 break-all">{pdfPath}</p>
+              )}
+            </div>
           )}
 
           <label className="text-sm">
@@ -119,7 +185,7 @@ export default function Knowledge({
           </label>
 
           <button
-            disabled={busy || !name || !jsonPath}
+            disabled={busy || !name || (buildMode === "file" ? !jsonPath : !rawText.trim() && !pdfPath)}
             onClick={build}
             className="self-start rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm"
           >

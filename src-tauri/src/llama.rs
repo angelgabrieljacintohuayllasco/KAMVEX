@@ -20,6 +20,7 @@ pub enum Backend {
     Vulkan,
     Cuda,
     Bitnet,
+    Rwkv,
 }
 
 impl Backend {
@@ -28,7 +29,8 @@ impl Backend {
             Backend::Cpu => "bin-win-cpu-x64.zip",
             Backend::Vulkan => "bin-win-vulkan-x64.zip",
             Backend::Cuda => "bin-win-cuda-12.4-x64.zip",
-            Backend::Bitnet => "",  // bitnet.cpp has its own release pattern
+            Backend::Bitnet => "",
+            Backend::Rwkv => "",
         }
     }
 
@@ -36,6 +38,7 @@ impl Backend {
         match self {
             Backend::Cpu | Backend::Vulkan | Backend::Cuda => "llama-server.exe",
             Backend::Bitnet => "bitnet-server.exe",
+            Backend::Rwkv => "rwkv-server.exe",
         }
     }
 
@@ -45,6 +48,7 @@ impl Backend {
             Backend::Vulkan => "vulkan",
             Backend::Cuda => "cuda",
             Backend::Bitnet => "bitnet",
+            Backend::Rwkv => "rwkv",
         }
     }
 }

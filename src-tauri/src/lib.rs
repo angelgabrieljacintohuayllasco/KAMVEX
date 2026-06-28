@@ -66,6 +66,7 @@ fn llama_ensure_binary(backend_str: String) -> Result<String, String> {
         "vulkan" => Backend::Vulkan,
         "cuda" => Backend::Cuda,
         "bitnet" => Backend::Bitnet,
+        "rwkv" => Backend::Rwkv,
         _ => Backend::Cpu,
     };
     let path = llama::ensure_binary(&backend)?;
@@ -79,6 +80,7 @@ fn llama_binary_present(backend_str: String) -> bool {
         "vulkan" => Backend::Vulkan,
         "cuda" => Backend::Cuda,
         "bitnet" => Backend::Bitnet,
+        "rwkv" => Backend::Rwkv,
         _ => Backend::Cpu,
     };
     llama::is_binary_present(&backend)
@@ -99,6 +101,18 @@ fn autotune_flags(
     Ok(autotune::autotune(&hw, model_size_mb, preset))
 }
 
+/// Check for updates via the Tauri updater plugin.
+#[tauri::command]
+async fn check_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(format!("v{} — {}", update.version, update.date.map(|d| d.to_string()).unwrap_or_default()))),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let sc_port = sidecar::free_port();
@@ -115,6 +129,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(sidecar_state)
         .manage(llama_state)
         .setup(|app| {
@@ -170,7 +185,8 @@ pub fn run() {
             llama_stop,
             llama_ensure_binary,
             llama_binary_present,
-            autotune_flags
+            autotune_flags,
+            check_updates
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

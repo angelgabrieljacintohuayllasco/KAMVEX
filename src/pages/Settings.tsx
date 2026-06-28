@@ -8,6 +8,8 @@ export default function Settings() {
   const [hw, setHw] = useState<HwInfo | null>(null);
   const [port, setPort] = useState<number | null>(null);
   const [ready, setReady] = useState<boolean>(false);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   useEffect(() => {
     detectHardware().then(setHw).catch(() => {});
@@ -49,7 +51,7 @@ export default function Settings() {
           </button>
         </div>
         <h2 className="font-medium mb-3">Theme</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-4">
           <button
             onClick={() => setTheme("dark")}
             className={`rounded-lg px-4 py-2 text-sm ${theme === "dark" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
@@ -63,6 +65,26 @@ export default function Settings() {
             Light
           </button>
         </div>
+        <h2 className="font-medium mb-3">Updates</h2>
+        <button
+          onClick={async () => {
+            setUpdateBusy(true);
+            setUpdateMsg(null);
+            try {
+              const result = await invoke<string | null>("check_updates");
+              setUpdateMsg(result ? `Update available: ${result}` : "KAMVEX is up to date");
+            } catch (e) {
+              setUpdateMsg(String(e));
+            } finally {
+              setUpdateBusy(false);
+            }
+          }}
+          disabled={updateBusy}
+          className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 py-2 text-sm"
+        >
+          {updateBusy ? "Checking…" : "Check for updates"}
+        </button>
+        {updateMsg && <p className="mt-2 text-xs text-white/50">{updateMsg}</p>}
       </section>
 
       <section className="rounded-xl border border-white/10 bg-white/5 p-5">

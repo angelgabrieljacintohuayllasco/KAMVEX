@@ -65,7 +65,8 @@ class BuildReq(BaseModel):
 
 class BuildTextReq(BaseModel):
     name: str
-    text: str
+    text: str = ""
+    pdf_path: str = ""
     chunk_size: int = 500
     profile: str = "low-ram"
 
@@ -204,16 +205,50 @@ def build_dataset(req: BuildReq):
     return {"job_id": jid}
 
 
+def _extract_pdf_text(pdf_path: str) -> str:
+    """Extract text from a PDF file. Tries pypdf first, falls back to raw stream parsing."""
+    if not Path(pdf_path).exists():
+        raise HTTPException(404, f"PDF no encontrado: {pdf_path}")
+
+    # Try pypdf if available
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(pdf_path)
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    except ImportError:
+        pass
+
+    # Fallback: extract text from raw PDF streams (works for simple text PDFs)
+    import re
+    import zlib
+    raw = Path(pdf_path).read_bytes()
+    texts = []
+    # Find all stream...endstream blocks
+    for match in re.finditer(b'stream\r?\n(.*?)\r?\nendstream', raw, re.DOTALL):
+        data = match.group(1)
+        try:
+            decompressed = zlib.decompress(data)
+            # Extract text between BT...ET markers (text objects)
+            text_matches = re.findall(rb'\((.*?)\)', decompressed)
+            if text_matches:
+                texts.append(" ".join(t.decode('latin-1') for t in text_matches))
+        except Exception:
+            continue
+    return "\n".join(texts)
+
+
 @app.post("/datasets/build-text")
 def build_from_text(req: BuildTextReq):
-    """Build a dataset from raw text by chunking it into records."""
+    """Build a dataset from raw text or PDF by chunking it into records."""
     if req.profile not in ("low-ram", "medium", "fast"):
         raise HTTPException(400, f"perfil inválido: {req.profile}")
-    if not req.text.strip():
-        raise HTTPException(400, "texto vacío")
 
-    # Chunk text into records of ~chunk_size chars, split on paragraph boundaries
     text = req.text.strip()
+    if req.pdf_path:
+        text = _extract_pdf_text(req.pdf_path)
+
+    if not text:
+        raise HTTPException(400, "texto vacío o PDF sin texto extraíble")
     chunks = []
     current = ""
     for para in text.split("\n"):

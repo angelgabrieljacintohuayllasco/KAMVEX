@@ -49,12 +49,16 @@ fn sidecar_binary() -> Option<PathBuf> {
         }
     }
 
-    // Check dev binaries dir
+    // Check dev binaries dir — only accept real binaries (>100KB, not placeholders)
     let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
         .join(target);
     if dev.exists() {
-        return Some(dev);
+        if let Ok(meta) = std::fs::metadata(&dev) {
+            if meta.len() > 100_000 {
+                return Some(dev);
+            }
+        }
     }
 
     None

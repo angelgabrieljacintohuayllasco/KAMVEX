@@ -18,6 +18,8 @@ export default function Chat({
   agentBMode,
   setAgentBMode,
   inferenceRunning,
+  federated,
+  setFederated,
 }: {
   conversation: Conversation | null;
   datasets: Dataset[];
@@ -30,6 +32,8 @@ export default function Chat({
   agentBMode: AgentBMode;
   setAgentBMode: (m: AgentBMode) => void;
   inferenceRunning: boolean;
+  federated: boolean;
+  setFederated: (f: boolean) => void;
 }) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -75,20 +79,33 @@ export default function Chat({
             </button>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
-                <span className="text-white/40">📚</span>
-                <select
-                  value={selectedDataset ?? ""}
-                  onChange={(e) => setSelectedDataset(e.target.value)}
-                  className="bg-transparent outline-none text-white/80"
-                >
-                  {datasets.map((d) => (
-                    <option key={d.name} value={d.name} className="bg-[#0b0e14]">
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <button
+                onClick={() => setFederated(!federated)}
+                className={`rounded-full border px-2 py-1 text-xs transition-colors ${
+                  federated
+                    ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
+                    : "bg-black/30 border-white/10 text-white/40 hover:text-white/60"
+                }`}
+                title="MoE semantic router: busca en todos los datasets automáticamente"
+              >
+                {federated ? "✦ Auto" : "Auto"}
+              </button>
+              {!federated && (
+                <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
+                  <span className="text-white/40">📚</span>
+                  <select
+                    value={selectedDataset ?? ""}
+                    onChange={(e) => setSelectedDataset(e.target.value)}
+                    className="bg-transparent outline-none text-white/80"
+                  >
+                    {datasets.map((d) => (
+                      <option key={d.name} value={d.name} className="bg-[#0b0e14]">
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <ModeSelector
                 mode={agentBMode}
                 onChange={setAgentBMode}

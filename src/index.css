@@ -23,3 +23,39 @@ body {
   background: #f3f4f6;
   color: #1f2937;
 }
+
+/* ── Light theme overrides ────────────────────────────────────────────────── */
+/* Instead of rewriting every component, we override the white/black opacity
+   utilities when in light mode. This keeps dark as the default and makes
+   light mode usable without touching every file. */
+
+:root[data-theme="light"] .bg-white\/5 { background-color: rgba(0, 0, 0, 0.04); }
+:root[data-theme="light"] .bg-white\/10 { background-color: rgba(0, 0, 0, 0.07); }
+:root[data-theme="light"] .bg-white\/20 { background-color: rgba(0, 0, 0, 0.10); }
+:root[data-theme="light"] .bg-white\/15 { background-color: rgba(0, 0, 0, 0.08); }
+:root[data-theme="light"] .bg-black\/20 { background-color: rgba(255, 255, 255, 0.6); }
+:root[data-theme="light"] .bg-black\/30 { background-color: rgba(255, 255, 255, 0.7); }
+:root[data-theme="light"] .bg-black\/40 { background-color: rgba(255, 255, 255, 0.5); }
+:root[data-theme="light"] .bg-black\/60 { background-color: rgba(0, 0, 0, 0.08); }
+
+:root[data-theme="light"] .text-white { color: #1f2937; }
+:root[data-theme="light"] .text-white\/90 { color: rgba(31, 41, 55, 0.90); }
+:root[data-theme="light"] .text-white\/80 { color: rgba(31, 41, 55, 0.80); }
+:root[data-theme="light"] .text-white\/60 { color: rgba(31, 41, 55, 0.60); }
+:root[data-theme="light"] .text-white\/50 { color: rgba(31, 41, 55, 0.50); }
+:root[data-theme="light"] .text-white\/40 { color: rgba(31, 41, 55, 0.40); }
+:root[data-theme="light"] .text-white\/30 { color: rgba(31, 41, 55, 0.35); }
+:root[data-theme="light"] .text-white\/20 { color: rgba(31, 41, 55, 0.20); }
+
+:root[data-theme="light"] .border-white\/5 { border-color: rgba(0, 0, 0, 0.06); }
+:root[data-theme="light"] .border-white\/10 { border-color: rgba(0, 0, 0, 0.10); }
+:root[data-theme="light"] .border-white\/30 { border-color: rgba(0, 0, 0, 0.20); }
+
+:root[data-theme="light"] .bg-\[\#0b0e14\] { background-color: #e5e7eb; }
+:root[data-theme="light"] .bg-\[\#0b0f17\] { background-color: #f3f4f6; }
+
+:root[data-theme="light"] .placeholder\:text-white\/30::placeholder { color: rgba(31, 41, 55, 0.35); }
+
+:root[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.04); }
+:root[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.07); }
+:root[data-theme="light"] .hover\:bg-white\/20:hover { background-color: rgba(0, 0, 0, 0.10); }

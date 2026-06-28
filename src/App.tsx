@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { waitForSidecar, listDatasets, chat, inferenceStatus, Dataset, Fragment } from "./api/client";
+import { waitForSidecar, listDatasets, chat, federatedChat, inferenceStatus, Dataset, Fragment } from "./api/client";
 import Chat from "./pages/Chat";
 import Knowledge from "./pages/Datasets";
 import Models from "./pages/Models";
+import Compare from "./pages/Compare";
 import Settings from "./pages/Settings";
 import type { AgentBMode } from "./components/ModeSelector";
 import { useI18n } from "./i18n";
@@ -19,7 +20,7 @@ export type Conversation = {
   messages: Message[];
 };
 
-type View = "chat" | "knowledge" | "models" | "settings";
+type View = "chat" | "knowledge" | "models" | "compare" | "settings";
 
 export default function App() {
   const { t } = useI18n();
@@ -34,6 +35,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [agentBMode, setAgentBMode] = useState<AgentBMode>("statistical");
   const [inferenceRunning, setInferenceRunning] = useState(false);
+  const [federated, setFederated] = useState(false);
 
   async function refresh() {
     try {
@@ -100,7 +102,9 @@ export default function App() {
     );
 
     try {
-      const res = await chat(selectedDataset, query, agentBMode, samplers);
+      const res = federated
+        ? await federatedChat(query, agentBMode, samplers)
+        : await chat(selectedDataset, query, agentBMode, samplers);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === convId
@@ -192,6 +196,7 @@ export default function App() {
         <div className="border-t border-white/10 p-2 flex flex-col gap-0.5">
           <NavBtn v="knowledge" label="Knowledge" icon="📚" />
           <NavBtn v="models" label="Models" icon="🎮" />
+          <NavBtn v="compare" label="Compare" icon="⚡" />
           <NavBtn v="settings" label="Settings" icon="⚙" />
         </div>
       </nav>
@@ -210,12 +215,15 @@ export default function App() {
             agentBMode={agentBMode}
             setAgentBMode={setAgentBMode}
             inferenceRunning={inferenceRunning}
+            federated={federated}
+            setFederated={setFederated}
           />
         )}
         {view === "knowledge" && (
           <Knowledge datasets={datasets} onChanged={refresh} />
         )}
         {view === "models" && <Models />}
+        {view === "compare" && <Compare datasets={datasets} />}
         {view === "settings" && <Settings />}
       </main>
     </div>

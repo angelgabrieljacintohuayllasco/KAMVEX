@@ -307,11 +307,11 @@ export async function compareModels(
 
 // ── Build dataset from raw text ─────────────────────────────────────────────
 
-export async function startBuildText(name: string, text: string, profile: string = "low-ram"): Promise<{ job_id: string; n_chunks: number }> {
+export async function startBuildText(name: string, text: string, profile: string = "low-ram", pdfPath?: string): Promise<{ job_id: string; n_chunks: number }> {
   const r = await fetch(`${await base()}/datasets/build-text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, text, profile }),
+    body: JSON.stringify({ name, text, profile, pdf_path: pdfPath ?? "" }),
   });
   if (!r.ok) throw new Error(`startBuildText ${r.status}: ${await r.text()}`);
   return r.json();
