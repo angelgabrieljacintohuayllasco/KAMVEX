@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 export type Lang = "es" | "en";
+export type Theme = "dark" | "light";
 
 export type Dict = Record<string, { es: string; en: string }>;
 
@@ -75,6 +76,9 @@ const dict: Dict = {
   "settings.detecting": { es: "Detectando…", en: "Detecting…" },
   "settings.autotuneSoon": { es: "La auto-configuración por hardware (recomendar modelo + perfil + flags) llega en el siguiente slice.", en: "Hardware auto-tuning (model + profile + flags recommendation) coming in the next slice." },
   "settings.language": { es: "Idioma", en: "Language" },
+  "settings.theme": { es: "Tema", en: "Theme" },
+  "settings.themeDark": { es: "Oscuro", en: "Dark" },
+  "settings.themeLight": { es: "Claro", en: "Light" },
 
   // App
   "app.starting": { es: "Iniciando KAMVEX…", en: "Starting KAMVEX…" },
@@ -110,6 +114,8 @@ type I18nContextType = {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: string) => string;
+  theme: Theme;
+  setTheme: (t: Theme) => void;
 };
 
 const I18nContext = createContext<I18nContextType | null>(null);
@@ -119,11 +125,25 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem("kamvex-lang");
     return (saved === "es" || saved === "en") ? saved : "es";
   });
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem("kamvex-theme");
+    return (saved === "light") ? "light" : "dark";
+  });
 
   function updateLang(l: Lang) {
     setLang(l);
     localStorage.setItem("kamvex-lang", l);
   }
+
+  function updateTheme(t: Theme) {
+    setTheme(t);
+    localStorage.setItem("kamvex-theme", t);
+    document.documentElement.setAttribute("data-theme", t);
+  }
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   function t(key: string): string {
     const entry = dict[key];
@@ -132,7 +152,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <I18nContext.Provider value={{ lang, setLang: updateLang, t }}>
+    <I18nContext.Provider value={{ lang, setLang: updateLang, t, theme, setTheme: updateTheme }}>
       {children}
     </I18nContext.Provider>
   );

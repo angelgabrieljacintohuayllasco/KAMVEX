@@ -63,6 +63,13 @@ class BuildReq(BaseModel):
     profile: str = "low-ram"
 
 
+class BuildTextReq(BaseModel):
+    name: str
+    text: str
+    chunk_size: int = 500
+    profile: str = "low-ram"
+
+
 class ChatReq(BaseModel):
     dataset: str
     query: str
@@ -195,6 +202,56 @@ def build_dataset(req: BuildReq):
         daemon=True,
     ).start()
     return {"job_id": jid}
+
+
+@app.post("/datasets/build-text")
+def build_from_text(req: BuildTextReq):
+    """Build a dataset from raw text by chunking it into records."""
+    if req.profile not in ("low-ram", "medium", "fast"):
+        raise HTTPException(400, f"perfil inválido: {req.profile}")
+    if not req.text.strip():
+        raise HTTPException(400, "texto vacío")
+
+    # Chunk text into records of ~chunk_size chars, split on paragraph boundaries
+    text = req.text.strip()
+    chunks = []
+    current = ""
+    for para in text.split("\n"):
+        para = para.strip()
+        if not para:
+            continue
+        if len(current) + len(para) > req.chunk_size and current:
+            chunks.append(current)
+            current = para
+        else:
+            current = f"{current} {para}".strip() if current else para
+    if current:
+        chunks.append(current)
+
+    if not chunks:
+        raise HTTPException(400, "no se pudo extraer texto válido")
+
+    records = [{"id": f"chunk_{i}", "title": f"Fragmento {i+1}", "content": c}
+               for i, c in enumerate(chunks)]
+
+    # Write to temp JSON and run build
+    import tempfile
+    tmp = Path(tempfile.mktemp(suffix=".json"))
+    tmp.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+
+    job = BuildJob()
+    jid = uuid.uuid4().hex
+    _JOBS[jid] = job
+    _PIPELINES.pop(req.name, None)
+    threading.Thread(
+        target=run_build, args=(job,),
+        kwargs=dict(name=req.name, json_path=str(tmp), profile=req.profile,
+                    data_dir=DATA_DIR, num_shards=None,
+                    embedding_engine=_embedding_engine,
+                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq),
+        daemon=True,
+    ).start()
+    return {"job_id": jid, "n_chunks": len(chunks)}
 
 
 @app.get("/datasets/build/{job_id}/events")
@@ -387,6 +444,48 @@ def export_dataset(dataset: str):
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={dataset}.kamvex"},
     )
+
+
+# ── OpenAI-compatible API out (Kamvex as backend for other apps) ────────────
+
+class CompareReq(BaseModel):
+    dataset: str
+    query: str
+    mode_a: str = "statistical"
+    mode_b: str = "grounded"
+    temperature: float = 0.1
+    top_p: float = 0.95
+    top_k: int = 40
+    repeat_penalty: float = 1.0
+
+
+@app.post("/compare")
+def compare_models(req: CompareReq):
+    """Run the same query with two Agent B modes and return both answers for A/B comparison."""
+    results = {}
+    for label, mode in [("a", req.mode_a), ("b", req.mode_b)]:
+        pipe = _load_pipeline(req.dataset)
+
+        if mode == "statistical":
+            pipe.agent_b._llm_callable = None
+        elif mode in ("grounded", "free"):
+            if _LLAMA_CONNECTOR is None:
+                results[label] = {"answer": "(sin motor de inferencia)", "mode": mode, "fragments": []}
+                continue
+            _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
+            pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
+
+        fragments = pipe.agent_a.search(req.query)
+        answer = pipe.agent_b.synthesize(req.query, fragments) or "(sin respuesta)"
+        results[label] = {
+            "answer": answer,
+            "mode": mode,
+            "fragments": [
+                {"text": f.text, "score": float(f.score), "source_id": f.source_id}
+                for f in fragments
+            ],
+        }
+    return results
 
 
 # ── OpenAI-compatible API out (Kamvex as backend for other apps) ────────────

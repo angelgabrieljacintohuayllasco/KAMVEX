@@ -282,3 +282,37 @@ export async function exportDatasetUrl(dataset: string): Promise<string> {
   const b = await base();
   return `${b}/datasets/${encodeURIComponent(dataset)}/export`;
 }
+
+// ── Model A/B comparison ────────────────────────────────────────────────────
+
+export type CompareResult = {
+  a: { answer: string; mode: string; fragments: Fragment[] };
+  b: { answer: string; mode: string; fragments: Fragment[] };
+};
+
+export async function compareModels(
+  dataset: string,
+  query: string,
+  modeA: string = "statistical",
+  modeB: string = "grounded",
+): Promise<CompareResult> {
+  const r = await fetch(`${await base()}/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dataset, query, mode_a: modeA, mode_b: modeB }),
+  });
+  if (!r.ok) throw new Error(`compare ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── Build dataset from raw text ─────────────────────────────────────────────
+
+export async function startBuildText(name: string, text: string, profile: string = "low-ram"): Promise<{ job_id: string; n_chunks: number }> {
+  const r = await fetch(`${await base()}/datasets/build-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, text, profile }),
+  });
+  if (!r.ok) throw new Error(`startBuildText ${r.status}: ${await r.text()}`);
+  return r.json();
+}

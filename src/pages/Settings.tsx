@@ -4,7 +4,7 @@ import { detectHardware, HwInfo } from "../api/client";
 import { useI18n } from "../i18n";
 
 export default function Settings() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, setLang, t, theme, setTheme } = useI18n();
   const [hw, setHw] = useState<HwInfo | null>(null);
   const [port, setPort] = useState<number | null>(null);
   const [ready, setReady] = useState<boolean>(false);
@@ -34,7 +34,7 @@ export default function Settings() {
 
       <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
         <h2 className="font-medium mb-3">{t("settings.language")}</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-4">
           <button
             onClick={() => setLang("es")}
             className={`rounded-lg px-4 py-2 text-sm ${lang === "es" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
@@ -46,6 +46,21 @@ export default function Settings() {
             className={`rounded-lg px-4 py-2 text-sm ${lang === "en" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
           >
             English
+          </button>
+        </div>
+        <h2 className="font-medium mb-3">Theme</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTheme("dark")}
+            className={`rounded-lg px-4 py-2 text-sm ${theme === "dark" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+          >
+            Dark
+          </button>
+          <button
+            onClick={() => setTheme("light")}
+            className={`rounded-lg px-4 py-2 text-sm ${theme === "light" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+          >
+            Light
           </button>
         </div>
       </section>
