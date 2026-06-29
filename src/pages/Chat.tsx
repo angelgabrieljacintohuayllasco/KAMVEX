@@ -109,7 +109,7 @@ export default function Chat({
               <ModeSelector
                 mode={agentBMode}
                 onChange={setAgentBMode}
-                disabled={agentBMode !== "statistical" && !inferenceRunning}
+                disabledModes={inferenceRunning ? [] : ["grounded", "free"]}
               />
               <MetricsPanel />
             </div>
