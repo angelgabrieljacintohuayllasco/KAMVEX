@@ -239,7 +239,7 @@ export default function Models() {
         ) : (
           <div className="flex flex-col gap-4">
             {(["ultralight", "light", "medium", "large", "xl"] as const).map((cat) => {
-              const models = hubModels.filter((m) => m.category === cat);
+              const models = hubModels.filter((m) => (m.category ?? "ultralight") === cat);
               if (models.length === 0) return null;
               return (
                 <div key={cat}>
