@@ -201,7 +201,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="flex-1 min-w-0 h-full overflow-hidden">
+      <main className="flex-1 min-w-0 h-full overflow-y-auto">
         {view === "chat" && (
           <Chat
             conversation={active}
