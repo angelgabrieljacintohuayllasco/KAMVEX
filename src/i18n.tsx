@@ -15,6 +15,8 @@ const dict: Dict = {
   "chat.fragments": { es: "fragmento(s) fuente", en: "source fragment(s)" },
   "chat.noDataset": { es: "Selecciona o construye conocimiento primero (pestaña Knowledge).", en: "Select or build knowledge first (Knowledge tab)." },
   "chat.federatedTip": { es: "Router semántico MoE: busca en todos los datasets automáticamente", en: "MoE semantic router: searches all datasets automatically" },
+  "chat.auto": { es: "Auto", en: "Auto" },
+  "chat.autoActive": { es: "✦ Auto", en: "✦ Auto" },
 
   // Navigation
   "nav.knowledge": { es: "Knowledge", en: "Knowledge" },
@@ -117,13 +119,23 @@ const dict: Dict = {
   "app.noConvos": { es: "Sin conversaciones.", en: "No conversations." },
   "app.newConvo": { es: "Nueva conversación", en: "New conversation" },
 
-  // Mode selector
+  // Mode selector (Agent B engines)
+  // Product names stay in English in both languages; tooltips explain each engine.
   "mode.statistical": { es: "Statistical", en: "Statistical" },
   "mode.grounded": { es: "LLM-grounded", en: "LLM-grounded" },
   "mode.free": { es: "LLM-free", en: "LLM-free" },
-  "mode.statistical.desc": { es: "0 alucinación — vocabulario bloqueado", en: "0 hallucination — vocabulary locked" },
-  "mode.grounded.desc": { es: "LLM formatea sin inventar", en: "LLM formats without inventing" },
-  "mode.free.desc": { es: "Chat libre con system prompt", en: "Free chat with system prompt" },
+  "mode.statistical.desc": {
+    es: "Motor determinístico: reordena y conecta frases usando solo el vocabulario de los fragmentos recuperados. No usa LLM. 0 alucinación, ideal para datos técnicos.",
+    en: "Deterministic engine: rearranges and connects sentences using only vocabulary from the retrieved fragments. No LLM involved. Zero hallucination, ideal for technical data."
+  },
+  "mode.grounded.desc": {
+    es: "El LLM actúa como formateador: combina los fragmentos en una respuesta fluida pero no puede inventar información fuera del corpus. Requiere llama-server activo.",
+    en: "The LLM acts as a formatter: it combines fragments into a fluent answer but cannot invent information outside the corpus. Requires active llama-server."
+  },
+  "mode.free.desc": {
+    es: "Chat general con system prompt. Si el corpus no cubre la pregunta, el LLM responde libremente. Requiere llama-server activo.",
+    en: "General chat with system prompt. If the corpus does not cover the question, the LLM answers freely. Requires active llama-server."
+  },
   "mode.needsEngine": { es: "Requiere motor de inferencia activo", en: "Requires an active inference engine" },
 
   // Samplers

@@ -88,7 +88,7 @@ export default function Chat({
                 }`}
                 title={t("chat.federatedTip")}
               >
-                {federated ? "✦ Auto" : "Auto"}
+                {federated ? t("chat.autoActive") : t("chat.auto")}
               </button>
               {!federated && (
                 <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-2 py-1 text-xs">
