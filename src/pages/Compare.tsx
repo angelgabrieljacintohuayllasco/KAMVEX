@@ -36,7 +36,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
           data.mode === "grounded" ? "bg-amber-500/20 text-amber-300" :
           "bg-white/15 text-white/80"
         }`}>
-          {data.mode}
+          {t(`mode.${data.mode}`)}
         </span>
         <span className="text-xs text-white/40">{label}</span>
       </div>
@@ -96,7 +96,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
                 onChange={(e) => setModeA(e.target.value)}
                 className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
               >
-                {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                {MODES.map((m) => <option key={m} value={m}>{t(`mode.${m}`)}</option>)}
               </select>
             </label>
             <label className="text-sm">
@@ -106,7 +106,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
                 onChange={(e) => setModeB(e.target.value)}
                 className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
               >
-                {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                {MODES.map((m) => <option key={m} value={m}>{t(`mode.${m}`)}</option>)}
               </select>
             </label>
           </div>

@@ -120,20 +120,20 @@ const dict: Dict = {
   "app.newConvo": { es: "Nueva conversación", en: "New conversation" },
 
   // Mode selector (Agent B engines)
-  // Product names stay in English in both languages; tooltips explain each engine.
-  "mode.statistical": { es: "Statistical", en: "Statistical" },
-  "mode.grounded": { es: "LLM-grounded", en: "LLM-grounded" },
-  "mode.free": { es: "LLM-free", en: "LLM-free" },
+  // Spanish uses clear, non-technical terms; English keeps product names.
+  "mode.statistical": { es: "Exacto", en: "Statistical" },
+  "mode.grounded": { es: "Anclado", en: "LLM-grounded" },
+  "mode.free": { es: "Libre", en: "LLM-free" },
   "mode.statistical.desc": {
-    es: "Motor determinístico: reordena y conecta frases usando solo el vocabulario de los fragmentos recuperados. No usa LLM. 0 alucinación, ideal para datos técnicos.",
+    es: "Respuestas exactas: reordena la información del corpus sin inventar nada. No usa IA. Cero alucinación.",
     en: "Deterministic engine: rearranges and connects sentences using only vocabulary from the retrieved fragments. No LLM involved. Zero hallucination, ideal for technical data."
   },
   "mode.grounded.desc": {
-    es: "El LLM actúa como formateador: combina los fragmentos en una respuesta fluida pero no puede inventar información fuera del corpus. Requiere llama-server activo.",
+    es: "La IA redacta la respuesta usando solo tu corpus. No puede inventar información. Requiere motor activo.",
     en: "The LLM acts as a formatter: it combines fragments into a fluent answer but cannot invent information outside the corpus. Requires active llama-server."
   },
   "mode.free.desc": {
-    es: "Chat general con system prompt. Si el corpus no cubre la pregunta, el LLM responde libremente. Requiere llama-server activo.",
+    es: "Conversación libre: si tu corpus no cubre la pregunta, la IA responde por sí misma. Requiere motor activo.",
     en: "General chat with system prompt. If the corpus does not cover the question, the LLM answers freely. Requires active llama-server."
   },
   "mode.needsEngine": { es: "Requiere motor de inferencia activo", en: "Requires an active inference engine" },
