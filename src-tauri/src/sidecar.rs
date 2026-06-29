@@ -33,6 +33,13 @@ fn server_script() -> PathBuf {
 /// In production, the sidecar is bundled as a PyInstaller exe.
 /// Tauri resolves it via the externalBin mechanism with target-triple suffix.
 fn sidecar_binary() -> Option<PathBuf> {
+    // In debug/dev builds, always use `python server.py` directly.
+    // The PyInstaller binary is only for release builds — using it in dev
+    // causes numpy/dependency conflicts and prevents live code reloading.
+    if cfg!(debug_assertions) {
+        return None;
+    }
+
     let target = if cfg!(target_os = "windows") {
         "kamvex-sidecar-x86_64-pc-windows-msvc.exe"
     } else if cfg!(target_os = "macos") {
@@ -41,7 +48,7 @@ fn sidecar_binary() -> Option<PathBuf> {
         "kamvex-sidecar-x86_64-unknown-linux-gnu"
     };
 
-    // Check resource dir (production)
+    // Check resource dir (production — bundled by Tauri)
     if let Ok(res) = std::env::var("TAURI_RESOURCE_DIR") {
         let p = PathBuf::from(res).join(target);
         if p.exists() {
@@ -49,7 +56,7 @@ fn sidecar_binary() -> Option<PathBuf> {
         }
     }
 
-    // Check dev binaries dir — only accept real binaries (>100KB, not placeholders)
+    // Check release binaries dir — only accept real binaries (>100KB, not placeholders)
     let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
         .join(target);
