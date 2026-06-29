@@ -20,6 +20,8 @@ src-tauri/gen/schemas/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+sidecar/build/
+sidecar/dist/
 
 # App data (built datasets + indexes — never commit)
 sidecar/appdata/
