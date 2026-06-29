@@ -31,11 +31,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from dasa.config import DASAConfig
-from dasa.pipeline import DASAPipeline
-from dasa.agent_a.embeddings import EmbeddingEngine
-from shard.storage.shard_writer import ShardWriter
-from shard.index.ivfpq_builder import build_ivfpq
+# ── DASA / SHARD imports (lazy: may be unavailable in PyInstaller bundle) ──
+_DASA_AVAILABLE = False
+try:
+    from dasa.config import DASAConfig
+    from dasa.pipeline import DASAPipeline
+    from dasa.agent_a.embeddings import EmbeddingEngine
+    from shard.storage.shard_writer import ShardWriter
+    from shard.index.ivfpq_builder import build_ivfpq
+    _DASA_AVAILABLE = True
+except ImportError:
+    pass
 
 from jobs import BuildJob, run_build
 from llama_connector import LlamaCppConnector
@@ -51,9 +57,27 @@ app.add_middleware(
 )
 
 _JOBS: "dict[str, BuildJob]" = {}
-_PIPELINES: "dict[str, DASAPipeline]" = {}
-_embedding_engine = EmbeddingEngine(DASAConfig())   # model loads lazily on first use
+_PIPELINES: dict = {}
+_embedding_engine = None
 _LLAMA_CONNECTOR: LlamaCppConnector | None = None
+
+
+def _get_embedding_engine():
+    """Lazily create the embedding engine (heavy: loads sentence-transformers)."""
+    global _embedding_engine
+    if _embedding_engine is None and _DASA_AVAILABLE:
+        _embedding_engine = EmbeddingEngine(DASAConfig())
+    return _embedding_engine
+
+
+def _require_dasa():
+    """Raise HTTPException if DASA/SHARD are not available."""
+    if not _DASA_AVAILABLE:
+        raise HTTPException(
+            503,
+            "DASA/SHARD no disponibles. En el instalador, usa datasets pre-construidos. "
+            "Para construir nuevos datasets, ejecuta KAMVEX en modo desarrollo (Python + deps).",
+        )
 
 
 # ── Models ──────────────────────────────────────────────────────────────────
@@ -122,6 +146,7 @@ def _load_pipeline(dataset_name: str) -> DASAPipeline:
 
 @app.post("/federated")
 def federated_query(req: ChatReq):
+    _require_dasa()
     """
     MoE semantic router: query ALL datasets, pick the one with the best
     top-fragment score, and answer from that dataset. This enables
@@ -186,6 +211,7 @@ def federated_query(req: ChatReq):
 
 @app.post("/datasets/build")
 def build_dataset(req: BuildReq):
+    _require_dasa()
     if not Path(req.json_path).exists():
         raise HTTPException(404, f"Archivo no encontrado: {req.json_path}")
     if req.profile not in ("low-ram", "medium", "fast"):
@@ -198,7 +224,7 @@ def build_dataset(req: BuildReq):
         target=run_build, args=(job,),
         kwargs=dict(name=req.name, json_path=req.json_path, profile=req.profile,
                     data_dir=DATA_DIR, num_shards=None,
-                    embedding_engine=_embedding_engine,
+                    embedding_engine=_get_embedding_engine(),
                     shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq),
         daemon=True,
     ).start()
@@ -239,6 +265,7 @@ def _extract_pdf_text(pdf_path: str) -> str:
 
 @app.post("/datasets/build-text")
 def build_from_text(req: BuildTextReq):
+    _require_dasa()
     """Build a dataset from raw text or PDF by chunking it into records."""
     if req.profile not in ("low-ram", "medium", "fast"):
         raise HTTPException(400, f"perfil inválido: {req.profile}")
@@ -282,7 +309,7 @@ def build_from_text(req: BuildTextReq):
         target=run_build, args=(job,),
         kwargs=dict(name=req.name, json_path=str(tmp), profile=req.profile,
                     data_dir=DATA_DIR, num_shards=None,
-                    embedding_engine=_embedding_engine,
+                    embedding_engine=_get_embedding_engine(),
                     shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq),
         daemon=True,
     ).start()
@@ -312,6 +339,7 @@ def build_events(job_id: str):
 
 @app.post("/chat")
 def chat(req: ChatReq):
+    _require_dasa()
     db = DATA_DIR / req.dataset
     meta_path = db / "meta.json"
     if not meta_path.exists():
@@ -477,6 +505,7 @@ def hub_download(req: HubDownloadReq):
 
 @app.post("/oregano/{dataset}")
 def oregano_test(dataset: str):
+    _require_dasa()
     """Run the anti-hallucination quality audit on a dataset."""
     db = DATA_DIR / dataset
     meta_path = db / "meta.json"
@@ -533,6 +562,7 @@ class CompareReq(BaseModel):
 
 @app.post("/compare")
 def compare_models(req: CompareReq):
+    _require_dasa()
     """Run the same query with two Agent B modes and return both answers for A/B comparison."""
     results = {}
     for label, mode in [("a", req.mode_a), ("b", req.mode_b)]:
@@ -598,6 +628,7 @@ def v1_models():
 
 @app.post("/v1/chat/completions", tags=["openai-compatible"])
 def v1_chat_completions(req: OAIRequest):
+    _require_dasa()
     """
     OpenAI-compatible endpoint. Other apps (Jan, Open WebUI, etc.) can use
     Kamvex as a backend. The `model` field maps to a dataset name.

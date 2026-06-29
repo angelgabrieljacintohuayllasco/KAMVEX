@@ -36,12 +36,13 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://github.com/angelgabrieljacintohuayllasco/KAMVEX/releases/latest/download/latest.json"
-      ]
+    "plugins": {
+      "updater": {
+        "active": true,
+        "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyRjRDQUI0NkE4REY0QjYKUldXMjlJMXF0TXIwZ3FXc08xaE9MSFRXS2NsVXZYV0VSbUs0SkZBRy9ocEhJQlFjTC84blNiUzMK",
+        "endpoints": [
+          "https://github.com/angelgabrieljacintohuayllasco/KAMVEX/releases/latest/download/latest.json"
+        ]
+      }
     }
-  }
 }
