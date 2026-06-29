@@ -11,18 +11,19 @@ const MODES: { value: AgentBMode; labelKey: string; color: string; descKey: stri
 export default function ModeSelector({
   mode,
   onChange,
-  disabledModes = [],
+  inferenceRunning = true,
 }: {
   mode: AgentBMode;
   onChange: (m: AgentBMode) => void;
-  disabledModes?: AgentBMode[];
+  inferenceRunning?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-1 py-0.5 text-xs">
       {MODES.map((m) => {
         const active = mode === m.value;
-        const isDisabled = disabledModes.includes(m.value);
+        const needsEngine = m.value !== "statistical";
+        const unavailable = needsEngine && !inferenceRunning;
         const colorClasses = {
           emerald: active ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "",
           amber: active ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "",
@@ -32,11 +33,10 @@ export default function ModeSelector({
           <button
             key={m.value}
             onClick={() => onChange(m.value)}
-            disabled={isDisabled}
-            title={t(m.descKey)}
+            title={unavailable ? t("mode.needsEngine") : t(m.descKey)}
             className={`rounded-full border px-2 py-1 transition-colors ${
               active ? colorClasses : "border-transparent text-white/40 hover:text-white/60"
-            } disabled:opacity-30 disabled:cursor-not-allowed`}
+            } ${unavailable && !active ? "opacity-40" : ""}`}
           >
             {t(m.labelKey)}
           </button>

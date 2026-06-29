@@ -86,7 +86,7 @@ export default function Chat({
                     ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
                     : "bg-black/30 border-white/10 text-white/40 hover:text-white/60"
                 }`}
-                title="MoE semantic router: busca en todos los datasets automáticamente"
+                title={t("chat.federatedTip")}
               >
                 {federated ? "✦ Auto" : "Auto"}
               </button>
@@ -109,7 +109,7 @@ export default function Chat({
               <ModeSelector
                 mode={agentBMode}
                 onChange={setAgentBMode}
-                disabledModes={inferenceRunning ? [] : ["grounded", "free"]}
+                inferenceRunning={inferenceRunning}
               />
               <MetricsPanel />
             </div>

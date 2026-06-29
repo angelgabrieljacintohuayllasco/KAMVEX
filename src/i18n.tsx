@@ -14,6 +14,13 @@ const dict: Dict = {
   "chat.grounded": { es: "Respuestas ancladas al corpus — sin alucinaciones.", en: "Grounded answers — no hallucinations." },
   "chat.fragments": { es: "fragmento(s) fuente", en: "source fragment(s)" },
   "chat.noDataset": { es: "Selecciona o construye conocimiento primero (pestaña Knowledge).", en: "Select or build knowledge first (Knowledge tab)." },
+  "chat.federatedTip": { es: "Router semántico MoE: busca en todos los datasets automáticamente", en: "MoE semantic router: searches all datasets automatically" },
+
+  // Navigation
+  "nav.knowledge": { es: "Knowledge", en: "Knowledge" },
+  "nav.models": { es: "Models", en: "Models" },
+  "nav.compare": { es: "Compare", en: "Compare" },
+  "nav.settings": { es: "Settings", en: "Settings" },
 
   // Knowledge
   "knowledge.title": { es: "Knowledge", en: "Knowledge" },
@@ -36,6 +43,16 @@ const dict: Dict = {
   "knowledge.hallucinations": { es: "alucinaciones detectadas", en: "hallucinations detected" },
   "knowledge.detail": { es: "Detalle", en: "Detail" },
   "knowledge.termsHalled": { es: "términos alucinados", en: "hallucinated terms" },
+  "knowledge.fileMode": { es: "📁 Archivo", en: "📁 File" },
+  "knowledge.textMode": { es: "✏️ Texto", en: "✏️ Text" },
+  "knowledge.textPlaceholder": { es: "Pega aquí el texto que quieres convertir en conocimiento…", en: "Paste the text you want to turn into knowledge…" },
+  "knowledge.importPdf": { es: "📄 Importar PDF", en: "📄 Import PDF" },
+  "knowledge.changePdf": { es: "Cambiar PDF", en: "Change PDF" },
+  "knowledge.oreganoTip": { es: "Auditar calidad anti-alucinación", en: "Audit anti-hallucination quality" },
+  "knowledge.export": { es: "📦 Export", en: "📦 Export" },
+  "knowledge.exportTip": { es: "Exportar como .kamvex", en: "Export as .kamvex" },
+  "knowledge.dim": { es: "dim", en: "dim" },
+  "knowledge.of": { es: "de", en: "of" },
 
   // Models
   "models.title": { es: "Models", en: "Models" },
@@ -59,6 +76,10 @@ const dict: Dict = {
   "models.hub": { es: "Descargar desde HuggingFace", en: "Download from HuggingFace" },
   "models.hubLoading": { es: "Cargando lista…", en: "Loading list…" },
   "models.download": { es: "↓ Descargar", en: "↓ Download" },
+  "models.flashAttn": { es: "flash attn", en: "flash attn" },
+  "models.mlock": { es: "mlock", en: "mlock" },
+  "models.on": { es: "sí", en: "on" },
+  "models.off": { es: "no", en: "off" },
 
   // Settings
   "settings.title": { es: "Settings", en: "Settings" },
@@ -79,14 +100,20 @@ const dict: Dict = {
   "settings.theme": { es: "Tema", en: "Theme" },
   "settings.themeDark": { es: "Oscuro", en: "Dark" },
   "settings.themeLight": { es: "Claro", en: "Light" },
+  "settings.updates": { es: "Actualizaciones", en: "Updates" },
+  "settings.checkUpdates": { es: "Buscar actualizaciones", en: "Check for updates" },
+  "settings.checking": { es: "Comprobando…", en: "Checking…" },
+  "settings.upToDate": { es: "KAMVEX está actualizado", en: "KAMVEX is up to date" },
+  "settings.updateAvailable": { es: "Actualización disponible:", en: "Update available:" },
+  "settings.gpu": { es: "GPU", en: "GPU" },
 
   // App
   "app.starting": { es: "Iniciando KAMVEX…", en: "Starting KAMVEX…" },
   "app.failed": { es: "No se pudo iniciar KAMVEX", en: "Failed to start KAMVEX" },
   "app.checkPython": { es: "Revisa que Python y las dependencias del backend estén instalados.", en: "Check that Python and backend dependencies are installed." },
   "app.startingEngine": { es: "Levantando el motor local.", en: "Starting local engine." },
-  "app.newChat": { es: "＋ New Chat", en: "＋ New Chat" },
-  "app.recents": { es: "Recents", en: "Recents" },
+  "app.newChat": { es: "＋ Nuevo chat", en: "＋ New Chat" },
+  "app.recents": { es: "Recientes", en: "Recents" },
   "app.noConvos": { es: "Sin conversaciones.", en: "No conversations." },
   "app.newConvo": { es: "Nueva conversación", en: "New conversation" },
 
@@ -97,6 +124,7 @@ const dict: Dict = {
   "mode.statistical.desc": { es: "0 alucinación — vocabulario bloqueado", en: "0 hallucination — vocabulary locked" },
   "mode.grounded.desc": { es: "LLM formatea sin inventar", en: "LLM formats without inventing" },
   "mode.free.desc": { es: "Chat libre con system prompt", en: "Free chat with system prompt" },
+  "mode.needsEngine": { es: "Requiere motor de inferencia activo", en: "Requires an active inference engine" },
 
   // Samplers
   "sampler.title": { es: "Samplers", en: "Samplers" },
@@ -114,6 +142,17 @@ const dict: Dict = {
   "metrics.ram": { es: "RAM", en: "RAM" },
   "metrics.vram": { es: "VRAM", en: "VRAM" },
   "metrics.active": { es: "activo", en: "active" },
+
+  // Compare
+  "compare.title": { es: "Compare", en: "Compare" },
+  "compare.desc": { es: "Ejecuta la misma consulta con dos modos de Agent B y compara lado a lado.", en: "Run the same query with two Agent B modes and compare side by side." },
+  "compare.dataset": { es: "Dataset", en: "Dataset" },
+  "compare.placeholder": { es: "Consulta a comparar…", en: "Query to compare…" },
+  "compare.modeA": { es: "Modo A", en: "Mode A" },
+  "compare.modeB": { es: "Modo B", en: "Mode B" },
+  "compare.run": { es: "▶ Comparar", en: "▶ Compare" },
+  "compare.running": { es: "Comparando…", en: "Comparing…" },
+  "compare.fragments": { es: "fragmentos", en: "fragments" },
 };
 
 type I18nContextType = {

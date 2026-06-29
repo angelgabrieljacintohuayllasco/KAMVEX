@@ -50,29 +50,29 @@ export default function Settings() {
             English
           </button>
         </div>
-        <h2 className="font-medium mb-3">Theme</h2>
+        <h2 className="font-medium mb-3">{t("settings.theme")}</h2>
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setTheme("dark")}
             className={`rounded-lg px-4 py-2 text-sm ${theme === "dark" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
           >
-            Dark
+            {t("settings.themeDark")}
           </button>
           <button
             onClick={() => setTheme("light")}
             className={`rounded-lg px-4 py-2 text-sm ${theme === "light" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
           >
-            Light
+            {t("settings.themeLight")}
           </button>
         </div>
-        <h2 className="font-medium mb-3">Updates</h2>
+        <h2 className="font-medium mb-3">{t("settings.updates")}</h2>
         <button
           onClick={async () => {
             setUpdateBusy(true);
             setUpdateMsg(null);
             try {
               const result = await invoke<string | null>("check_updates");
-              setUpdateMsg(result ? `Update available: ${result}` : "KAMVEX is up to date");
+              setUpdateMsg(result ? `${t("settings.updateAvailable")} ${result}` : t("settings.upToDate"));
             } catch (e) {
               setUpdateMsg(String(e));
             } finally {
@@ -82,7 +82,7 @@ export default function Settings() {
           disabled={updateBusy}
           className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 py-2 text-sm"
         >
-          {updateBusy ? "Checking…" : "Check for updates"}
+          {updateBusy ? t("settings.checking") : t("settings.checkUpdates")}
         </button>
         {updateMsg && <p className="mt-2 text-xs text-white/50">{updateMsg}</p>}
       </section>
@@ -98,7 +98,7 @@ export default function Settings() {
             <Row k={t("settings.availableRam")} v={`${hw.available_ram_gb.toFixed(1)} GB`} />
             {hw.gpus.length > 0 && (
               <>
-                <div className="mt-3 mb-1 text-xs uppercase tracking-wider text-white/30">GPU</div>
+                <div className="mt-3 mb-1 text-xs uppercase tracking-wider text-white/30">{t("settings.gpu")}</div>
                 {hw.gpus.map((g, i) => (
                   <Row key={i} k={g.name} v={`${g.vendor} · ${g.backend}`} />
                 ))}

@@ -10,6 +10,7 @@ import {
   BuildEvent,
   OreganoResult,
 } from "../api/client";
+import { useI18n } from "../i18n";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
 type BuildMode = "file" | "text";
@@ -21,6 +22,7 @@ export default function Knowledge({
   datasets: Dataset[];
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [jsonPath, setJsonPath] = useState<string | null>(null);
   const [profile, setProfile] = useState<string>("low-ram");
@@ -103,10 +105,9 @@ export default function Knowledge({
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-1">Knowledge</h1>
+      <h1 className="text-2xl font-semibold mb-1">{t("knowledge.title")}</h1>
       <p className="text-sm text-white/40 mb-4">
-        Construye inteligencia anclada a tus datos (DASA + SHARD). Cada base es una
-        fuente que el chat puede usar sin alucinar.
+        {t("knowledge.desc")}
       </p>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
@@ -115,13 +116,13 @@ export default function Knowledge({
             onClick={() => setBuildMode("file")}
             className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "file" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
           >
-            📁 Archivo
+            {t("knowledge.fileMode")}
           </button>
           <button
             onClick={() => setBuildMode("text")}
             className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "text" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
           >
-            ✏️ Texto
+            {t("knowledge.textMode")}
           </button>
         </div>
 
@@ -132,7 +133,7 @@ export default function Knowledge({
                 onClick={pick}
                 className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
               >
-                {jsonPath ? "Cambiar archivo" : "Elegir archivo (JSON / JSONL / CSV)"}
+                {jsonPath ? t("knowledge.changeFile") : t("knowledge.pickFile")}
               </button>
               {jsonPath && (
                 <p className="text-xs text-white/50 break-all">{jsonPath}</p>
@@ -144,14 +145,14 @@ export default function Knowledge({
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
                 rows={6}
-                placeholder="Pega aquí el texto que quieres convertir en conocimiento…"
+                placeholder={t("knowledge.textPlaceholder")}
                 className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm resize-none placeholder:text-white/30"
               />
               <button
                 onClick={pickPdf}
                 className="self-start rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
               >
-                {pdfPath ? "Cambiar PDF" : "📄 Importar PDF"}
+                {pdfPath ? t("knowledge.changePdf") : t("knowledge.importPdf")}
               </button>
               {pdfPath && (
                 <p className="text-xs text-white/50 break-all">{pdfPath}</p>
@@ -160,7 +161,7 @@ export default function Knowledge({
           )}
 
           <label className="text-sm">
-            Nombre
+            {t("knowledge.name")}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -170,7 +171,7 @@ export default function Knowledge({
           </label>
 
           <label className="text-sm">
-            Perfil del índice
+            {t("knowledge.profile")}
             <select
               value={profile}
               onChange={(e) => setProfile(e.target.value)}
@@ -189,7 +190,7 @@ export default function Knowledge({
             onClick={build}
             className="self-start rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm"
           >
-            {busy ? "Construyendo…" : "Construir índice"}
+            {busy ? t("knowledge.building") : t("knowledge.buildBtn")}
           </button>
 
           {progress && (
@@ -209,9 +210,9 @@ export default function Knowledge({
         </div>
       </div>
 
-      <h2 className="font-medium mb-2">Inteligencias construidas</h2>
+      <h2 className="font-medium mb-2">{t("knowledge.built")}</h2>
       {datasets.length === 0 ? (
-        <p className="text-sm text-white/40">Aún no hay datasets. Construye uno arriba.</p>
+        <p className="text-sm text-white/40">{t("knowledge.empty")}</p>
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {datasets.map((d) => {
@@ -225,7 +226,7 @@ export default function Knowledge({
                   <div>
                     <span className="font-medium text-base">{d.name}</span>
                     <p className="text-xs text-white/40 mt-1">
-                      {d.n_records} registros · perfil {d.profile} · {d.dim ?? "?"} dim
+                      {d.n_records} {t("knowledge.records")} · {t("knowledge.profileLabel")} {d.profile} · {d.dim ?? "?"} {t("knowledge.dim")}
                     </p>
                   </div>
                   <div className="flex gap-1.5">
@@ -233,9 +234,9 @@ export default function Knowledge({
                       onClick={() => runOregano(d.name)}
                       disabled={oreganoBusy === d.name}
                       className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-3 py-1.5 text-xs"
-                      title="Auditar calidad anti-alucinación"
+                      title={t("knowledge.oreganoTip")}
                     >
-                      {oreganoBusy === d.name ? "Auditando…" : "🧪 Oregano Test"}
+                      {oreganoBusy === d.name ? t("knowledge.auditing") : t("knowledge.oregano")}
                     </button>
                     <a
                       href={`#`}
@@ -245,9 +246,9 @@ export default function Knowledge({
                         window.open(url, "_blank");
                       }}
                       className="rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
-                      title="Exportar como .kamvex"
+                      title={t("knowledge.exportTip")}
                     >
-                      📦 Export
+                      {t("knowledge.export")}
                     </a>
                   </div>
                 </div>
@@ -259,20 +260,20 @@ export default function Knowledge({
                         {oregano.score >= 80 ? "🟢" : oregano.score >= 50 ? "🟡" : "🔴"}
                       </span>
                       <span className="text-2xl font-bold">{oregano.score}</span>
-                      <span className="text-xs text-white/40">/ 100 confianza anti-alucinación</span>
+                      <span className="text-xs text-white/40">{t("knowledge.confidence")}</span>
                     </div>
                     <p className="text-xs text-white/50 mb-1">
-                      {oregano.passed} de {oregano.total} tests pasaron · {oregano.hallucinations} alucinaciones detectadas
+                      {oregano.passed} {t("knowledge.of")} {oregano.total} {t("knowledge.testsPassed")} · {oregano.hallucinations} {t("knowledge.hallucinations")}
                     </p>
                     {oregano.details.length > 0 && (
                       <details className="mt-1">
-                        <summary className="cursor-pointer text-xs text-white/40">Detalle</summary>
+                        <summary className="cursor-pointer text-xs text-white/40">{t("knowledge.detail")}</summary>
                         <ul className="mt-1 flex flex-col gap-1">
                           {oregano.details.map((det, i) => (
                             <li key={i} className={`text-xs ${det.passed ? "text-emerald-400" : "text-red-400"}`}>
                               {det.passed ? "✓" : "✗"} {det.query}
                               {!det.passed && det.forbidden_found.length > 0 && (
-                                <span className="text-white/30"> — términos alucinados: {det.forbidden_found.join(", ")}</span>
+                                <span className="text-white/30"> — {t("knowledge.termsHalled")}: {det.forbidden_found.join(", ")}</span>
                               )}
                             </li>
                           ))}

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { compareModels, type CompareResult, type Dataset } from "../api/client";
+import { useI18n } from "../i18n";
 
 const MODES = ["statistical", "grounded", "free"] as const;
 
 export default function Compare({ datasets }: { datasets: Dataset[] }) {
+  const { t } = useI18n();
   const [dataset, setDataset] = useState<string>(datasets[0]?.name ?? "");
   const [query, setQuery] = useState("");
   const [modeA, setModeA] = useState<string>("statistical");
@@ -43,7 +45,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
       </div>
       {data.fragments.length > 0 && (
         <details className="mt-2 text-xs text-white/50">
-          <summary className="cursor-pointer">{data.fragments.length} fragmentos</summary>
+          <summary className="cursor-pointer">{data.fragments.length} {t("compare.fragments")}</summary>
           <ul className="mt-1 flex flex-col gap-1">
             {data.fragments.map((f, i) => (
               <li key={i} className="rounded bg-black/30 border border-white/10 px-2 py-1">
@@ -58,15 +60,15 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
 
   return (
     <div className="p-6 max-w-4xl">
-      <h1 className="text-2xl font-semibold mb-1">Compare</h1>
+      <h1 className="text-2xl font-semibold mb-1">{t("compare.title")}</h1>
       <p className="text-sm text-white/40 mb-4">
-        Ejecuta la misma consulta con dos modos de Agent B y compara lado a lado.
+        {t("compare.desc")}
       </p>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
         <div className="flex flex-col gap-3">
           <label className="text-sm">
-            Dataset
+            {t("compare.dataset")}
             <select
               value={dataset}
               onChange={(e) => setDataset(e.target.value)}
@@ -82,13 +84,13 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             rows={2}
-            placeholder="Consulta a comparar…"
+            placeholder={t("compare.placeholder")}
             className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm resize-none"
           />
 
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm">
-              Modo A
+              {t("compare.modeA")}
               <select
                 value={modeA}
                 onChange={(e) => setModeA(e.target.value)}
@@ -98,7 +100,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
               </select>
             </label>
             <label className="text-sm">
-              Modo B
+              {t("compare.modeB")}
               <select
                 value={modeB}
                 onChange={(e) => setModeB(e.target.value)}
@@ -114,7 +116,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
             disabled={busy || !dataset || !query.trim()}
             className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 px-4 py-2 text-sm"
           >
-            {busy ? "Comparando…" : "▶ Comparar"}
+            {busy ? t("compare.running") : t("compare.run")}
           </button>
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>

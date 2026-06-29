@@ -13,10 +13,12 @@ import {
   type Prescription,
   type HubModel,
 } from "../api/client";
+import { useI18n } from "../i18n";
 
 const PRESETS = ["eco", "balanced", "max"] as const;
 
 export default function Models() {
+  const { t } = useI18n();
   const [modelPath, setModelPath] = useState<string | null>(null);
   const [modelSizeMb, setModelSizeMb] = useState<number>(4000);
   const [preset, setPreset] = useState<string>("balanced");
@@ -124,26 +126,25 @@ export default function Models() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-1">Models</h1>
+      <h1 className="text-2xl font-semibold mb-1">{t("models.title")}</h1>
       <p className="text-sm text-white/40 mb-6">
-        Motor de inferencia local (llama.cpp). Importa un GGUF, auto-configura
-        los flags según tu hardware, y lanza.
+        {t("models.desc")}
       </p>
 
       <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
-        <h2 className="font-medium mb-3">Modelo</h2>
+        <h2 className="font-medium mb-3">{t("models.model")}</h2>
         <button
           onClick={pickModel}
           className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
         >
-          {modelPath ? "Cambiar modelo" : "Importar GGUF"}
+          {modelPath ? t("models.changeModel") : t("models.importGguf")}
         </button>
         {modelPath && (
           <p className="text-xs text-white/50 break-all mt-2">{modelPath}</p>
         )}
         {modelPath && (
           <label className="block mt-3 text-sm">
-            Tamaño aproximado (MB)
+            {t("models.sizeMb")}
             <input
               type="number"
               value={modelSizeMb}
@@ -155,9 +156,9 @@ export default function Models() {
       </section>
 
       <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
-        <h2 className="font-medium mb-3">Auto-tune</h2>
+        <h2 className="font-medium mb-3">{t("models.autotune")}</h2>
         <label className="text-sm">
-          Preset
+          {t("models.preset")}
           <select
             value={preset}
             onChange={(e) => setPreset(e.target.value)}
@@ -173,7 +174,7 @@ export default function Models() {
           disabled={busy || !modelPath}
           className="mt-3 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 py-2 text-sm"
         >
-          Calcular flags óptimos
+          {t("models.computeFlags")}
         </button>
         {prescription && (
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/60">
@@ -183,21 +184,21 @@ export default function Models() {
             <span>ctx: <b className="text-white/90">{prescription.ctx}</b></span>
             <span>batch: <b className="text-white/90">{prescription.batch}</b></span>
             <span>KV: <b className="text-white/90">{prescription.ctk}/{prescription.ctv}</b></span>
-            <span>flash attn: <b className="text-white/90">{prescription.flash_attn ? "on" : "off"}</b></span>
-            <span>mlock: <b className="text-white/90">{prescription.mlock ? "on" : "off"}</b></span>
+            <span>{t("models.flashAttn")}: <b className="text-white/90">{prescription.flash_attn ? t("models.on") : t("models.off")}</b></span>
+            <span>{t("models.mlock")}: <b className="text-white/90">{prescription.mlock ? t("models.on") : t("models.off")}</b></span>
           </div>
         )}
       </section>
 
       {prescription && (
         <section className="rounded-xl border border-white/10 bg-white/5 p-5 mb-4">
-          <h2 className="font-medium mb-3">Binario</h2>
+          <h2 className="font-medium mb-3">{t("models.binary")}</h2>
           <button
             onClick={ensureBinary}
             disabled={downloading || binaryReady}
             className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-4 py-2 text-sm"
           >
-            {binaryReady ? "✓ Listo" : downloading ? "Descargando…" : "Descargar llama-server"}
+            {binaryReady ? t("models.ready") : downloading ? t("models.downloading") : t("models.downloadBinary")}
           </button>
         </section>
       )}
@@ -210,7 +211,7 @@ export default function Models() {
               disabled={busy || !modelPath || !prescription || !binaryReady}
               className="rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm"
             >
-              {busy ? "Iniciando…" : "▶ Iniciar inferencia"}
+              {busy ? t("models.starting") : t("models.start")}
             </button>
           ) : (
             <button
@@ -218,12 +219,12 @@ export default function Models() {
               disabled={busy}
               className="rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 px-4 py-2 text-sm"
             >
-              {busy ? "Deteniendo…" : "■ Detener"}
+              {busy ? t("models.stopping") : t("models.stop")}
             </button>
           )}
           {running && (
             <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-300">
-              activo
+              {t("models.active")}
             </span>
           )}
         </div>
@@ -232,9 +233,9 @@ export default function Models() {
 
       {/* HuggingFace Hub */}
       <section className="rounded-xl border border-white/10 bg-white/5 p-5 mt-4">
-        <h2 className="font-medium mb-3">Descargar desde HuggingFace</h2>
+        <h2 className="font-medium mb-3">{t("models.hub")}</h2>
         {hubModels.length === 0 ? (
-          <p className="text-xs text-white/40">Cargando lista…</p>
+          <p className="text-xs text-white/40">{t("models.hubLoading")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {hubModels.map((m) => (
@@ -262,7 +263,7 @@ export default function Models() {
                   disabled={hubBusy !== null}
                   className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 px-3 py-1.5 text-xs"
                 >
-                  {hubBusy === m.file ? "Descargando…" : "↓ Descargar"}
+                  {hubBusy === m.file ? t("models.downloading") : t("models.download")}
                 </button>
               </div>
             ))}

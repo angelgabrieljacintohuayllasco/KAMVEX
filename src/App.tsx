@@ -194,10 +194,10 @@ export default function App() {
         </div>
 
         <div className="border-t border-white/10 p-2 flex flex-col gap-0.5">
-          <NavBtn v="knowledge" label="Knowledge" icon="📚" />
-          <NavBtn v="models" label="Models" icon="🎮" />
-          <NavBtn v="compare" label="Compare" icon="⚡" />
-          <NavBtn v="settings" label="Settings" icon="⚙" />
+          <NavBtn v="knowledge" label={t("nav.knowledge")} icon="📚" />
+          <NavBtn v="models" label={t("nav.models")} icon="🎮" />
+          <NavBtn v="compare" label={t("nav.compare")} icon="⚡" />
+          <NavBtn v="settings" label={t("nav.settings")} icon="⚙" />
         </div>
       </nav>
 
