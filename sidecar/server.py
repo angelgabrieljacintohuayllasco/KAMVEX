@@ -454,22 +454,57 @@ def inference_metrics():
 # ── HuggingFace model hub (curated GGUF list) ──────────────────────────────
 
 _HF_CURATED = [
+    # ── Ultraligeros (< 1 GB) — CPU / poca RAM ──
     {"repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 0.5B Q4", "size_mb": 400, "desc": "Ultralight, ideal for CPU/low-RAM"},
-    {"repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 1.5B Q4", "size_mb": 1000, "desc": "Small, fast, good quality"},
-    {"repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 3B Q4", "size_mb": 2000, "desc": "Balanced quality/speed"},
-    {"repo": "Qwen/Qwen2.5-7B-Instruct-GGUF", "file": "qwen2.5-7b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 7B Q4", "size_mb": 4500, "desc": "High quality, needs GPU or 16GB RAM"},
-    {"repo": "Qwen/Qwen3-MoE-30B-A3B-GGUF", "file": "qwen3-moe-30b-a3b-q4_k_m.gguf",
-     "name": "Qwen3-MoE 30B Q4", "size_mb": 18000, "desc": "MoE, needs 24GB VRAM"},
-    {"repo": "google/gemma-3-4b-it-GGUF", "file": "gemma-3-4b-it-q4_k_m.gguf",
-     "name": "Gemma 3 4B Q4", "size_mb": 2600, "desc": "Google, good multilingual"},
-    {"repo": "meta-llama/Llama-3.2-3B-Instruct-GGUF", "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-     "name": "Llama 3.2 3B Q4", "size_mb": 2000, "desc": "Meta, balanced"},
+     "name": "Qwen2.5 0.5B Q4", "size_mb": 491, "category": "ultralight",
+     "desc": "Ultraligero, ideal para CPU o 4 GB RAM"},
     {"repo": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", "file": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-     "name": "TinyLlama 1.1B Q4", "size_mb": 700, "desc": "Minimal, for testing"},
+     "name": "TinyLlama 1.1B Q4", "size_mb": 700, "category": "ultralight",
+     "desc": "Mínimo, para pruebas rápidas"},
+
+    # ── Ligeros (1-3 GB) — CPU / RAM media ──
+    {"repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+     "name": "Qwen2.5 1.5B Q4", "size_mb": 1120, "category": "light",
+     "desc": "Pequeño, rápido, buena calidad"},
+    {"repo": "bartowski/gemma-2-2b-it-GGUF", "file": "gemma-2-2b-it-Q4_K_M.gguf",
+     "name": "Gemma 2 2B Q4", "size_mb": 1710, "category": "light",
+     "desc": "Google, multilingüe, compacto"},
+    {"repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+     "name": "Qwen2.5 3B Q4", "size_mb": 2100, "category": "light",
+     "desc": "Equilibrio calidad/velocidad"},
+    {"repo": "bartowski/Phi-3.5-mini-instruct-GGUF", "file": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+     "name": "Phi-3.5 Mini Q4", "size_mb": 2390, "category": "light",
+     "desc": "Microsoft, multilingüe, código"},
+
+    # ── Medios (3-6 GB) — GPU recomendada ──
+    {"repo": "Qwen/Qwen2.5-7B-Instruct-GGUF", "file": "qwen2.5-7b-instruct-q3_k_m.gguf",
+     "name": "Qwen2.5 7B Q3", "size_mb": 3810, "category": "medium",
+     "desc": "Alta calidad, necesita GPU o 16 GB RAM"},
+    {"repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF", "file": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+     "name": "Mistral 7B v0.3 Q4", "size_mb": 4370, "category": "medium",
+     "desc": "Europeo, buen multilingüe"},
+    {"repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+     "name": "Qwen2.5 Coder 7B Q4", "size_mb": 4680, "category": "medium",
+     "desc": "Especializado en código y programación"},
+    {"repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF", "file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+     "name": "DeepSeek-R1 Distill 7B Q4", "size_mb": 4680, "category": "medium",
+     "desc": "Razonamiento avanzado, estilo R1"},
+    {"repo": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+     "name": "Llama 3.1 8B Q4", "size_mb": 4920, "category": "medium",
+     "desc": "Meta, equilibrio calidad/tamaño"},
+
+    # ── Grandes (6-10 GB) — GPU / mucha RAM ──
+    {"repo": "bartowski/Mistral-Nemo-Instruct-2407-GGUF", "file": "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+     "name": "Mistral Nemo 12B Q4", "size_mb": 7480, "category": "large",
+     "desc": "12B, 128k contexto, multilingüe"},
+    {"repo": "bartowski/Qwen2.5-14B-Instruct-GGUF", "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+     "name": "Qwen2.5 14B Q4", "size_mb": 8990, "category": "large",
+     "desc": "Alta calidad, necesita 12 GB VRAM"},
+
+    # ── XL (> 10 GB) — VRAM alta ──
+    {"repo": "Qwen/Qwen3-MoE-30B-A3B-GGUF", "file": "qwen3-moe-30b-a3b-q4_k_m.gguf",
+     "name": "Qwen3-MoE 30B Q4", "size_mb": 18000, "category": "xl",
+     "desc": "MoE, necesita 24 GB VRAM"},
 ]
 
 

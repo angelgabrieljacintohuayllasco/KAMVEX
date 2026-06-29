@@ -244,6 +244,7 @@ export type HubModel = {
   name: string;
   size_mb: number;
   desc: string;
+  category: string;
 };
 
 export async function listHubModels(): Promise<HubModel[]> {
