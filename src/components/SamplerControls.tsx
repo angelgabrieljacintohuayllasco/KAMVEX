@@ -25,14 +25,14 @@ export default function SamplerControls({
         step={step}
         value={samplers[key_]}
         onChange={(e) => onChange({ ...samplers, [key_]: parseFloat(e.target.value) })}
-        className="accent-indigo-500"
+        className="accent-accent"
       />
     </label>
   );
 
   return (
-    <details className="rounded-lg border border-white/10 bg-black/20 p-2">
-      <summary className="cursor-pointer text-xs text-white/40">{t("sampler.title")}</summary>
+    <details className="rounded-lg border border-white/10 bg-black/20 p-2.5">
+      <summary className="cursor-pointer text-xs text-white/40 hover:text-white/60 transition-colors">{t("sampler.title")}</summary>
       <div className="mt-2 grid grid-cols-2 gap-3">
         <Slider label={t("sampler.temp")} key_="temperature" min={0} max={2} step={0.05} />
         <Slider label={t("sampler.topP")} key_="top_p" min={0} max={1} step={0.01} />

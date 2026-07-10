@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@theme {
+  --color-accent: #6366f1;
+  --color-accent-hover: #4f46e5;
+  --color-accent-fg: #ffffff;
+  --radius-card: 0.75rem;
+  --radius-modal: 1rem;
+  --shadow-elevated: 0 12px 32px -8px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
 :root {
   color-scheme: dark;
 }
@@ -59,3 +69,18 @@ body {
 :root[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.04); }
 :root[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.07); }
 :root[data-theme="light"] .hover\:bg-white\/20:hover { background-color: rgba(0, 0, 0, 0.10); }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-pop-in { animation: pop-in 0.12s ease-out; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.15s ease-out; }
+
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+:root[data-theme="light"] * { scrollbar-color: rgba(0,0,0,0.15) transparent; }

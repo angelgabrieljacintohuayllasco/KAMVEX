@@ -7,6 +7,8 @@ export type Dataset = {
   profile: string;
   path: string;
   dim?: number;
+  source_doc?: string;
+  n_pages?: number;
 };
 
 export type Fragment = { text: string; score: number; source_id: string | null };
@@ -137,6 +139,38 @@ export async function chat(
   return r.json();
 }
 
+// ── Free LLM chat (no dataset needed) ──────────────────────────────────────
+
+export async function freeChat(
+  query: string,
+  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
+): Promise<ChatResponse> {
+  const body: Record<string, unknown> = { query };
+  if (samplers) Object.assign(body, samplers);
+  const r = await fetch(`${await base()}/chat/free`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`freeChat ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// ── Local downloaded models ────────────────────────────────────────────────
+
+export type LocalModel = {
+  name: string;
+  file: string;
+  path: string;
+  size_mb: number;
+};
+
+export async function listLocalModels(): Promise<LocalModel[]> {
+  const r = await fetch(`${await base()}/models/local`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
 // ── Inference engine (llama-server) ─────────────────────────────────────────
 
 export async function llamaPort(): Promise<number> {
@@ -253,7 +287,16 @@ export async function listHubModels(): Promise<HubModel[]> {
   return r.json();
 }
 
-export async function downloadHubModel(repo: string, file: string): Promise<{ status: string; path?: string; error?: string }> {
+export type DownloadProgress = {
+  status: "downloading" | "paused" | "done" | "error" | "cancelled";
+  downloaded: number;
+  total: number;
+  pct: number;
+  speed_mbps: number;
+  error: string;
+};
+
+export async function downloadHubModel(repo: string, file: string): Promise<{ status: string; download_id?: string; path?: string }> {
   const r = await fetch(`${await base()}/models/hub/download`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -261,6 +304,44 @@ export async function downloadHubModel(repo: string, file: string): Promise<{ st
   });
   if (!r.ok) throw new Error(`downloadHubModel ${r.status}`);
   return r.json();
+}
+
+export function subscribeHubDownload(downloadId: string, onProgress: (p: DownloadProgress) => void): () => void {
+  let stopped = false;
+  (async () => {
+    const b = await base();
+    const resp = await fetch(`${b}/models/hub/download/${downloadId}/events`);
+    const reader = resp.body?.getReader();
+    if (!reader) return;
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (!stopped) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try { onProgress(JSON.parse(line.slice(6))); } catch {}
+        }
+      }
+    }
+    reader.cancel();
+  })();
+  return () => { stopped = true; };
+}
+
+export async function cancelHubDownload(downloadId: string): Promise<void> {
+  await fetch(`${await base()}/models/hub/download/${downloadId}/cancel`, { method: "POST" });
+}
+
+export async function pauseHubDownload(downloadId: string): Promise<void> {
+  await fetch(`${await base()}/models/hub/download/${downloadId}/pause`, { method: "POST" });
+}
+
+export async function resumeHubDownload(downloadId: string): Promise<void> {
+  await fetch(`${await base()}/models/hub/download/${downloadId}/resume`, { method: "POST" });
 }
 
 // ── Federated query (MoE semantic router) ───────────────────────────────────
@@ -325,4 +406,29 @@ export async function startBuildText(name: string, text: string, profile: string
   });
   if (!r.ok) throw new Error(`startBuildText ${r.status}: ${await r.text()}`);
   return r.json();
+}
+
+// ── Document summary (grounded, from the dataset's own source text) ────────
+
+export async function datasetSummary(name: string): Promise<string> {
+  const r = await fetch(`${await base()}/datasets/${encodeURIComponent(name)}/summary`, {
+    method: "POST",
+  });
+  if (!r.ok) throw new Error(`datasetSummary ${r.status}: ${await r.text()}`);
+  return (await r.json()).summary as string;
+}
+
+// ── PDF page citations are encoded into Fragment.source_id as
+//    "{document}.pdf · p.{N}" (see sidecar/server.py build_from_text). Parse
+//    it back out for display instead of threading new fields through DASA's
+//    Fragment dataclass, which KAMVEX does not modify.
+export type ParsedCitation = { doc: string | null; page: number | null; label: string };
+
+export function parseCitation(sourceId: string | null): ParsedCitation {
+  if (!sourceId) return { doc: null, page: null, label: "" };
+  const match = sourceId.match(/^(.*) · p\.(\d+)(?:#\d+)?$/);
+  if (match) {
+    return { doc: match[1], page: Number(match[2]), label: `${match[1]} · p.${match[2]}` };
+  }
+  return { doc: null, page: null, label: sourceId };
 }

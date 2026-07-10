@@ -27,9 +27,12 @@ export default function MetricsPanel() {
 
   if (!metrics || !metrics.connected) {
     return (
-      <div className="flex items-center gap-2 text-xs text-white/30">
-        <span className="w-2 h-2 rounded-full bg-white/20" />
-        {t("metrics.noEngine")}
+      <div className="flex flex-col gap-0.5 text-xs text-white/30">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-white/20" />
+          {t("metrics.noEngine")}
+        </div>
+        <span className="text-[10px] text-white/20 ml-4">{t("metrics.noEngineHint")}</span>
       </div>
     );
   }

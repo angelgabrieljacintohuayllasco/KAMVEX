@@ -105,6 +105,14 @@ class ChatReq(BaseModel):
     repeat_penalty: float = 1.0
 
 
+class FreeChatReq(BaseModel):
+    query: str
+    temperature: float = 0.1
+    top_p: float = 0.95
+    top_k: int = 40
+    repeat_penalty: float = 1.0
+
+
 class InferenceConnectReq(BaseModel):
     host: str = "127.0.0.1"
     port: int
@@ -231,75 +239,107 @@ def build_dataset(req: BuildReq):
     return {"job_id": jid}
 
 
-def _extract_pdf_text(pdf_path: str) -> str:
-    """Extract text from a PDF file. Tries pypdf first, falls back to raw stream parsing."""
+def _extract_pdf_pages(pdf_path: str) -> list[tuple[int, str]]:
+    """Extract text from a PDF as (page_number, text) pairs, 1-indexed.
+
+    Tries pypdf first, falls back to raw stream parsing (one "page" per
+    content stream — an approximation, but keeps page citations working
+    even without pypdf installed).
+    """
     if not Path(pdf_path).exists():
         raise HTTPException(404, f"PDF no encontrado: {pdf_path}")
 
-    # Try pypdf if available
     try:
         from pypdf import PdfReader
         reader = PdfReader(pdf_path)
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
+        return [(i + 1, page.extract_text() or "") for i, page in enumerate(reader.pages)]
     except ImportError:
         pass
 
-    # Fallback: extract text from raw PDF streams (works for simple text PDFs)
     import re
     import zlib
     raw = Path(pdf_path).read_bytes()
-    texts = []
-    # Find all stream...endstream blocks
-    for match in re.finditer(b'stream\r?\n(.*?)\r?\nendstream', raw, re.DOTALL):
+    pages = []
+    for i, match in enumerate(re.finditer(b'stream\r?\n(.*?)\r?\nendstream', raw, re.DOTALL)):
         data = match.group(1)
         try:
             decompressed = zlib.decompress(data)
-            # Extract text between BT...ET markers (text objects)
             text_matches = re.findall(rb'\((.*?)\)', decompressed)
             if text_matches:
-                texts.append(" ".join(t.decode('latin-1') for t in text_matches))
+                pages.append((i + 1, " ".join(t.decode('latin-1') for t in text_matches)))
         except Exception:
             continue
-    return "\n".join(texts)
+    return pages
 
 
-@app.post("/datasets/build-text")
-def build_from_text(req: BuildTextReq):
-    _require_dasa()
-    """Build a dataset from raw text or PDF by chunking it into records."""
-    if req.profile not in ("low-ram", "medium", "fast"):
-        raise HTTPException(400, f"perfil inválido: {req.profile}")
-
-    text = req.text.strip()
-    if req.pdf_path:
-        text = _extract_pdf_text(req.pdf_path)
-
-    if not text:
-        raise HTTPException(400, "texto vacío o PDF sin texto extraíble")
+def _chunk_text(text: str, chunk_size: int) -> list[str]:
+    """Split text into chunks at paragraph boundaries, capped at chunk_size."""
     chunks = []
     current = ""
     for para in text.split("\n"):
         para = para.strip()
         if not para:
             continue
-        if len(current) + len(para) > req.chunk_size and current:
+        if len(current) + len(para) > chunk_size and current:
             chunks.append(current)
             current = para
         else:
             current = f"{current} {para}".strip() if current else para
     if current:
         chunks.append(current)
+    return chunks
 
-    if not chunks:
-        raise HTTPException(400, "no se pudo extraer texto válido")
 
-    records = [{"id": f"chunk_{i}", "title": f"Fragmento {i+1}", "content": c}
-               for i, c in enumerate(chunks)]
+@app.post("/datasets/build-text")
+def build_from_text(req: BuildTextReq):
+    _require_dasa()
+    """Build a dataset from raw text or PDF by chunking it into records.
+
+    PDF chunks never span a page boundary, so each chunk keeps an exact
+    page number — this is what powers the "p.N" citation in chat answers.
+    """
+    if req.profile not in ("low-ram", "medium", "fast"):
+        raise HTTPException(400, f"perfil inválido: {req.profile}")
+
+    source_doc: str | None = None
+    full_text = ""
+    # (page_number_or_None, chunk_text)
+    paged_chunks: list[tuple[int | None, str]] = []
+
+    if req.pdf_path:
+        source_doc = Path(req.pdf_path).name
+        pages = _extract_pdf_pages(req.pdf_path)
+        full_text = "\n".join(p[1] for p in pages)
+        for page_no, page_text in pages:
+            paged_chunks.extend((page_no, c) for c in _chunk_text(page_text, req.chunk_size))
+    else:
+        full_text = req.text.strip()
+        paged_chunks = [(None, c) for c in _chunk_text(full_text, req.chunk_size)]
+
+    if not full_text or not paged_chunks:
+        raise HTTPException(400, "texto vacío o PDF sin texto extraíble")
+
+    def _title(i: int, page: int | None) -> str:
+        if page is not None and source_doc:
+            return f"{source_doc} · p.{page}"
+        return f"Fragmento {i + 1}"
+
+    records = [
+        {"id": f"chunk_{i}", "title": _title(i, page), "content": c}
+        for i, (page, c) in enumerate(paged_chunks)
+    ]
 
     # Write to temp JSON and run build
     import tempfile
     tmp = Path(tempfile.mktemp(suffix=".json"))
     tmp.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+
+    db = DATA_DIR / req.name
+    db.mkdir(parents=True, exist_ok=True)
+    (db / "fulltext.txt").write_text(full_text, encoding="utf-8")
+
+    n_pages = max((p[0] for p in paged_chunks if p[0] is not None), default=None)
+    extra_meta = {"source_doc": source_doc, "n_pages": n_pages} if source_doc else None
 
     job = BuildJob()
     jid = uuid.uuid4().hex
@@ -310,10 +350,35 @@ def build_from_text(req: BuildTextReq):
         kwargs=dict(name=req.name, json_path=str(tmp), profile=req.profile,
                     data_dir=DATA_DIR, num_shards=None,
                     embedding_engine=_get_embedding_engine(),
-                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq),
+                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq,
+                    extra_meta=extra_meta),
         daemon=True,
     ).start()
-    return {"job_id": jid, "n_chunks": len(chunks)}
+    return {"job_id": jid, "n_chunks": len(paged_chunks)}
+
+
+@app.post("/datasets/{name}/summary")
+def dataset_summary(name: str):
+    """Summarize a dataset's source document using the active inference engine.
+
+    Grounded by construction: the prompt only contains the dataset's own
+    extracted text, so the model cannot introduce facts from elsewhere.
+    """
+    if _LLAMA_CONNECTOR is None:
+        raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
+    db = DATA_DIR / name
+    fulltext_path = db / "fulltext.txt"
+    if not fulltext_path.exists():
+        raise HTTPException(404, "Este dataset no tiene texto fuente disponible para resumir.")
+
+    text = fulltext_path.read_text(encoding="utf-8")[:8000]
+    prompt = (
+        "Resume el siguiente documento de forma fiel y concisa, en español. "
+        "No inventes información que no esté presente en el texto.\n\n"
+        f"{text}\n\nResumen:"
+    )
+    summary = _LLAMA_CONNECTOR(prompt)
+    return {"summary": summary}
 
 
 @app.get("/datasets/build/{job_id}/events")
@@ -382,6 +447,30 @@ def chat(req: ChatReq):
         ],
         "mode": mode,
     }
+
+
+@app.post("/chat/free")
+def chat_free(req: FreeChatReq):
+    """Direct LLM chat — no dataset or DASA pipeline required."""
+    if _LLAMA_CONNECTOR is None:
+        raise HTTPException(400, "No hay motor de inferencia activo.")
+    _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
+    answer = _LLAMA_CONNECTOR(req.query)
+    return {"answer": answer, "fragments": [], "mode": "free"}
+
+
+@app.get("/models/local")
+def list_local_models():
+    """List downloaded GGUF model files in the models/ directory."""
+    models_dir = _HERE.parent / "models"
+    if not models_dir.exists():
+        return []
+    result = []
+    for f in sorted(models_dir.iterdir()):
+        if f.is_file() and f.suffix == ".gguf":
+            size_mb = round(f.stat().st_size / (1024 * 1024))
+            result.append({"name": f.stem, "file": f.name, "path": str(f), "size_mb": size_mb})
+    return result
 
 
 @app.post("/inference/connect")
@@ -531,10 +620,119 @@ class HubDownloadReq(BaseModel):
     file: str
 
 
+class _DownloadState:
+    """Tracks a single model download with pause/cancel support."""
+    __slots__ = ("id", "repo", "file", "dest", "url", "total", "downloaded",
+                 "speed", "status", "error", "cancel_ev", "pause_ev", "q")
+
+    def __init__(self, dl_id: str, repo: str, file: str, dest: Path, url: str):
+        self.id = dl_id
+        self.repo = repo
+        self.file = file
+        self.dest = dest
+        self.url = url
+        self.total: int = 0
+        self.downloaded: int = 0
+        self.speed: float = 0.0
+        self.status: str = "downloading"  # downloading | paused | done | error | cancelled
+        self.error: str = ""
+        self.cancel_ev = threading.Event()
+        self.pause_ev = threading.Event()  # SET = running, CLEAR = paused
+        self.pause_ev.set()
+        self.q: queue.Queue = queue.Queue()
+
+    def progress_pct(self) -> float:
+        if self.total <= 0:
+            return 0.0
+        return round(self.downloaded / self.total * 100, 1)
+
+    def emit(self):
+        self.q.put({
+            "status": self.status,
+            "downloaded": self.downloaded,
+            "total": self.total,
+            "pct": self.progress_pct(),
+            "speed_mbps": round(self.speed, 2),
+            "error": self.error,
+        })
+
+
+_DOWNLOADS: dict[str, _DownloadState] = {}
+
+
+def _run_download(state: _DownloadState):
+    """Chunked download in background thread with pause/cancel/resume."""
+    import urllib.request
+
+    part = Path(str(state.dest) + ".part")
+    headers = {}
+    if part.exists():
+        state.downloaded = part.stat().st_size
+        headers["Range"] = f"bytes={state.downloaded}-"
+
+    try:
+        req = urllib.request.Request(state.url, headers=headers)
+        resp = urllib.request.urlopen(req, timeout=30)
+
+        content_length = resp.headers.get("Content-Length")
+        if state.downloaded > 0 and resp.status == 206:
+            cr = resp.headers.get("Content-Range", "")
+            if "/" in cr:
+                state.total = int(cr.split("/")[-1])
+            elif content_length:
+                state.total = state.downloaded + int(content_length)
+        elif content_length:
+            state.total = int(content_length)
+            state.downloaded = 0
+
+        state.emit()
+
+        chunk_size = 256 * 1024  # 256 KB
+        mode = "ab" if resp.status == 206 else "wb"
+        last_time = time.time()
+        last_bytes = state.downloaded
+
+        with open(part, mode) as f:
+            while True:
+                if state.cancel_ev.is_set():
+                    state.status = "cancelled"
+                    state.emit()
+                    try:
+                        part.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    return
+
+                state.pause_ev.wait()
+
+                data = resp.read(chunk_size)
+                if not data:
+                    break
+
+                f.write(data)
+                state.downloaded += len(data)
+
+                now = time.time()
+                elapsed = now - last_time
+                if elapsed >= 0.5:
+                    state.speed = (state.downloaded - last_bytes) / elapsed / 1_000_000
+                    last_time = now
+                    last_bytes = state.downloaded
+                    state.emit()
+
+        part.rename(state.dest)
+        state.status = "done"
+        state.emit()
+
+    except Exception as e:
+        state.status = "error"
+        state.error = str(e)
+        state.emit()
+
+
 @app.post("/models/hub/download")
 def hub_download(req: HubDownloadReq):
-    """Download a GGUF model from HuggingFace to the models/ directory."""
-    import urllib.request
+    """Start a GGUF model download from HuggingFace. Returns download_id for tracking."""
     models_dir = _HERE.parent / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     dest = models_dir / req.file
@@ -542,12 +740,74 @@ def hub_download(req: HubDownloadReq):
     if dest.exists():
         return {"status": "already", "path": str(dest)}
 
+    for dl in _DOWNLOADS.values():
+        if dl.file == req.file and dl.status in ("downloading", "paused"):
+            return {"status": "in_progress", "download_id": dl.id}
+
     url = f"https://huggingface.co/{req.repo}/resolve/main/{req.file}"
-    try:
-        urllib.request.urlretrieve(url, str(dest))
-        return {"status": "downloaded", "path": str(dest), "size_mb": dest.stat().st_size // 1_000_000}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    dl_id = uuid.uuid4().hex[:12]
+    state = _DownloadState(dl_id, req.repo, req.file, dest, url)
+    _DOWNLOADS[dl_id] = state
+
+    threading.Thread(target=_run_download, args=(state,), daemon=True).start()
+    return {"status": "started", "download_id": dl_id}
+
+
+@app.get("/models/hub/download/{dl_id}/events")
+def hub_download_events(dl_id: str):
+    """SSE stream of download progress."""
+    state = _DOWNLOADS.get(dl_id)
+    if state is None:
+        raise HTTPException(404, "download desconocido")
+
+    def gen():
+        state.emit()
+        while True:
+            try:
+                ev = state.q.get(timeout=30)
+            except queue.Empty:
+                if state.status in ("done", "error", "cancelled"):
+                    break
+                continue
+            yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+            if ev["status"] in ("done", "error", "cancelled"):
+                break
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@app.post("/models/hub/download/{dl_id}/cancel")
+def hub_download_cancel(dl_id: str):
+    state = _DOWNLOADS.get(dl_id)
+    if state is None:
+        raise HTTPException(404, "download desconocido")
+    state.cancel_ev.set()
+    state.pause_ev.set()
+    return {"status": "cancelling"}
+
+
+@app.post("/models/hub/download/{dl_id}/pause")
+def hub_download_pause(dl_id: str):
+    state = _DOWNLOADS.get(dl_id)
+    if state is None:
+        raise HTTPException(404, "download desconocido")
+    if state.status == "downloading":
+        state.pause_ev.clear()
+        state.status = "paused"
+        state.emit()
+    return {"status": state.status}
+
+
+@app.post("/models/hub/download/{dl_id}/resume")
+def hub_download_resume(dl_id: str):
+    state = _DOWNLOADS.get(dl_id)
+    if state is None:
+        raise HTTPException(404, "download desconocido")
+    if state.status == "paused":
+        state.status = "downloading"
+        state.pause_ev.set()
+        state.emit()
+    return {"status": state.status}
 
 
 @app.post("/oregano/{dataset}")

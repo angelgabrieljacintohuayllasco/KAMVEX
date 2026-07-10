@@ -93,7 +93,7 @@ class BuildJob:
 
 
 def run_build(job: BuildJob, *, name, json_path, profile, data_dir, num_shards,
-              embedding_engine, shard_writer_cls, build_ivfpq_fn):
+              embedding_engine, shard_writer_cls, build_ivfpq_fn, extra_meta=None):
     """Execute the full build pipeline, emitting progress on `job`."""
     try:
         job.emit("read", 2, f"Leyendo {Path(json_path).suffix.upper()}")
@@ -123,6 +123,8 @@ def run_build(job: BuildJob, *, name, json_path, profile, data_dir, num_shards,
 
         meta = {"name": name, "n_records": n, "profile": profile,
                 "num_shards": num_shards, "dim": int(emb.shape[1])}
+        if extra_meta:
+            meta.update({k: v for k, v in extra_meta.items() if v is not None})
         (db / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2),
                                       encoding="utf-8")
         job.emit("done", 100, "Índice listo")

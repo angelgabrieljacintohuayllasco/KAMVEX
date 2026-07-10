@@ -1,12 +1,13 @@
+import SegmentedControl, { type SegmentedOption } from "./ui/SegmentedControl";
 import { useI18n } from "../i18n";
 
 export type AgentBMode = "statistical" | "grounded" | "free";
 
-const MODES: { value: AgentBMode; labelKey: string; color: string; descKey: string }[] = [
-  { value: "statistical", labelKey: "mode.statistical", color: "emerald", descKey: "mode.statistical.desc" },
-  { value: "grounded", labelKey: "mode.grounded", color: "amber", descKey: "mode.grounded.desc" },
-  { value: "free", labelKey: "mode.free", color: "white", descKey: "mode.free.desc" },
-];
+const TONES: Record<AgentBMode, SegmentedOption["tone"]> = {
+  statistical: "success",
+  grounded: "warning",
+  free: "neutral",
+};
 
 export default function ModeSelector({
   mode,
@@ -18,30 +19,18 @@ export default function ModeSelector({
   inferenceRunning?: boolean;
 }) {
   const { t } = useI18n();
-  return (
-    <div className="flex items-center gap-1 rounded-full bg-black/30 border border-white/10 px-1 py-0.5 text-xs">
-      {MODES.map((m) => {
-        const active = mode === m.value;
-        const needsEngine = m.value !== "statistical";
-        const unavailable = needsEngine && !inferenceRunning;
-        const colorClasses = {
-          emerald: active ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "",
-          amber: active ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "",
-          white: active ? "bg-white/15 border-white/30 text-white/90" : "",
-        }[m.color];
-        return (
-          <button
-            key={m.value}
-            onClick={() => onChange(m.value)}
-            title={unavailable ? t("mode.needsEngine") : t(m.descKey)}
-            className={`rounded-full border px-2 py-1 transition-colors ${
-              active ? colorClasses : "border-transparent text-white/40 hover:text-white/60"
-            } ${unavailable && !active ? "opacity-40" : ""}`}
-          >
-            {t(m.labelKey)}
-          </button>
-        );
-      })}
-    </div>
-  );
+
+  const options: SegmentedOption<AgentBMode>[] = (["statistical", "grounded", "free"] as AgentBMode[]).map((m) => {
+    const needsEngine = m !== "statistical";
+    const unavailable = needsEngine && !inferenceRunning;
+    return {
+      value: m,
+      label: t(`mode.${m}`),
+      tone: TONES[m],
+      dim: unavailable,
+      title: unavailable ? t("mode.needsEngine") : t(`mode.${m}.desc`),
+    };
+  });
+
+  return <SegmentedControl value={mode} options={options} onChange={onChange} />;
 }

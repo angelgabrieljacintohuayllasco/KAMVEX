@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FileText, Settings2 } from "lucide-react";
 import {
   Dataset,
   pickJsonFile,
@@ -7,9 +8,11 @@ import {
   streamBuild,
   runOreganoTest,
   exportDatasetUrl,
+  datasetSummary,
   BuildEvent,
   OreganoResult,
 } from "../api/client";
+import { Button, Card, Field, Modal, Select, inputClass } from "../components/ui";
 import { useI18n } from "../i18n";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
@@ -34,6 +37,11 @@ export default function Knowledge({
   const [buildMode, setBuildMode] = useState<BuildMode>("file");
   const [rawText, setRawText] = useState("");
   const [pdfPath, setPdfPath] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState<string | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const [summaryBusy, setSummaryBusy] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [manageOpen, setManageOpen] = useState<string | null>(null);
 
   async function pick() {
     const p = await pickJsonFile();
@@ -67,7 +75,7 @@ export default function Knowledge({
     if (buildMode === "text" && !rawText.trim() && !pdfPath) return;
     setBusy(true);
     setError(null);
-    setProgress({ stage: "start", pct: 0, msg: "Iniciando" });
+    setProgress({ stage: "start", pct: 0, msg: t("knowledge.starting") });
     try {
       let jid: string;
       if (buildMode === "text") {
@@ -103,41 +111,51 @@ export default function Knowledge({
     }
   }
 
+  async function openSummary(datasetName: string) {
+    setSummaryOpen(datasetName);
+    if (summaries[datasetName]) return;
+    setSummaryBusy(datasetName);
+    setSummaryError(null);
+    try {
+      const s = await datasetSummary(datasetName);
+      setSummaries((prev) => ({ ...prev, [datasetName]: s }));
+    } catch (e) {
+      setSummaryError(String(e));
+    } finally {
+      setSummaryBusy(null);
+    }
+  }
+
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-1">{t("knowledge.title")}</h1>
-      <p className="text-sm text-white/40 mb-4">
-        {t("knowledge.desc")}
-      </p>
+      <h1 className="text-2xl font-semibold mb-1 tracking-tight">{t("knowledge.title")}</h1>
+      <p className="text-sm text-white/40 mb-4">{t("knowledge.desc")}</p>
 
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5 mb-6">
+      <Card className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <button
+          <Button
             onClick={() => setBuildMode("file")}
-            className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "file" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+            variant={buildMode === "file" ? "primary" : "secondary"}
+            size="sm"
           >
             {t("knowledge.fileMode")}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setBuildMode("text")}
-            className={`rounded-lg px-3 py-1.5 text-xs ${buildMode === "text" ? "bg-indigo-600" : "bg-white/10 hover:bg-white/20"}`}
+            variant={buildMode === "text" ? "primary" : "secondary"}
+            size="sm"
           >
             {t("knowledge.textMode")}
-          </button>
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3">
           {buildMode === "file" ? (
             <>
-              <button
-                onClick={pick}
-                className="self-start rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm"
-              >
+              <Button onClick={pick} variant="primary" className="self-start">
                 {jsonPath ? t("knowledge.changeFile") : t("knowledge.pickFile")}
-              </button>
-              {jsonPath && (
-                <p className="text-xs text-white/50 break-all">{jsonPath}</p>
-              )}
+              </Button>
+              {jsonPath && <p className="text-xs text-white/50 break-all">{jsonPath}</p>}
             </>
           ) : (
             <div className="flex flex-col gap-2">
@@ -146,52 +164,41 @@ export default function Knowledge({
                 onChange={(e) => setRawText(e.target.value)}
                 rows={6}
                 placeholder={t("knowledge.textPlaceholder")}
-                className="w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm resize-none placeholder:text-white/30"
+                className={`${inputClass} resize-none`}
               />
-              <button
-                onClick={pickPdf}
-                className="self-start rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
-              >
+              <Button onClick={pickPdf} variant="secondary" size="sm" className="self-start">
                 {pdfPath ? t("knowledge.changePdf") : t("knowledge.importPdf")}
-              </button>
-              {pdfPath && (
-                <p className="text-xs text-white/50 break-all">{pdfPath}</p>
-              )}
+              </Button>
+              {pdfPath && <p className="text-xs text-white/50 break-all">{pdfPath}</p>}
             </div>
           )}
 
-          <label className="text-sm">
-            {t("knowledge.name")}
+          <Field label={t("knowledge.name")}>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="mi-dataset"
-              className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label className="text-sm">
-            {t("knowledge.profile")}
-            <select
+          <Field label={t("knowledge.profile")}>
+            <Select
               value={profile}
-              onChange={(e) => setProfile(e.target.value)}
-              className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm"
-            >
-              {PROFILES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={PROFILES.map((p) => ({ value: p, label: p }))}
+              onChange={setProfile}
+            />
+          </Field>
 
-          <button
-            disabled={busy || !name || (buildMode === "file" ? !jsonPath : !rawText.trim() && !pdfPath)}
+          <Button
+            disabled={!name || (buildMode === "file" ? !jsonPath : !rawText.trim() && !pdfPath)}
+            loading={busy}
             onClick={build}
-            className="self-start rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm"
+            variant="success"
+            className="self-start"
           >
             {busy ? t("knowledge.building") : t("knowledge.buildBtn")}
-          </button>
+          </Button>
 
           {progress && (
             <div className="mt-2">
@@ -208,7 +215,7 @@ export default function Knowledge({
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
-      </div>
+      </Card>
 
       <h2 className="font-medium mb-2">{t("knowledge.built")}</h2>
       {datasets.length === 0 ? (
@@ -218,38 +225,61 @@ export default function Knowledge({
           {datasets.map((d) => {
             const oregano = oreganoResults[d.name];
             return (
-              <div
-                key={d.name}
-                className="rounded-xl border border-white/10 bg-white/5 p-4"
-              >
+              <Card key={d.name}>
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="font-medium text-base">{d.name}</span>
                     <p className="text-xs text-white/40 mt-1">
+                      {d.source_doc && (
+                        <>
+                          📄 {d.source_doc}
+                          {d.n_pages ? ` · ${d.n_pages} ${t("knowledge.pages")}` : ""} ·{" "}
+                        </>
+                      )}
                       {d.n_records} {t("knowledge.records")} · {t("knowledge.profileLabel")} {d.profile} · {d.dim ?? "?"} {t("knowledge.dim")}
                     </p>
                   </div>
                   <div className="flex gap-1.5">
-                    <button
+                    {d.source_doc && (
+                      <Button
+                        onClick={() => openSummary(d.name)}
+                        variant="secondary"
+                        size="sm"
+                        icon={<FileText className="h-3.5 w-3.5" />}
+                        title={t("knowledge.summaryTip")}
+                      >
+                        {t("knowledge.summary")}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => setManageOpen(d.name)}
+                      variant="secondary"
+                      size="sm"
+                      icon={<Settings2 className="h-3.5 w-3.5" />}
+                      title={t("knowledge.manageTip")}
+                    >
+                      {t("knowledge.manage")}
+                    </Button>
+                    <Button
                       onClick={() => runOregano(d.name)}
-                      disabled={oreganoBusy === d.name}
-                      className="rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 px-3 py-1.5 text-xs"
+                      loading={oreganoBusy === d.name}
+                      variant="secondary"
+                      size="sm"
                       title={t("knowledge.oreganoTip")}
                     >
                       {oreganoBusy === d.name ? t("knowledge.auditing") : t("knowledge.oregano")}
-                    </button>
-                    <a
-                      href={`#`}
-                      onClick={async (e) => {
-                        e.preventDefault();
+                    </Button>
+                    <Button
+                      onClick={async () => {
                         const url = await exportDatasetUrl(d.name);
                         window.open(url, "_blank");
                       }}
-                      className="rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs"
+                      variant="secondary"
+                      size="sm"
                       title={t("knowledge.exportTip")}
                     >
                       {t("knowledge.export")}
-                    </a>
+                    </Button>
                   </div>
                 </div>
 
@@ -282,11 +312,51 @@ export default function Knowledge({
                     )}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
       )}
+
+      <Modal open={summaryOpen !== null} onClose={() => setSummaryOpen(null)} title={t("knowledge.summary")}>
+        {summaryBusy === summaryOpen ? (
+          <p className="text-sm text-white/40">{t("knowledge.summarizing")}</p>
+        ) : summaryError ? (
+          <p className="text-sm text-red-400">{summaryError}</p>
+        ) : (
+          <p className="text-sm text-white/80 whitespace-pre-wrap leading-relaxed">
+            {summaryOpen ? summaries[summaryOpen] : ""}
+          </p>
+        )}
+      </Modal>
+
+      <Modal open={manageOpen !== null} onClose={() => setManageOpen(null)} title={manageOpen ?? ""}>
+        {(() => {
+          const d = datasets.find((x) => x.name === manageOpen);
+          if (!d) return null;
+          return (
+            <div className="flex flex-col gap-1.5 text-sm">
+              {d.source_doc && (
+                <Row k={t("knowledge.sourceDoc")} v={d.source_doc} />
+              )}
+              {d.n_pages !== undefined && <Row k={t("knowledge.pages")} v={String(d.n_pages)} />}
+              <Row k={t("knowledge.records")} v={String(d.n_records)} />
+              <Row k={t("knowledge.profileLabel")} v={d.profile} />
+              <Row k={t("knowledge.dim")} v={String(d.dim ?? "?")} />
+              <Row k={t("knowledge.path")} v={d.path} />
+            </div>
+          );
+        })()}
+      </Modal>
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between border-b border-white/5 py-2">
+      <span className="text-white/50">{k}</span>
+      <span className="font-medium text-right break-all ml-4">{v}</span>
     </div>
   );
 }

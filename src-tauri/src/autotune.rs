@@ -79,9 +79,8 @@ pub fn prescription_to_flags(p: &Prescription) -> Vec<String> {
         "-ctk".to_string(), p.ctk.clone(),
         "-ctv".to_string(), p.ctv.clone(),
     ];
-    if p.flash_attn {
-        flags.push("-fa".to_string());
-    }
+    flags.push("--flash-attn".to_string());
+    flags.push(if p.flash_attn { "on".to_string() } else { "off".to_string() });
     if p.mlock {
         flags.push("--mlock".to_string());
     }
@@ -150,7 +149,8 @@ mod tests {
         let flags = prescription_to_flags(&p);
         assert!(flags.contains(&"-ngl".to_string()));
         assert!(flags.contains(&"20".to_string()));
-        assert!(flags.contains(&"-fa".to_string()));
+        assert!(flags.contains(&"--flash-attn".to_string()));
+        assert!(flags.contains(&"on".to_string()));
         assert!(!flags.contains(&"--mlock".to_string()));
     }
 }
