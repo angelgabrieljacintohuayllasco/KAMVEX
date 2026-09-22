@@ -148,15 +148,18 @@ def main() -> None:
     args = ap.parse_args()
 
     bundles = [Path(p) for pat in args.bundles for p in glob.glob(pat)]
-    st = Stack(Path(args.home), Path(args.model) if args.model else None, args.backend, args.ctx, args.threads, args.ngl)
-    st.start_sidecar()
-    installed = st.install_bundles(bundles)
-    st.start_llama()
-    info = {"sidecar": st.base, "llama_port": st.llama_port if st.model else None,
-            "datasets": installed, "backend": args.backend, "model": args.model}
-    print(json.dumps(info), flush=True)
-    (Path(args.home) / "stack.json").write_text(json.dumps(info), encoding="utf-8")
+    model = Path(args.model).resolve() if args.model else None
+    if model and not model.is_file():
+        raise SystemExit(f"model not found: {model}")
+    st = Stack(Path(args.home).resolve(), model, args.backend, args.ctx, args.threads, args.ngl)
     try:
+        st.start_sidecar()
+        installed = st.install_bundles(bundles)
+        st.start_llama()
+        info = {"sidecar": st.base, "llama_port": st.llama_port if st.model else None,
+                "datasets": installed, "backend": args.backend, "model": str(model) if model else None}
+        print(json.dumps(info), flush=True)
+        (Path(args.home) / "stack.json").write_text(json.dumps(info), encoding="utf-8")
         if args.exit_after:
             time.sleep(args.exit_after)
         else:

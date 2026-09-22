@@ -102,6 +102,8 @@ def sidecar(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "MODELS_DIR", models_dir)
     monkeypatch.setattr(server, "_embedding_engine", FakeEmbeddingEngine())
     monkeypatch.setattr(server, "_LLAMA_CONNECTOR", None)
+    monkeypatch.setenv("KAMVEX_DATASET_CATALOG_URL", "off")   # tests never touch the network
+    monkeypatch.setattr(server, "_CATALOG_CACHE", {"at": 0.0, "data": None})
     server._PIPELINES.clear()
     with TestClient(server.app) as client:
         yield client

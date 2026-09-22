@@ -346,6 +346,22 @@ const dict: Dict = {
   "knowledge.rebuildTip": { es: "Volver a calcular embeddings e índice con el motor local (usa records.json del dataset)", en: "Recompute embeddings and index with the local engine (uses the dataset's records.json)" },
   "knowledge.rebuilding": { es: "Reconstruyendo…", en: "Rebuilding…" },
 
+  // Experts
+  "nav.experts": { es: "Expertos", en: "Experts" },
+  "experts.title": { es: "Expertos", en: "Experts" },
+  "experts.desc": { es: "Elige un área y KAMVEX instala el conocimiento y el modelo que lo hacen bueno en eso: responde con el corpus correcto, el modo adecuado y decodificación determinista cuando importa.", en: "Pick a field and KAMVEX installs the knowledge and the model that make it good at it: the right corpus, the right mode and deterministic decoding when it matters." },
+  "experts.ready": { es: "Listo", en: "Ready" },
+  "experts.active": { es: "En uso", en: "In use" },
+  "experts.setup": { es: "Instalar lo que falta", en: "Install what's missing" },
+  "experts.use": { es: "Usar este experto", en: "Use this expert" },
+  "experts.goChat": { es: "Ir al chat", en: "Go to chat" },
+  "experts.deactivate": { es: "Quitar", en: "Remove" },
+  "experts.installingDataset": { es: "Instalando conocimiento: {name}…", en: "Installing knowledge: {name}…" },
+  "experts.downloadingModel": { es: "Descargando modelo: {name}…", en: "Downloading model: {name}…" },
+  "experts.none": { es: "Sin experto", en: "No expert" },
+  "experts.pick": { es: "Experto", en: "Expert" },
+  "experts.notReady": { es: "Este experto aún no tiene su conocimiento o su modelo instalados.", en: "This expert is missing its knowledge or its model." },
+
   // Engine — advanced flags editor
   "engine.advanced": { es: "Ajustes avanzados", en: "Advanced settings" },
   "engine.advancedHint": { es: "Sobrescribe la receta automática. Se aplica al iniciar el motor.", en: "Overrides the automatic prescription. Applied when the engine starts." },

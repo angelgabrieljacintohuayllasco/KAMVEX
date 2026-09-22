@@ -35,7 +35,12 @@ DEFAULT_REPO = "leliuga/all-MiniLM-L6-v2-GGUF"
 DEFAULT_FILE = "all-MiniLM-L6-v2.F16.gguf"
 DEFAULT_CTX = 512        # BERT positional limit; sentence-transformers truncates at 256 tokens
 MAX_CHARS = 1200         # conservative char cap so no input exceeds the context window
-BATCH_SIZE = 32
+BATCH_SIZE = 16          # upper bound on texts per request
+# llama-server rejects a request whose tokens exceed the physical batch, so requests are
+# also capped by an estimated token budget (~4 chars per token in Spanish/English).
+BATCH_TOKEN_BUDGET = 1600
+CHARS_PER_TOKEN = 3.5
+PHYSICAL_BATCH = 4096    # -b/-ub for the embedding server (must fit BATCH_TOKEN_BUDGET)
 STARTUP_TIMEOUT_S = 90.0
 
 
@@ -168,9 +173,9 @@ class LlamaEmbeddingEngine:
             "--embedding",
             "--pooling", "mean",
             "--embd-normalize", "2",
-            "-c", str(self.ctx),
-            "-b", str(self.ctx),
-            "-ub", str(self.ctx),
+            "-c", str(max(self.ctx, PHYSICAL_BATCH)),
+            "-b", str(PHYSICAL_BATCH),
+            "-ub", str(PHYSICAL_BATCH),
             "-ngl", "0",
             "--host", "127.0.0.1",
             "--port", str(port),
@@ -255,14 +260,37 @@ class LlamaEmbeddingEngine:
         return [r["embedding"] for r in rows]
 
     def _embed_chunk(self, texts: list[str]) -> list[list[float]]:
-        """Embed a chunk; on a 4xx (input too long) fall back to halving each text."""
+        """Embed a chunk, recovering from "batch too large" errors.
+
+        llama-server answers 5xx when the request's tokens exceed the physical batch
+        and 4xx when a single input is longer than the context. Both are handled by
+        splitting the request, then by shortening the text when a single item fails.
+        """
+        if not texts:
+            return []
         try:
             return self._post_embeddings(texts)
         except urllib.error.HTTPError as e:
-            if e.code < 400 or e.code >= 500 or all(len(t) <= 64 for t in texts):
-                raise RuntimeError(f"llama-server embeddings HTTP {e.code}") from e
-            shorter = [t[: max(32, len(t) // 2)] for t in texts]
-            return self._embed_chunk(shorter)
+            if len(texts) > 1:
+                mid = len(texts) // 2
+                return self._embed_chunk(texts[:mid]) + self._embed_chunk(texts[mid:])
+            if len(texts[0]) > 64:
+                return self._embed_chunk([texts[0][: max(64, len(texts[0]) // 2)]])
+            raise RuntimeError(f"llama-server embeddings HTTP {e.code}") from e
+
+    def _batches(self, texts: list[str]):
+        """Group texts so each request stays under the token budget."""
+        batch: list[str] = []
+        budget = 0.0
+        for t in texts:
+            cost = len(t) / CHARS_PER_TOKEN
+            if batch and (len(batch) >= BATCH_SIZE or budget + cost > BATCH_TOKEN_BUDGET):
+                yield batch
+                batch, budget = [], 0.0
+            batch.append(t)
+            budget += cost
+        if batch:
+            yield batch
 
     # ── EmbeddingEngine contract ────────────────────────────────────────────
 
@@ -279,8 +307,8 @@ class LlamaEmbeddingEngine:
         if not texts:
             return np.zeros((0, self._dim or 0), dtype=np.float32)
         out: list[list[float]] = []
-        for i in range(0, len(texts), BATCH_SIZE):
-            out.extend(self._embed_chunk(texts[i:i + BATCH_SIZE]))
+        for batch in self._batches(texts):
+            out.extend(self._embed_chunk(batch))
         arr = np.asarray(out, dtype=np.float32)
         norms = np.linalg.norm(arr, axis=1, keepdims=True)
         norms[norms == 0] = 1.0

@@ -31,7 +31,7 @@ a = Analysis(
     ['server.py'],
     pathex=['.', _DASA, _SHARD],
     binaries=[],
-    datas=[],
+    datas=[('datasets_catalog.json', '.')],   # offline fallback of the dataset catalog
     hiddenimports=[
         # ── Sidecar modules ──
         'uvicorn',

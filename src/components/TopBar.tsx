@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Cpu, Library, Loader2, Sparkles } from "lucide-react";
 import { Select, StatusDot, type SelectOption } from "./ui";
-import type { Dataset, LocalModel } from "../api/client";
+import type { Dataset, Expert, LocalModel } from "../api/client";
 import { useI18n } from "../i18n";
 
 const AUTO_VALUE = "__auto__";
@@ -154,5 +154,64 @@ export function LlmSelector({
         />
       )}
     </div>
+  );
+}
+
+const NO_EXPERT = "__none__";
+
+/**
+ * Expert selector: with an expert active, KAMVEX picks the corpus, the mode,
+ * the system prompt and the decoding settings for that domain.
+ */
+export function ExpertSelector({
+  experts,
+  selected,
+  onSelect,
+  goExperts,
+}: {
+  experts: Expert[];
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  goExperts: () => void;
+}) {
+  const { t } = useI18n();
+  const ready = experts.filter((e) => e.status.ready);
+
+  if (ready.length === 0) {
+    return (
+      <button
+        onClick={goExperts}
+        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs text-white/50 transition-colors"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        {t("experts.title")}
+      </button>
+    );
+  }
+
+  const options: SelectOption[] = [
+    { value: NO_EXPERT, label: t("experts.none") },
+    ...ready.map((e) => ({
+      value: e.id,
+      label: e.name,
+      icon: <Sparkles className="h-3.5 w-3.5 text-accent" />,
+    })),
+  ];
+  const current = experts.find((e) => e.id === selected);
+
+  return (
+    <Select
+      className="w-52"
+      value={selected ?? NO_EXPERT}
+      options={options}
+      searchable={ready.length > 6}
+      renderValue={() => (
+        <span className="flex items-center gap-1.5 text-xs">
+          <Sparkles className={`h-3.5 w-3.5 ${current ? "text-accent" : "text-white/40"}`} />
+          {current?.name ?? t("experts.pick")}
+        </span>
+      )}
+      onChange={(v) => onSelect(v === NO_EXPERT ? null : v)}
+    />
   );
 }

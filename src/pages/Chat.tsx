@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUp, FileText, Sparkles, Loader2 } from "lucide-react";
-import { Dataset, parseCitation } from "../api/client";
+import { Dataset, parseCitation, type Expert } from "../api/client";
 import type { Conversation } from "../App";
 import ModeSelector, { type AgentBMode } from "../components/ModeSelector";
 import MetricsPanel from "../components/MetricsPanel";
@@ -21,6 +21,9 @@ export default function Chat({
   inferenceRunning,
   autoStarting,
   hasLlmSelected,
+  expert = null,
+  pendingQuestion = null,
+  onPendingConsumed,
 }: {
   conversation: Conversation | null;
   datasets: Dataset[];
@@ -34,6 +37,11 @@ export default function Chat({
   inferenceRunning: boolean;
   autoStarting: boolean;
   hasLlmSelected: boolean;
+  /** Active expert: it owns corpus, mode, prompt and samplers. */
+  expert?: Expert | null;
+  /** Question pre-filled from an expert example. */
+  pendingQuestion?: string | null;
+  onPendingConsumed?: () => void;
 }) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -43,15 +51,24 @@ export default function Chat({
     top_k: 40,
     repeat_penalty: 1.0,
   });
+  useEffect(() => {
+    if (pendingQuestion) {
+      setQuery(pendingQuestion);
+      onPendingConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion]);
+
   const empty = !conversation || conversation.messages.length === 0;
-  const showSamplers = agentBMode !== "statistical" && inferenceRunning;
+  const effectiveMode = expert ? expert.default_mode : agentBMode;
+  const showSamplers = effectiveMode !== "statistical" && inferenceRunning;
   const hasDatasets = datasets.length > 0;
-  const needsLlm = agentBMode !== "statistical";
+  const needsLlm = effectiveMode !== "statistical";
   const canSend =
     query.trim() &&
     !busy &&
-    (agentBMode === "free" || hasDatasets) &&
-    (agentBMode === "statistical" || hasLlmSelected);
+    (!!expert || agentBMode === "free" || hasDatasets) &&
+    (effectiveMode === "statistical" || hasLlmSelected);
 
   function submit() {
     const q = query.trim();
@@ -86,7 +103,13 @@ export default function Chat({
         />
         <div className="flex items-center justify-between pt-2 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <ModeSelector mode={agentBMode} onChange={setAgentBMode} inferenceRunning={inferenceRunning || hasLlmSelected} />
+            {expert ? (
+              <Badge tone="accent">
+                <Sparkles className="h-2.5 w-2.5" /> {expert.name} · {t(`mode.${expert.default_mode}`)}
+              </Badge>
+            ) : (
+              <ModeSelector mode={agentBMode} onChange={setAgentBMode} inferenceRunning={inferenceRunning || hasLlmSelected} />
+            )}
             {inferenceRunning && <MetricsPanel />}
             {autoStarting && (
               <span className="flex items-center gap-1.5 text-xs text-amber-300 animate-pulse">
@@ -123,12 +146,27 @@ export default function Chat({
         <h1 className="text-4xl font-semibold mb-2 tracking-tight">{t("chat.greeting")}</h1>
         <p className="text-white/50 mb-8">{t("chat.howHelp")}</p>
         {InputCard}
-        <p className="mt-4 text-xs text-white/30 flex items-center gap-1.5">
-          <Sparkles className="h-3 w-3" />
-          {agentBMode === "free" && !hasDatasets
-            ? t("flow.freeModeHint")
-            : t("chat.grounded")}
+        <p className="mt-4 text-xs text-white/30 flex items-center gap-1.5 text-center max-w-lg">
+          <Sparkles className="h-3 w-3 shrink-0" />
+          {expert
+            ? expert.description
+            : agentBMode === "free" && !hasDatasets
+              ? t("flow.freeModeHint")
+              : t("chat.grounded")}
         </p>
+        {expert && expert.examples.length > 0 && empty && (
+          <div className="mt-3 flex flex-wrap gap-1.5 justify-center max-w-xl">
+            {expert.examples.slice(0, 3).map((q) => (
+              <button
+                key={q}
+                onClick={() => setQuery(q)}
+                className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

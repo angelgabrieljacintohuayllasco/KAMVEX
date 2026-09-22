@@ -30,7 +30,69 @@ segun ser si sido siempre sin sino sobre solo son su sus tal tambien tan tanto t
 todas todo todos tras tu tus un una unas uno unos usted ustedes vez y ya yo
 the a an and or of to in on for with is are was were be been this that these those it its as by at from
 according information available contexto pregunta respuesta texto informacion disponible cubre tema
+termino terminos refiere refieren significa significan significado consiste consisten describe define
+denota expresion palabra palabras concepto indica indican utiliza utilizan usa usan tipo tipos forma
+formas manera accion efecto persona personas cosa cosas hace hacer puede pueden tiene tienen esta estan
+ejemplo general especialmente principalmente ademas asi decir dice dicen sobre acerca respecto relacion
+relacionado relacionada caracteriza caracterizan conocido conocida llamado llamada denominado denominada
 """.split())
+
+# Grounded mode context budget: small CPU models spend most of the time on prompt
+# processing and stop paying attention to the middle of a long passage, so records are
+# reduced to the sentences that actually answer the question.
+GROUNDED_MAX_FRAGMENTS = 3
+GROUNDED_MAX_CHARS = 900
+SENTENCE_RE = re.compile(r"(?<=[.!?:])\s+|\n+")
+
+
+def split_sentences(text: str) -> list[str]:
+    return [s.strip() for s in SENTENCE_RE.split(text) if s.strip()]
+
+
+def focus_text(query: str, text: str, max_chars: int = GROUNDED_MAX_CHARS) -> str:
+    """Keep the sentences that answer `query`, in their original order.
+
+    A 1.5B model reading 2 000 characters often misses "Su capital es Chachapoyas" in
+    sentence two. Scoring sentences by overlap with the question and dropping the rest
+    puts the answer where the model actually looks — and makes the prompt much cheaper.
+    The first sentence is always kept: it says what the record is about.
+    """
+    if len(text) <= max_chars:
+        return text
+    sentences = split_sentences(text)
+    if len(sentences) <= 1:
+        return text[:max_chars]
+    q_terms = content_terms(query)
+    scored: list[tuple[float, int]] = []
+    for i, s in enumerate(sentences):
+        terms = content_terms(s)
+        overlap = len(q_terms & terms) / (len(q_terms) or 1)
+        # tiny positional prior: earlier sentences are usually the definition
+        scored.append((overlap + max(0.0, 0.15 - i * 0.01), i))
+    scored.sort(reverse=True)
+
+    keep = {0}
+    used = len(sentences[0])
+    for _, i in scored:
+        if i in keep:
+            continue
+        if used + len(sentences[i]) + 1 > max_chars:
+            continue
+        keep.add(i)
+        used += len(sentences[i]) + 1
+    return " ".join(sentences[i] for i in sorted(keep))
+
+
+def trim_fragments(fragments, query: str = "", max_fragments: int = GROUNDED_MAX_FRAGMENTS,
+                   max_chars: int = GROUNDED_MAX_CHARS):
+    """Top fragments, each reduced to the sentences relevant to `query`."""
+    out = []
+    for f in fragments[:max_fragments]:
+        text = getattr(f, "text", str(f))
+        text = focus_text(query, text, max_chars) if query else text[:max_chars]
+        out.append(type("Frag", (), {"text": text, "score": getattr(f, "score", 0.0),
+                                     "source_id": getattr(f, "source_id", None)})())
+    return out
 
 _QUERY_PREFIX_RE = re.compile(
     r"^(?:[¿]?\s*(?:qu[eé]\s+(?:significa|es|son|quiere\s+decir|dice|establece)\s+"
@@ -111,26 +173,58 @@ def _language(query: str) -> str:
     return "en" if en_hits > es_hits else "es"
 
 
+NOT_COVERED_ES = "La información disponible no cubre este tema."
+NOT_COVERED_EN = "The available information does not cover this topic."
+
+# Small models (1–3B) read a strict "say you don't know" rule as an easy way out and
+# refuse even when the answer is right there. A worked example fixes that: it shows the
+# expected behaviour (extract and answer) and keeps the escape hatch for the real case.
+_EXAMPLE_ES = [
+    {"role": "user", "content": (
+        "CONTEXTO:\n[1] Tacna: Tacna es una ciudad del sur del Perú, capital del departamento "
+        "de Tacna. Fue fundada en 1855 y tiene un clima desértico.\n\nPREGUNTA: ¿De qué departamento es capital Tacna?")},
+    {"role": "assistant", "content": "Tacna es la capital del departamento de Tacna."},
+    {"role": "user", "content": (
+        "CONTEXTO:\n[1] Tacna: Tacna es una ciudad del sur del Perú, capital del departamento "
+        "de Tacna. Fue fundada en 1855 y tiene un clima desértico.\n\nPREGUNTA: ¿Cuántos habitantes tiene Tacna?")},
+    {"role": "assistant", "content": NOT_COVERED_ES},
+]
+_EXAMPLE_EN = [
+    {"role": "user", "content": (
+        "CONTEXT:\n[1] Tacna: Tacna is a city in southern Peru, capital of the Tacna Region. "
+        "It was founded in 1855.\n\nQUESTION: Which region is Tacna the capital of?")},
+    {"role": "assistant", "content": "Tacna is the capital of the Tacna Region."},
+    {"role": "user", "content": (
+        "CONTEXT:\n[1] Tacna: Tacna is a city in southern Peru, capital of the Tacna Region. "
+        "It was founded in 1855.\n\nQUESTION: How many people live in Tacna?")},
+    {"role": "assistant", "content": NOT_COVERED_EN},
+]
+
+
 def grounded_messages(query: str, fragments) -> list[dict]:
     """Strict formatter prompt: only the CONTEXT, no preamble, same language as the question."""
     lang = _language(query)
     context = "\n".join(f"[{i + 1}] {getattr(f, 'text', str(f))}" for i, f in enumerate(fragments))
     if lang == "en":
         system = (
-            "You are a text formatter. Answer the QUESTION using ONLY the CONTEXT.\n"
-            "Rules: 1) Never add facts, examples or words that are not in the CONTEXT. "
-            "2) If the CONTEXT does not answer the question reply exactly: "
-            "'The available information does not cover this topic.' "
-            "3) Be direct: no preamble, no 'according to the context'. 4) At most 3 sentences."
+            "You answer questions using ONLY the CONTEXT you are given.\n"
+            "1) If the CONTEXT contains the answer, state it directly, in one or two sentences, "
+            "reusing the CONTEXT's own wording.\n"
+            "2) Never add facts, figures, examples or names that are not in the CONTEXT.\n"
+            f"3) Only when the CONTEXT says nothing about what is asked, reply exactly: '{NOT_COVERED_EN}'\n"
+            "4) No preamble, no 'according to the context', no lists unless the CONTEXT has one."
         )
+        example = _EXAMPLE_EN
         user = f"CONTEXT:\n{context}\n\nQUESTION: {query}"
     else:
         system = (
-            "Eres un reformateador de texto. Responde la PREGUNTA usando SOLO el CONTEXTO.\n"
-            "Reglas: 1) Nunca añadas datos, ejemplos ni palabras que no estén en el CONTEXTO. "
-            "2) Si el CONTEXTO no responde la pregunta, contesta exactamente: "
-            "'La información disponible no cubre este tema.' "
-            "3) Sé directo: sin preámbulos ni 'según el contexto'. 4) Máximo 3 oraciones, en español."
+            "Respondes preguntas usando SOLO el CONTEXTO que se te da.\n"
+            "1) Si el CONTEXTO contiene la respuesta, dila directamente, en una o dos oraciones, "
+            "reutilizando las palabras del propio CONTEXTO.\n"
+            "2) Nunca añadas datos, cifras, ejemplos ni nombres que no estén en el CONTEXTO.\n"
+            f"3) Solo cuando el CONTEXTO no diga nada sobre lo que se pregunta, responde exactamente: '{NOT_COVERED_ES}'\n"
+            "4) Sin preámbulos, sin 'según el contexto', en español."
         )
+        example = _EXAMPLE_ES
         user = f"CONTEXTO:\n{context}\n\nPREGUNTA: {query}"
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    return [{"role": "system", "content": system}, *example, {"role": "user", "content": user}]

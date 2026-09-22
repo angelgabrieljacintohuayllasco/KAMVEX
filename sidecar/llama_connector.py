@@ -55,8 +55,9 @@ class LlamaCppConnector:
         self._seed = seed
 
     def set_deterministic(self, seed: int = 42, max_tokens: int | None = None):
-        """Greedy decoding with a fixed seed: same prompt → same answer."""
-        self.set_samplers(0.0, 1.0, 1, 1.0, max_tokens, seed=seed)
+        """Greedy decoding with a fixed seed: same prompt → same answer.
+        A mild repeat penalty keeps small models from looping; still deterministic."""
+        self.set_samplers(0.0, 1.0, 1, 1.1, max_tokens, seed=seed)
 
     def request_body(self, messages) -> dict:
         """Build the request payload (exposed for tests)."""

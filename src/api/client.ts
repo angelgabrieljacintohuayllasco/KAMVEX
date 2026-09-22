@@ -353,6 +353,66 @@ export function streamBuild(jobId: string, onEvent: (e: BuildEvent) => void): Pr
 
 export const deleteDataset = (name: string) => del<{ status: string }>(`/datasets/${encodeURIComponent(name)}`);
 
+// ── Experts (domain profiles: corpus + model + mode + prompt + samplers) ────
+
+export type ExpertModel = {
+  id: string;
+  name: string;
+  repo: string;
+  file: string;
+  size_mb: number;
+  reason: string;
+};
+
+export type ExpertStatus = {
+  ready: boolean;
+  missing_datasets: string[];
+  installed_datasets: string[];
+  model_present: string | null;
+  recommended_model: string | null;
+};
+
+export type Expert = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  datasets: string[];
+  models: ExpertModel[];
+  default_mode: "statistical" | "grounded" | "free";
+  system_prompt: string;
+  samplers: Record<string, number>;
+  top_k: number;
+  min_score: number | null;
+  examples: string[];
+  language: string;
+  status: ExpertStatus;
+};
+
+export const listExperts = () => getJson<{ version: number; experts: Expert[] }>("/experts");
+export const getExpert = (id: string) => getJson<Expert>(`/experts/${encodeURIComponent(id)}`);
+
+export type ExpertChatResponse = ChatResponse & {
+  expert: string;
+  meta: Record<string, unknown>;
+};
+
+export function expertChat(
+  expert: string,
+  query: string,
+  opts: { history?: ChatTurn[]; mode?: string; dataset?: string; samplers?: SamplerOpts; overrideSamplers?: boolean } = {},
+) {
+  return postJson<ExpertChatResponse>(`/experts/${encodeURIComponent(expert)}/chat`, {
+    expert,
+    query,
+    history: opts.history ?? [],
+    mode: opts.mode ?? "",
+    dataset: opts.dataset ?? "",
+    override_samplers: opts.overrideSamplers ?? false,
+    ...(opts.samplers ?? {}),
+  });
+}
+
 // ── Dataset catalog (pre-built .kamvex bundles) ─────────────────────────────
 
 export type CatalogDataset = {

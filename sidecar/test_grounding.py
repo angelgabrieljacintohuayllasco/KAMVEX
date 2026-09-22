@@ -9,7 +9,7 @@ import pytest
 import server
 from conftest import FakeConnector, build_dataset, demo_records
 from grounding import (content_terms, coverage, exact_definition_answer, extract_term,
-                       grounded_messages)
+                       focus_text, grounded_messages, trim_fragments)
 
 
 class Frag:
@@ -48,11 +48,58 @@ def test_exact_definition_answer():
     assert exact_definition_answer("qué es huevo", [Frag("huevo: x", 0.5, "huevo#1")]) == "huevo: x"
 
 
-def test_grounded_messages_language():
+def test_focus_text_keeps_the_answering_sentence():
+    text = (
+        "Departamento de Amazonas (Perú): Amazonas es uno de los veinticuatro departamentos "
+        "que conforman la República del Perú. Su capital es Chachapoyas y su ciudad más poblada "
+        "es Bagua Grande. " + "Abarca territorio de selva con ríos y montañas. " * 40
+    )
+    focused = focus_text("¿Cuál es la capital del departamento de Amazonas?", text, max_chars=400)
+    assert len(focused) <= 400
+    assert "Chachapoyas" in focused
+    assert focused.startswith("Departamento de Amazonas"), "the opening sentence gives the context"
+    # short texts pass through untouched
+    assert focus_text("x", "corto.", max_chars=400) == "corto."
+
+
+def test_trim_fragments_focuses_each_fragment():
+    long_text = "Tema: introducción. " + "relleno sin relación. " * 100 + "El dato clave es 42."
+    frags = [Frag(long_text), Frag("otro"), Frag("tercero"), Frag("cuarto")]
+    out = trim_fragments(frags, "¿cuál es el dato clave?")
+    assert len(out) == 3, "only the top fragments are sent"
+    assert "dato clave es 42" in out[0].text
+    assert len(out[0].text) <= 900
+
+
+def test_grounded_messages_language_and_example():
     es = grounded_messages("¿Qué es huevo?", [Frag("huevo: cuerpo")])
-    assert es[0]["role"] == "system" and "CONTEXTO" in es[1]["content"] and "español" in es[0]["content"]
+    assert es[0]["role"] == "system" and "español" in es[0]["content"]
+    assert "CONTEXTO" in es[-1]["content"] and es[-1]["role"] == "user"
+    # a worked example keeps small models from answering "no cubre" when the answer is there
+    assert [m["role"] for m in es] == ["system", "user", "assistant", "user", "assistant", "user"]
+    assert "Tacna" in es[1]["content"]
     en = grounded_messages("What is an egg?", [Frag("egg: body")])
-    assert "CONTEXT:" in en[1]["content"] and "QUESTION" in en[1]["content"]
+    assert "CONTEXT:" in en[-1]["content"] and "QUESTION" in en[-1]["content"]
+    assert len(en) == 6
+
+
+@pytest.mark.skipif(not server._DASA_AVAILABLE, reason="DASA/SHARD not importable")
+def test_key_hits_are_ranked_so_only_the_best_reaches_the_context(sidecar, monkeypatch):
+    """Ambiguous names must not put contradictory records in the grounded context."""
+    from keyindex import KEY_HIT_SCORE
+    build_dataset(sidecar, "demo")
+    pipe = server._load_pipeline("demo")
+
+    class FakeIndex:
+        def match(self, q, limit=3):
+            return [r["lemma"] for r in demo_records()[:3]]
+
+    monkeypatch.setitem(server._KEY_INDEXES, "demo", FakeIndex())
+    hits = server._key_hits(pipe, "cualquier cosa")
+    assert len(hits) == 3
+    assert [round(h.score, 2) for h in hits] == [1.0, 0.98, 0.96]
+    top = [h for h in hits if h.score >= KEY_HIT_SCORE]
+    assert len(top) == 1, "only the best key hit is authoritative"
 
 
 def test_search_query_normalization():

@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "experts": [
+    {
+      "id": "programacion",
+      "name": "Programación",
+      "icon": "Code",
+      "description": "Python, JavaScript y la web, respondido desde la documentación oficial en español. Ideal para dudas de sintaxis, APIs y comportamiento exacto del lenguaje.",
+      "datasets": ["python-docs-es", "mdn-web-es"],
+      "models": [
+        {"id": "qwen2.5-coder-3b", "name": "Qwen2.5 Coder 3B", "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF", "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Especializado en código y con contexto largo; el mejor equilibrio en CPU."},
+        {"id": "qwen2.5-coder-7b", "name": "Qwen2.5 Coder 7B", "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf", "size_mb": 4680, "reason": "Más preciso si tienes GPU o 16 GB de RAM."},
+        {"id": "qwen2.5-coder-1.5b", "name": "Qwen2.5 Coder 1.5B", "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF", "file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Para equipos modestos."}
+      ],
+      "default_mode": "grounded",
+      "system_prompt": "Eres un asistente de programación. Respondes con precisión técnica y ejemplos de código mínimos y correctos. Si la documentación del contexto cubre la pregunta, cítala tal cual; nunca inventes nombres de funciones, parámetros ni módulos. Si no estás seguro, dilo.",
+      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.05, "max_tokens": 512},
+      "top_k": 5,
+      "examples": [
+        "¿Qué hace functools.lru_cache?",
+        "¿Cómo se usa Array.prototype.reduce?",
+        "Diferencia entre let y var"
+      ]
+    },
+    {
+      "id": "salud",
+      "name": "Salud",
+      "icon": "HeartPulse",
+      "description": "Temas de salud de MedlinePlus (Biblioteca Nacional de Medicina de EE. UU.) en español. Responde qué es cada enfermedad, sus síntomas y tratamientos, sin inventar.",
+      "datasets": ["medlineplus-salud-es"],
+      "models": [
+        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Redacta bien en español y basta para reformular la fuente."},
+        {"id": "qwen2.5-3b", "name": "Qwen2.5 3B", "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Respuestas más naturales si tienes RAM de sobra."}
+      ],
+      "default_mode": "grounded",
+      "system_prompt": "Eres un divulgador de salud. Explicas con claridad y solo con información del contexto (MedlinePlus). No das diagnósticos ni dosis: recuerdas que la decisión es del profesional de salud. Si el contexto no cubre la pregunta, lo dices.",
+      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.1, "max_tokens": 400},
+      "top_k": 4,
+      "examples": [
+        "¿Qué es la diabetes tipo 2?",
+        "Síntomas de la anemia",
+        "¿Para qué sirve la vacuna contra la influenza?"
+      ]
+    },
+    {
+      "id": "leyes-peru",
+      "name": "Leyes del Perú",
+      "icon": "Scale",
+      "description": "La Constitución Política del Perú artículo por artículo. Cita el texto exacto: ideal para saber qué dice realmente la norma.",
+      "datasets": ["constitucion-peru-1993"],
+      "models": [
+        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Suficiente: el texto legal se cita, no se reinterpreta."}
+      ],
+      "default_mode": "statistical",
+      "system_prompt": "Eres un asistente jurídico. Citas el texto normativo tal como está, indicando el artículo. No interpretas ni das asesoría legal: señalas lo que dice la norma y recomiendas consultar a un abogado para un caso concreto.",
+      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.0, "max_tokens": 400},
+      "top_k": 4,
+      "examples": [
+        "¿Qué dice el Artículo 2?",
+        "¿Qué establece la Constitución sobre la educación?",
+        "Artículo 200"
+      ]
+    },
+    {
+      "id": "lengua",
+      "name": "Lengua española",
+      "icon": "BookA",
+      "description": "Diccionario de 64 mil lemas. Significado exacto de una palabra, sin adornos ni invenciones.",
+      "datasets": ["diccionario-es"],
+      "models": [],
+      "default_mode": "statistical",
+      "system_prompt": "Eres un diccionario. Das la definición del corpus, literal y breve.",
+      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.0, "max_tokens": 200},
+      "top_k": 3,
+      "examples": [
+        "¿Qué significa efímero?",
+        "Definición de serendipia",
+        "¿Qué es un abanico?"
+      ]
+    },
+    {
+      "id": "peru",
+      "name": "Perú (cultura y geografía)",
+      "icon": "Landmark",
+      "description": "Wikipedia en español sobre el Perú: departamentos, historia, gastronomía, personajes e instituciones.",
+      "datasets": ["wikipedia-es-peru"],
+      "models": [
+        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Redacta resúmenes correctos en español."}
+      ],
+      "default_mode": "grounded",
+      "system_prompt": "Respondes sobre el Perú usando solo los artículos del contexto. Si el dato no está, lo dices en vez de suponerlo.",
+      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.1, "max_tokens": 400},
+      "top_k": 5,
+      "examples": [
+        "¿Cuál es la capital del departamento de Amazonas?",
+        "¿Qué es el ceviche?",
+        "¿Quién fue Ricardo Palma?"
+      ]
+    },
+    {
+      "id": "general",
+      "name": "General (sin corpus)",
+      "icon": "MessageCircle",
+      "description": "Conversación libre con el modelo, sin base de conocimiento. Útil para redactar, traducir o razonar sobre lo que le pegues en el chat.",
+      "datasets": [],
+      "models": [
+        {"id": "qwen2.5-3b", "name": "Qwen2.5 3B", "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Buen equilibrio general en español."},
+        {"id": "llama-3.2-3b", "name": "Llama 3.2 3B", "repo": "unsloth/Llama-3.2-3B-Instruct-GGUF", "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf", "size_mb": 2020, "reason": "Alternativa de Meta, multilingüe."}
+      ],
+      "default_mode": "free",
+      "system_prompt": "Eres KAMVEX, un asistente local. Respondes en el idioma del usuario, de forma directa y honesta. Si no sabes algo, lo dices.",
+      "samplers": {"temperature": 0.7, "top_p": 0.95, "top_k": 40, "repeat_penalty": 1.1, "max_tokens": 600},
+      "top_k": 5,
+      "examples": [
+        "Resume este texto: …",
+        "Traduce al inglés: …",
+        "Escríbeme un correo formal pidiendo una prórroga"
+      ]
+    }
+  ]
+}

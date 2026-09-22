@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  waitForSidecar, listDatasets, chat, federatedChat, freeChat, inferenceStatus,
-  listLocalModels, startEngine,
-  type Dataset, type Fragment, type LocalModel, type SamplerOpts, type ChatTurn,
+  waitForSidecar, listDatasets, chat, expertChat, federatedChat, freeChat, inferenceStatus,
+  listExperts, listLocalModels, startEngine,
+  type Dataset, type Expert, type Fragment, type LocalModel, type SamplerOpts, type ChatTurn,
 } from "./api/client";
-import { BookOpen, Cpu, MessageSquarePlus, Search, Settings as SettingsIcon, Trash2, Zap } from "lucide-react";
+import { BookOpen, Cpu, MessageSquarePlus, Search, Settings as SettingsIcon, Sparkles, Trash2, Zap } from "lucide-react";
 import Chat from "./pages/Chat";
 import Knowledge from "./pages/Datasets";
 import Models from "./pages/Models";
 import Compare from "./pages/Compare";
+import Experts from "./pages/Experts";
 import Settings from "./pages/Settings";
-import TopBar, { KnowledgeSelector, LlmSelector } from "./components/TopBar";
+import TopBar, { ExpertSelector, KnowledgeSelector, LlmSelector } from "./components/TopBar";
 import type { AgentBMode } from "./components/ModeSelector";
 import { useI18n } from "./i18n";
 
@@ -26,7 +27,7 @@ export type Conversation = {
   messages: Message[];
 };
 
-type View = "chat" | "knowledge" | "models" | "compare" | "settings";
+type View = "chat" | "experts" | "knowledge" | "models" | "compare" | "settings";
 
 const CONVERSATIONS_KEY = "kamvex-conversations";
 const MAX_CONVERSATIONS = 50;
@@ -72,6 +73,22 @@ export default function App() {
   );
   const [autoStarting, setAutoStarting] = useState(false);
   const wasRunning = useRef(false);
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [selectedExpert, setSelectedExpert] = useState<string | null>(() =>
+    localStorage.getItem("kamvex-expert"),
+  );
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const activeExpert = experts.find((e) => e.id === selectedExpert) ?? null;
+
+  const handleSelectExpert = useCallback((id: string | null) => {
+    setSelectedExpert(id);
+    if (id) localStorage.setItem("kamvex-expert", id);
+    else localStorage.removeItem("kamvex-expert");
+  }, []);
+
+  const refreshExperts = useCallback(() => {
+    listExperts().then((d) => setExperts(d.experts)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     saveConversations(conversations);
@@ -121,7 +138,7 @@ export default function App() {
     waitForSidecar().then((ok) => {
       setReady(ok);
       setFailed(!ok);
-      if (ok) { refresh(); refreshModels(); }
+      if (ok) { refresh(); refreshModels(); refreshExperts(); }
     });
     const interval = setInterval(() => {
       inferenceStatus()
@@ -171,16 +188,20 @@ export default function App() {
   }
 
   async function send(query: string, samplers?: SamplerOpts) {
-    const needsLlm = agentBMode !== "statistical";
+    // With an expert active, the sidecar picks corpus, mode, prompt and samplers.
+    const expertMode = activeExpert?.default_mode ?? null;
+    const needsLlm = (expertMode ?? agentBMode) !== "statistical";
     const useDataset = !!selectedDataset && datasets.length > 0;
 
-    if (agentBMode === "statistical" && !useDataset) {
-      setError(t("flow.needsKnowledge"));
-      return;
-    }
-    if (agentBMode === "grounded" && !useDataset) {
-      setError(t("flow.needsBoth"));
-      return;
+    if (!activeExpert) {
+      if (agentBMode === "statistical" && !useDataset) {
+        setError(t("flow.needsKnowledge"));
+        return;
+      }
+      if (agentBMode === "grounded" && !useDataset) {
+        setError(t("flow.needsBoth"));
+        return;
+      }
     }
     if (needsLlm && !selectedLlm) {
       setError(t("flow.needsLlm"));
@@ -212,7 +233,13 @@ export default function App() {
 
     try {
       let res;
-      if (agentBMode === "free" && !useDataset) {
+      if (activeExpert) {
+        res = await expertChat(activeExpert.id, query, {
+          history,
+          samplers,
+          overrideSamplers: !!samplers,
+        });
+      } else if (agentBMode === "free" && !useDataset) {
         res = await freeChat(query, samplers, history);
       } else if (federated) {
         res = await federatedChat(query, agentBMode, samplers);
@@ -313,6 +340,7 @@ export default function App() {
         </div>
 
         <div className="border-t border-white/10 p-2 flex flex-col gap-0.5">
+          <NavBtn v="experts" label={t("nav.experts")} icon={<Sparkles className="h-4 w-4" />} />
           <NavBtn v="knowledge" label={t("nav.knowledge")} icon={<BookOpen className="h-4 w-4" />} />
           <NavBtn v="models" label={t("nav.models")} icon={<Cpu className="h-4 w-4" />} />
           <NavBtn v="compare" label={t("nav.compare")} icon={<Zap className="h-4 w-4" />} />
@@ -324,13 +352,23 @@ export default function App() {
         {view === "chat" && (
           <TopBar
             left={
-              <KnowledgeSelector
-                datasets={datasets}
-                selectedDataset={selectedDataset}
-                setSelectedDataset={setSelectedDataset}
-                federated={federated}
-                setFederated={setFederated}
-              />
+              <div className="flex items-center gap-2 min-w-0">
+                <ExpertSelector
+                  experts={experts}
+                  selected={selectedExpert}
+                  onSelect={handleSelectExpert}
+                  goExperts={() => setView("experts")}
+                />
+                {!activeExpert && (
+                  <KnowledgeSelector
+                    datasets={datasets}
+                    selectedDataset={selectedDataset}
+                    setSelectedDataset={setSelectedDataset}
+                    federated={federated}
+                    setFederated={setFederated}
+                  />
+                )}
+              </div>
             }
             right={
               <LlmSelector
@@ -359,10 +397,21 @@ export default function App() {
               inferenceRunning={inferenceRunning}
               autoStarting={autoStarting}
               hasLlmSelected={!!selectedLlm}
+              expert={activeExpert}
+              pendingQuestion={pendingQuestion}
+              onPendingConsumed={() => setPendingQuestion(null)}
+            />
+          )}
+          {view === "experts" && (
+            <Experts
+              onChanged={() => { refresh(); refreshModels(); }}
+              selectedExpert={selectedExpert}
+              onSelectExpert={handleSelectExpert}
+              goChat={(q) => { setView("chat"); setActiveId(null); if (q) setPendingQuestion(q); }}
             />
           )}
           {view === "knowledge" && (
-            <Knowledge datasets={datasets} onChanged={refresh} />
+            <Knowledge datasets={datasets} onChanged={() => { refresh(); refreshExperts(); }} />
           )}
           {view === "models" && (
             <Models onModelsChanged={refreshModels} selectedLlm={selectedLlm} onSelectLlm={handleSelectLlm} />
