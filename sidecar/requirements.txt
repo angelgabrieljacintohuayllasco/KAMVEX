@@ -1,9 +1,17 @@
-# DASA-UI sidecar — thin FastAPI server that reuses DASA + SHARD.
+# KAMVEX sidecar — thin FastAPI server that reuses DASA + SHARD.
 fastapi>=0.110
 uvicorn>=0.29
 psutil>=5.9
+numpy>=1.24
+pydantic>=2
 
-# DASA-main and SHARD-main are added to sys.path at runtime (sibling repos).
-# They provide: numpy, scikit-learn (build-time), sentence-transformers, torch.
-# Install those via:  pip install -e ../../DASA-main  ../../SHARD-main
-# or just have the sibling folders present next to DASA-UI.
+# Optional: better PDF text extraction (a raw-stream fallback exists without it).
+pypdf>=4
+
+# DASA-main and SHARD-main are added to sys.path at runtime (sibling repos, dev)
+# or bundled by PyInstaller (installer). Their own deps:
+#   pip install -r ../DASA-main/requirements.txt -r ../SHARD-main/requirements.txt
+# sentence-transformers (torch) is OPTIONAL: without it KAMVEX serves embeddings
+# through `llama-server --embedding` with the all-MiniLM-L6-v2 GGUF.
+# scikit-learn is needed only to BUILD datasets (IVF-PQ k-means):
+scikit-learn>=1.3

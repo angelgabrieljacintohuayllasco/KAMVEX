@@ -1,20 +1,20 @@
 """
-PyInstaller spec for building the Kamvex Python sidecar into a standalone exe.
+PyInstaller spec for building the KAMVEX Python sidecar into a standalone exe.
 
-This bundles server.py + jobs.py + llama_connector.py + oregano.py +
-DASA (RAG anti-hallucination) + SHARD (vector DB) + all deps (FastAPI,
-uvicorn, numpy, psutil) into a standalone executable that Tauri embeds
-via externalBin. No Python installation required on the user's machine.
+Bundles server.py + its modules (paths, downloads, embedding_gguf, jobs,
+llama_connector, oregano, textsource) + DASA (RAG anti-hallucination) + SHARD
+(vector DB) + deps (FastAPI, uvicorn, numpy, psutil, pypdf). torch and
+sentence-transformers are deliberately excluded (~2 GB): embeddings in the
+installer go through `llama-server --embedding` (see embedding_gguf.py).
 
 Usage:
     cd sidecar
-    pyinstaller kamvex-sidecar.spec
+    pyinstaller kamvex-sidecar.spec --noconfirm
 
-Output: dist/kamvex-sidecar/kamvex-sidecar.exe
+Output: dist/kamvex-sidecar.exe (onefile)
 Tauri expects: src-tauri/binaries/kamvex-sidecar-x86_64-pc-windows-msvc.exe
 """
 
-import os
 from pathlib import Path
 
 block_cipher = None
@@ -46,10 +46,14 @@ a = Analysis(
         'pydantic',
         'numpy',
         'psutil',
+        'pypdf',
+        'paths',
+        'downloads',
+        'embedding_gguf',
         'jobs',
         'llama_connector',
         'oregano',
-        'pypdf',
+        'textsource',
 
         # ── DASA (RAG anti-hallucination) ──
         'dasa',
@@ -89,7 +93,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['torch', 'transformers', 'sentence_transformers', 'sklearn', 'scipy'],
+    excludes=['torch', 'transformers', 'sentence_transformers', 'sklearn', 'scipy',
+              'pytest', 'httpx', 'IPython', 'matplotlib', 'tkinter'],
     cipher=block_cipher,
     noarchive=False,
 )
@@ -108,7 +113,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=True,           # stdout/stderr go to logs/sidecar.log (Tauri spawns it without a window)
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,

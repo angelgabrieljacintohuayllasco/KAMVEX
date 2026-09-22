@@ -12,29 +12,31 @@ ignores), and the **deterministic anti-hallucination RAG** of
 | KV cache quant toggle | env var only | sometimes | toggle | flag | **toggle** |
 | Speculative decode | no | no | yes | flag | **toggle** |
 | Vulkan → Vega iGPU | no (ROCm) | depends | selector | build | **selector** |
-| BitNet ternary | no | no | no | needs fork | **v2** |
-| RWKV / Mamba | partial | if gguf | if gguf | yes | **v2** |
+| BitNet ternary | no | no | no | needs fork | planned |
+| RWKV / Mamba | partial | if gguf | if gguf | yes | planned |
 | Anti-hallucination RAG | no | no | no | no | **yes (DASA)** |
 | Dataset → intelligence builder | no | no | no | no | **yes (SHARD)** |
-| Hardware auto-tune | no | no | partial | no | **yes** |
+| Hardware auto-tune (layer-aware) | no | no | partial | no | **yes** |
+| Quality audit (Oregano Test) | no | no | no | no | **yes** |
 | Ease of use | max | medium | medium | min | **max** |
 
-> **Status:** v1 in development. Slice 1 (datasets + grounded RAG chat) is
-> functional. The local inference engine, hardware auto-tuning, and quality
-> auditing land next — see Roadmap.
+> **Status: v0.2.0.** Every v1/v2 feature is implemented; 0.2.0 is the hardening release
+> (release paths, backend wiring, real grounded mode, embeddings without torch, process
+> lifecycle, validation). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Architecture
 
 ```
-Tauri (Rust shell)
-├── React 19 + Vite + Tailwind    (UI: Chat · Models · Knowledge · Tuning · Settings)
-├── Python sidecar (FastAPI)      (DASA pipeline + SHARD builds + Oregano Test)
-├── llama-server subprocess       (local inference: CPU + Vulkan, OpenAI-compatible API)
-└── hardware detection + auto-tune (CPU/RAM/GPU/VRAM → optimal flags)
+Tauri 2 (Rust shell, src-tauri/)
+├── React 19 + Vite + Tailwind 4   UI: Chat · Knowledge · Models · Compare · Settings
+├── Python sidecar (FastAPI)       DASA pipeline · SHARD builds · Oregano Test · downloads
+├── llama-server subprocess        local inference (CPU / Vulkan / CUDA), OpenAI-compatible
+├── llama-server --embedding       384-dim MiniLM embeddings when sentence-transformers is absent
+└── hardware detection + auto-tune CPU / RAM / GPU / VRAM + GGUF metadata → llama-server flags
 ```
 
-The sidecar imports `dasa` and `shard` from the **sibling repos** `DASA-main`
-and `SHARD-main` (must sit next to this folder). No logic is duplicated.
+The sidecar imports `dasa` and `shard` from the **sibling repos** `DASA-main` and
+`SHARD-main` (dev) or from the PyInstaller bundle (installer). No logic is duplicated.
 
 ```
 2 REPOS DASA AND SHARD/
@@ -43,16 +45,29 @@ and `SHARD-main` (must sit next to this folder). No logic is duplicated.
 └── KAMVEX/         # this app
 ```
 
+### Where data lives
+
+| | Dev (`npm run tauri dev`) | Installed app |
+|---|---|---|
+| Datasets | `sidecar/appdata/datasets/` | `%LOCALAPPDATA%\com.kamvex.app\datasets\` |
+| GGUF models | `sidecar/models/` | `…\com.kamvex.app\models\` |
+| llama.cpp binaries | `binarios/<backend>/` | `…\com.kamvex.app\binarios\<backend>\` |
+| Logs | `logs/` | `…\com.kamvex.app\logs\` (`sidecar.log`, `llama-server.log`) |
+
+Set `KAMVEX_HOME=<folder>` to put everything under one folder in both modes.
+
 ## Prerequisites
 
 - **Node.js** 18+ and **npm**
-- **Rust** stable + the platform toolchain (Windows: MSVC build tools + WebView2)
-- **Python** 3.10+ (64-bit) with the DASA/SHARD deps:
+- **Rust** stable (MSVC toolchain) + Visual Studio Build Tools (C++ workload) + WebView2
+- **Python** 3.10+ (64-bit). Recommended: a venv in the repo (`python -m venv .venv`).
   ```bash
+  pip install -r sidecar/requirements.txt -r sidecar/requirements-dev.txt
   pip install -r ../DASA-main/requirements.txt -r ../SHARD-main/requirements.txt
-  pip install -r sidecar/requirements.txt
   ```
-  (brings numpy, scikit-learn, sentence-transformers, torch, fastapi, uvicorn)
+  `sentence-transformers` (torch) is **optional**: without it KAMVEX serves embeddings
+  through `llama-server --embedding` with the all-MiniLM-L6-v2 GGUF (downloaded once from
+  the Knowledge page, ~45 MB). Datasets built either way are compatible.
 
 ## Run (dev)
 
@@ -61,65 +76,106 @@ npm install
 npm run tauri dev
 ```
 
-Tauri picks a free port, launches `sidecar/server.py` on it, waits for `/health`,
-then opens the window. Closing the app kills the sidecar.
-
-First run downloads the MiniLM embedding model (~80 MB) on the first build/chat.
+The shell picks a free port, launches `sidecar/server.py` with the directories above as
+environment variables, waits for `/health` and opens the window. Closing the window hides
+the app to the tray; **Salir** in the tray quits and kills the sidecar and llama-server.
 
 ## Use
 
-1. **Knowledge** — pick a JSON/JSONL/CSV corpus, choose a profile
-   (`low-ram` / `medium` / `fast`), build a SHARD + IVF-PQ index. Progress
-   streams live. Run the **Oregano Test** to audit anti-hallucination quality.
-2. **Models** — import GGUF files (drag-drop) or pull from HuggingFace. Select
-   backend (CPU/Vulkan), toggle KV cache quant, speculative decode, flash
-   attention. Auto-tune picks the optimal flags for your hardware.
-3. **Chat** — select a dataset (intelligence) + a local model + an Agent B mode:
-   - **Statistical** (green, 0 hallucination — vocabulary locked to fragments)
-   - **LLM-grounded** (yellow, LLM formats fragments without inventing)
-   - **LLM-free** (grey, free chat with your system prompt)
-   
-   The answer plus its source fragments (with scores) are shown — the grounding
-   is visible. Live metrics: tokens/s, VRAM, time-to-first-token.
-4. **Tuning** — detected hardware, auto-tune prescription, manual flag override,
-   presets (Eco / Balanced / Max).
-5. **Settings** — sidecar status, DASA API key, language.
+1. **Knowledge** — if the banner says the embedding engine is not ready, click *Preparar
+   embeddings* (downloads the CPU engine + MiniLM GGUF once). Then pick a JSON/JSONL/CSV,
+   paste text or import a PDF, choose a profile (`low-ram` / `medium` / `fast`) and build.
+   Progress streams live. Run the **Oregano Test** to audit anti-hallucination quality;
+   *Gestionar* shows details, export (`.kamvex`) and deletion.
+2. **Models** — download a GGUF from the catalog (pause / resume / cancel) or import one.
+   The engine card reads the GGUF metadata (architecture, layers, trained context,
+   quantization), auto-tunes flags for your hardware (Eco / Balanceado / Máx), shows
+   warnings, lets you add a draft model for speculative decoding and starts llama-server.
+3. **Chat** — select knowledge (or *Auto* for the federated router), a model and a mode:
+   - **Exacto** (green): StatisticalRewriter, no LLM, zero hallucination.
+   - **Anclado** (amber): the LLM formats the retrieved fragments under DASA's strict
+     prompt; if the corpus does not cover the question it says so — it never free-talks.
+   - **Libre** (grey): general chat with memory; uses the corpus when it is relevant.
+   The engine auto-starts when a mode needs it. Source fragments and scores are shown;
+   live metrics: tokens/s, TTFT, context, RAM, VRAM.
+4. **Compare** — same query, two modes, side by side.
+5. **Settings** — language, theme, updates, hardware (VRAM, integrated/discrete, AVX),
+   engine status (sidecar launch mode, PID, logs, folders).
 
 JSON record format (fields auto-detected): `lemma`/`term`/`title`/`name` as key,
 `definition`/`text`/`content` as body.
 
+### KAMVEX as an OpenAI-compatible backend
+
+Other apps (Jan, Open WebUI, scripts) can use a dataset as a "model":
+
+```bash
+curl http://127.0.0.1:<sidecar-port>/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"my-dataset","messages":[{"role":"user","content":"¿Qué es X?"}]}'
+```
+
+The sidecar port is shown in *Settings → Motor*. With an inference engine running the
+answer uses the LLM (grounded when the corpus is relevant); otherwise it is statistical.
+
+## Configuration (environment variables)
+
+| Variable | Purpose |
+|---|---|
+| `KAMVEX_HOME` | Root folder for datasets/models/binaries/logs (shell + sidecar) |
+| `KAMVEX_DATA_DIR`, `KAMVEX_MODELS_DIR`, `KAMVEX_BINARIES_DIR` | Individual folders (set by the shell) |
+| `KAMVEX_LLAMA_SERVER` | llama-server binary used for embeddings |
+| `KAMVEX_EMBED_BACKEND` | `auto` (default) · `st` (sentence-transformers) · `gguf` |
+| `KAMVEX_EMBED_MODEL` | Path to the embedding GGUF |
+| `KAMVEX_CORS_ORIGINS` | Extra browser origins allowed to call the sidecar |
+| `KAMVEX_PYTHON` | Interpreter for `sidecar/server.py` in dev (default `python`) |
+| `KAMVEX_SIDECAR_BIN` / `KAMVEX_USE_SIDECAR_BIN=1` | Force a sidecar executable |
+| `HF_TOKEN` | HuggingFace token for gated repos |
+
 ## Tests
 
 ```bash
-# Sidecar (build demo dataset + chat, offline fake embeddings)
-cd sidecar && python -m pytest test_sidecar.py -q
-
-# Rust sidecar manager (spawn -> port ready -> kill)
-cd src-tauri && cargo test
+# Sidecar: API, Agent B modes, validation, downloads, Oregano, GGUF embeddings
+python -m pytest sidecar -q            # 71 tests; the real-llama-server ones skip if
+                                       # binarios/cpu/llama-server.exe or the MiniLM GGUF are absent
+# Rust: auto-tune, GGUF parser, hardware parsing, llama lifecycle, sidecar resolution
+cargo test --manifest-path src-tauri/Cargo.toml --lib     # 34 tests
+cargo test --manifest-path src-tauri/Cargo.toml --lib -- --ignored   # spawns the real sidecar
+# Frontend
+npm run build                          # tsc strict + vite
 ```
+
+## Build the installer
+
+```bash
+pip install -r sidecar/requirements-dev.txt
+python scripts/build-installer.py      # --sidecar-only / --skip-sidecar
+# Output: src-tauri/target/release/bundle/nsis/KAMVEX_0.2.0_x64-setup.exe
+#         src-tauri/target/release/bundle/msi/KAMVEX_0.2.0_x64_en-US.msi
+```
+
+`bundle.createUpdaterArtifacts` is enabled, so `tauri build` needs
+`TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). Auto-update reads
+`latest.json` from the GitHub release. The sidecar exe bundles DASA + SHARD + numpy but
+**not** torch; embeddings run through llama-server (see Prerequisites).
+
+## Troubleshooting
+
+- **"No se pudo iniciar KAMVEX"** — the sidecar did not start. Check `logs/sidecar.log`
+  (dev) or `%LOCALAPPDATA%\com.kamvex.app\logs\sidecar.log`; in dev make sure the venv
+  Python is on `PATH` or set `KAMVEX_PYTHON`.
+- **The engine does not start** — the error names `logs/llama-server.log`; typical causes:
+  model too big for RAM/VRAM (see the auto-tune warnings), Vulkan driver missing (the
+  prescription falls back to CPU), CUDA build without the NVIDIA driver.
+- **"Motor de embeddings no listo"** — click *Preparar embeddings* in Knowledge, or install
+  `sentence-transformers` in the dev venv.
 
 ## Roadmap
 
-### v1 — "exploit llama.cpp + DASA to the max"
-
-- [x] Slice 1: datasets + grounded RAG chat (Tauri + Python sidecar)
-- [ ] Bundle `llama-server` (CPU + Vulkan) with auto-download per GPU/ISA
-- [ ] Models view: import GGUF, backend selector, KV quant, speculative, flash attn
-- [ ] Hardware detection v2 (GPU/Vulkan/VRAM) + auto-tune with override + presets
-- [ ] `LlamaCppConnector` + Agent B 3 modes + guarantee indicator
-- [ ] Live metrics dashboard (tokens/s, VRAM, TTFT)
-- [ ] Knowledge expanded (multi-dataset, JSONL/CSV, auto `num_shards`)
-- [ ] Oregano Test runner (anti-hallucination quality audit)
-- [ ] Sampler controls + HuggingFace pull (curated list) + quant recommendation
-
-### v2 — "complete the matrix + distribution"
-
-- [ ] `bitnet.cpp` ternary + `rwkv.cpp` / Mamba backends
-- [ ] Windows installer with embedded Python (PyInstaller `externalBin`)
-- [ ] OpenAI-compatible API exposed from the UI (Kamvex as backend for other apps)
-- [ ] Multi-dataset federation + MoE semantic router
-- [ ] Model A/B comparison · dataset builder from PDF/web · knowledge graph view
-- [ ] Intelligence cards export (.kamvex) · auto-update · system tray · i18n ES/EN
+- `bitnet.cpp` ternary and `rwkv.cpp` backends (enums and download slots exist; no official
+  Windows binaries yet).
+- Token streaming in the chat, mmproj (vision) wiring, knowledge-graph view.
+- Production CSP for the webview (policy drafted; needs a runtime check on a packaged build).
 
 ## License
 

@@ -1,13 +1,17 @@
 {
   "name": "kamvex",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:sidecar": "python -m pytest sidecar -q",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "build:installer": "python scripts/build-installer.py"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
