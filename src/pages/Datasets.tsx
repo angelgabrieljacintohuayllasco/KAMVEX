@@ -1,18 +1,26 @@
-import { useState } from "react";
-import { FileText, Settings2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { FileText, Settings2, Trash2 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Dataset,
   pickJsonFile,
+  pickFile,
   startBuild,
   startBuildText,
   streamBuild,
   runOreganoTest,
   exportDatasetUrl,
   datasetSummary,
+  deleteDataset,
+  embeddingsStatus,
+  embeddingsSetup,
+  llamaEnsureBinary,
+  subscribeHubDownload,
   BuildEvent,
   OreganoResult,
+  type EmbeddingsStatus,
 } from "../api/client";
-import { Button, Card, Field, Modal, Select, inputClass } from "../components/ui";
+import { Badge, Button, Card, Field, Modal, Select, inputClass } from "../components/ui";
 import { useI18n } from "../i18n";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
@@ -42,6 +50,46 @@ export default function Knowledge({
   const [summaryBusy, setSummaryBusy] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [embed, setEmbed] = useState<EmbeddingsStatus | null>(null);
+  const [embedBusy, setEmbedBusy] = useState(false);
+  const [embedPct, setEmbedPct] = useState<number | null>(null);
+
+  const refreshEmbed = useCallback(() => {
+    embeddingsStatus().then(setEmbed).catch(() => setEmbed(null));
+  }, []);
+
+  useEffect(() => {
+    refreshEmbed();
+  }, [refreshEmbed]);
+
+  /** Download the llama.cpp CPU engine (Rust) + the MiniLM GGUF (sidecar) if missing. */
+  async function setupEmbeddings() {
+    setEmbedBusy(true);
+    setError(null);
+    setEmbedPct(null);
+    try {
+      await llamaEnsureBinary("cpu");
+      const res = await embeddingsSetup();
+      if (res.status === "started" && res.download_id) {
+        await new Promise<void>((resolve, reject) => {
+          subscribeHubDownload(res.download_id!, (p) => {
+            setEmbedPct(p.pct);
+            if (p.status === "done") resolve();
+            else if (p.status === "error") reject(new Error(p.error));
+            else if (p.status === "cancelled") reject(new Error("cancelled"));
+          });
+        });
+      }
+      refreshEmbed();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setEmbedBusy(false);
+      setEmbedPct(null);
+    }
+  }
 
   async function pick() {
     const p = await pickJsonFile();
@@ -55,12 +103,8 @@ export default function Knowledge({
   }
 
   async function pickPdf() {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "PDF", extensions: ["pdf"] }],
-    });
-    if (typeof selected === "string") {
+    const selected = await pickFile("PDF", ["pdf"]);
+    if (selected) {
       setPdfPath(selected);
       if (!name) {
         const base = selected.replace(/\\/g, "/").split("/").pop() ?? "dataset";
@@ -90,6 +134,7 @@ export default function Knowledge({
       setJsonPath(null);
       setRawText("");
       setPdfPath(null);
+      refreshEmbed();
     } catch (e) {
       setError(String(e));
       setProgress(null);
@@ -126,10 +171,57 @@ export default function Knowledge({
     }
   }
 
+  async function exportDataset(datasetName: string) {
+    const url = await exportDatasetUrl(datasetName);
+    try {
+      await openUrl(url);
+    } catch {
+      window.open(url, "_blank");
+    }
+  }
+
+  async function removeDataset(datasetName: string) {
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteDataset(datasetName);
+      setOreganoResults((prev) => {
+        const next = { ...prev };
+        delete next[datasetName];
+        return next;
+      });
+      setManageOpen(null);
+      setConfirmDelete(false);
+      onChanged();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const embedReady = embed?.ready ?? true;
+
   return (
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-semibold mb-1 tracking-tight">{t("knowledge.title")}</h1>
       <p className="text-sm text-white/40 mb-4">{t("knowledge.desc")}</p>
+
+      {embed && !embedReady && (
+        <Card className="mb-4 border-amber-500/30">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="font-medium text-amber-300">{t("knowledge.embedNotReady")}</h2>
+              <p className="text-xs text-white/50 mt-1">{t("knowledge.embedHint")}</p>
+            </div>
+            <Button onClick={setupEmbeddings} loading={embedBusy} variant="primary">
+              {embedBusy
+                ? `${t("knowledge.embedPreparing")}${embedPct != null ? ` ${embedPct}%` : ""}`
+                : t("knowledge.embedSetup")}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="mb-6">
         <div className="flex items-center gap-2 mb-3">
@@ -147,6 +239,11 @@ export default function Knowledge({
           >
             {t("knowledge.textMode")}
           </Button>
+          {embed && embedReady && (
+            <span className="ml-auto text-[10px] text-white/30">
+              {t("knowledge.embedBackend")}: {embed.backend}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -191,7 +288,7 @@ export default function Knowledge({
           </Field>
 
           <Button
-            disabled={!name || (buildMode === "file" ? !jsonPath : !rawText.trim() && !pdfPath)}
+            disabled={!name || !embedReady || (buildMode === "file" ? !jsonPath : !rawText.trim() && !pdfPath)}
             loading={busy}
             onClick={build}
             variant="success"
@@ -213,7 +310,7 @@ export default function Knowledge({
               </p>
             </div>
           )}
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-400 whitespace-pre-wrap">{error}</p>}
         </div>
       </Card>
 
@@ -226,8 +323,8 @@ export default function Knowledge({
             const oregano = oreganoResults[d.name];
             return (
               <Card key={d.name}>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
                     <span className="font-medium text-base">{d.name}</span>
                     <p className="text-xs text-white/40 mt-1">
                       {d.source_doc && (
@@ -237,9 +334,10 @@ export default function Knowledge({
                         </>
                       )}
                       {d.n_records} {t("knowledge.records")} · {t("knowledge.profileLabel")} {d.profile} · {d.dim ?? "?"} {t("knowledge.dim")}
+                      {d.embedding_backend && <> · {d.embedding_backend}</>}
                     </p>
                   </div>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     {d.source_doc && (
                       <Button
                         onClick={() => openSummary(d.name)}
@@ -252,7 +350,7 @@ export default function Knowledge({
                       </Button>
                     )}
                     <Button
-                      onClick={() => setManageOpen(d.name)}
+                      onClick={() => { setManageOpen(d.name); setConfirmDelete(false); }}
                       variant="secondary"
                       size="sm"
                       icon={<Settings2 className="h-3.5 w-3.5" />}
@@ -270,10 +368,7 @@ export default function Knowledge({
                       {oreganoBusy === d.name ? t("knowledge.auditing") : t("knowledge.oregano")}
                     </Button>
                     <Button
-                      onClick={async () => {
-                        const url = await exportDatasetUrl(d.name);
-                        window.open(url, "_blank");
-                      }}
+                      onClick={() => exportDataset(d.name)}
                       variant="secondary"
                       size="sm"
                       title={t("knowledge.exportTip")}
@@ -336,14 +431,32 @@ export default function Knowledge({
           if (!d) return null;
           return (
             <div className="flex flex-col gap-1.5 text-sm">
-              {d.source_doc && (
-                <Row k={t("knowledge.sourceDoc")} v={d.source_doc} />
-              )}
+              {d.source_doc && <Row k={t("knowledge.sourceDoc")} v={d.source_doc} />}
               {d.n_pages !== undefined && <Row k={t("knowledge.pages")} v={String(d.n_pages)} />}
               <Row k={t("knowledge.records")} v={String(d.n_records)} />
               <Row k={t("knowledge.profileLabel")} v={d.profile} />
               <Row k={t("knowledge.dim")} v={String(d.dim ?? "?")} />
+              {d.embedding_backend && (
+                <Row k={t("knowledge.builtWith")} v={`${d.embedding_backend}${d.embedding_model ? ` · ${d.embedding_model}` : ""}`} />
+              )}
               <Row k={t("knowledge.path")} v={d.path} />
+              <div className="flex items-center gap-2 pt-3">
+                {confirmDelete ? (
+                  <>
+                    <Button variant="danger" size="sm" loading={deleting} onClick={() => removeDataset(d.name)}>
+                      {deleting ? t("knowledge.deleting") : t("common.confirm")}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
+                      {t("common.cancel")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="ghost" size="sm" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => setConfirmDelete(true)} className="text-red-300">
+                    {t("knowledge.deleteDataset")}
+                  </Button>
+                )}
+                {embed && <Badge tone="neutral">{embed.backend}</Badge>}
+              </div>
             </div>
           );
         })()}

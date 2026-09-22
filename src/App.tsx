@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   waitForSidecar, listDatasets, chat, federatedChat, freeChat, inferenceStatus,
-  listLocalModels, llamaStart, llamaReady, llamaEnsureBinary, autotuneFlags, inferenceConnect,
-  Dataset, Fragment, LocalModel,
+  listLocalModels, startEngine,
+  type Dataset, type Fragment, type LocalModel, type SamplerOpts, type ChatTurn,
 } from "./api/client";
-import { BookOpen, Cpu, MessageSquarePlus, Search, Settings as SettingsIcon, Zap } from "lucide-react";
+import { BookOpen, Cpu, MessageSquarePlus, Search, Settings as SettingsIcon, Trash2, Zap } from "lucide-react";
 import Chat from "./pages/Chat";
 import Knowledge from "./pages/Datasets";
 import Models from "./pages/Models";
@@ -28,6 +28,29 @@ export type Conversation = {
 
 type View = "chat" | "knowledge" | "models" | "compare" | "settings";
 
+const CONVERSATIONS_KEY = "kamvex-conversations";
+const MAX_CONVERSATIONS = 50;
+const HISTORY_TURNS = 20;
+
+function loadConversations(): Conversation[] {
+  try {
+    const raw = localStorage.getItem(CONVERSATIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveConversations(convs: Conversation[]) {
+  try {
+    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(convs.slice(0, MAX_CONVERSATIONS)));
+  } catch {
+    /* quota exceeded or storage unavailable — conversations stay in memory */
+  }
+}
+
 export default function App() {
   const { t } = useI18n();
   const [ready, setReady] = useState(false);
@@ -35,7 +58,7 @@ export default function App() {
   const [view, setView] = useState<View>("chat");
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedDataset, setSelectedDataset] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,13 +71,17 @@ export default function App() {
     localStorage.getItem("kamvex-llm-model"),
   );
   const [autoStarting, setAutoStarting] = useState(false);
-  const autoStartAttempted = useRef(false);
+  const wasRunning = useRef(false);
+
+  useEffect(() => {
+    saveConversations(conversations);
+  }, [conversations]);
 
   async function refresh() {
     try {
       const ds = await listDatasets();
       setDatasets(ds);
-      setSelectedDataset((cur) => cur ?? (ds[0]?.name ?? null));
+      setSelectedDataset((cur) => (cur && ds.some((d) => d.name === cur) ? cur : (ds[0]?.name ?? null)));
     } catch {
       /* sidecar not ready yet */
     }
@@ -62,9 +89,10 @@ export default function App() {
 
   async function refreshModels() {
     try {
-      const models = await listLocalModels();
-      setLocalModels(models);
-    } catch { /* sidecar not ready */ }
+      setLocalModels(await listLocalModels());
+    } catch {
+      /* sidecar not ready */
+    }
   }
 
   const handleSelectLlm = useCallback((path: string | null) => {
@@ -74,30 +102,15 @@ export default function App() {
   }, []);
 
   async function autoStartEngine(modelPath: string): Promise<boolean> {
-    if (autoStarting || inferenceRunning) return inferenceRunning;
+    if (autoStarting) return false;
     setAutoStarting(true);
     try {
-      const model = localModels.find((m) => m.path === modelPath);
-      const sizeMb = model?.size_mb ?? 4000;
-      const prescription = await autotuneFlags(sizeMb, "balanced");
-      await llamaEnsureBinary(prescription.backend);
-      const flags = [
-        "-ngl", String(prescription.ngl), "-t", String(prescription.threads),
-        "-c", String(prescription.ctx), "-b", String(prescription.batch),
-        "-ub", String(prescription.batch), "-ctk", prescription.ctk, "-ctv", prescription.ctv,
-        ...(prescription.flash_attn ? ["-fa"] : []),
-        ...(prescription.mlock ? ["--mlock"] : []),
-      ];
-      const portStr = await llamaStart(modelPath, flags);
-      const port = Number(portStr);
-      for (let i = 0; i < 60; i++) {
-        if (await llamaReady()) break;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      await inferenceConnect(port);
+      await startEngine(modelPath, "balanced");
       setInferenceRunning(true);
+      wasRunning.current = true;
       return true;
-    } catch {
+    } catch (e) {
+      setError(`${t("flow.autoStartFailed")} ${String(e)}`);
       return false;
     } finally {
       setAutoStarting(false);
@@ -111,9 +124,19 @@ export default function App() {
       if (ok) { refresh(); refreshModels(); }
     });
     const interval = setInterval(() => {
-      inferenceStatus().then((s) => setInferenceRunning(s.connected)).catch(() => {});
+      inferenceStatus()
+        .then((s) => {
+          const running = s.connected && s.alive !== false;
+          setInferenceRunning(running);
+          if (wasRunning.current && !running) {
+            setError((cur) => cur ?? t("flow.engineDied"));
+          }
+          wasRunning.current = running;
+        })
+        .catch(() => {});
     }, 3000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
@@ -136,9 +159,20 @@ export default function App() {
     setError(null);
   }
 
-  async function send(query: string, samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number }) {
+  function deleteChat(id: string) {
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeId === id) setActiveId(null);
+  }
+
+  function appendMessage(convId: string, message: Message) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, message] } : c)),
+    );
+  }
+
+  async function send(query: string, samplers?: SamplerOpts) {
     const needsLlm = agentBMode !== "statistical";
-    const useDataset = selectedDataset && datasets.length > 0;
+    const useDataset = !!selectedDataset && datasets.length > 0;
 
     if (agentBMode === "statistical" && !useDataset) {
       setError(t("flow.needsKnowledge"));
@@ -157,60 +191,35 @@ export default function App() {
     setBusy(true);
 
     if (needsLlm && !inferenceRunning && selectedLlm) {
-      if (!autoStartAttempted.current) {
-        autoStartAttempted.current = true;
-        const ok = await autoStartEngine(selectedLlm);
-        if (!ok) {
-          setError(t("flow.autoStartFailed"));
-          setBusy(false);
-          autoStartAttempted.current = false;
-          return;
-        }
+      const ok = await autoStartEngine(selectedLlm);
+      if (!ok) {
+        setBusy(false);
+        return;
       }
     }
 
     let convId = activeId;
+    const history: ChatTurn[] = (active?.messages ?? [])
+      .slice(-HISTORY_TURNS)
+      .map((m) => ({ role: m.role, content: m.content }));
     if (!convId) {
       convId = crypto.randomUUID();
-      const conv: Conversation = {
-        id: convId,
-        title: query.slice(0, 48),
-        dataset: selectedDataset,
-        messages: [],
-      };
+      const conv: Conversation = { id: convId, title: query.slice(0, 48), dataset: selectedDataset, messages: [] };
       setConversations((prev) => [conv, ...prev]);
       setActiveId(convId);
     }
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId
-          ? { ...c, messages: [...c.messages, { role: "user", content: query }] }
-          : c,
-      ),
-    );
+    appendMessage(convId, { role: "user", content: query });
 
     try {
       let res;
       if (agentBMode === "free" && !useDataset) {
-        res = await freeChat(query, samplers);
+        res = await freeChat(query, samplers, history);
       } else if (federated) {
         res = await federatedChat(query, agentBMode, samplers);
       } else {
         res = await chat(selectedDataset!, query, agentBMode, samplers);
       }
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === convId
-            ? {
-                ...c,
-                messages: [
-                  ...c.messages,
-                  { role: "assistant", content: res.answer, fragments: res.fragments },
-                ],
-              }
-            : c,
-        ),
-      );
+      appendMessage(convId, { role: "assistant", content: res.answer, fragments: res.fragments });
     } catch (e) {
       setError(String(e));
     } finally {
@@ -279,18 +288,27 @@ export default function App() {
             <p className="px-2 py-1 text-xs text-white/30">{t("app.noConvos")}</p>
           )}
           {filteredConversations.map((c) => (
-            <button
+            <div
               key={c.id}
-              onClick={() => openChat(c.id)}
-              className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
-                c.id === activeId && view === "chat"
-                  ? "bg-white/10 text-white"
-                  : "text-white/60 hover:bg-white/5"
+              className={`group flex items-center rounded-md transition-colors ${
+                c.id === activeId && view === "chat" ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5"
               }`}
-              title={c.title}
             >
-              {c.title || t("app.newConvo")}
-            </button>
+              <button
+                onClick={() => openChat(c.id)}
+                className="flex-1 min-w-0 truncate px-2 py-1.5 text-left text-sm"
+                title={c.title}
+              >
+                {c.title || t("app.newConvo")}
+              </button>
+              <button
+                onClick={() => deleteChat(c.id)}
+                title={t("app.deleteConvo")}
+                className="opacity-0 group-hover:opacity-100 p-1.5 text-white/30 hover:text-red-400 transition-opacity"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
           ))}
         </div>
 
@@ -346,7 +364,9 @@ export default function App() {
           {view === "knowledge" && (
             <Knowledge datasets={datasets} onChanged={refresh} />
           )}
-          {view === "models" && <Models onModelsChanged={refreshModels} />}
+          {view === "models" && (
+            <Models onModelsChanged={refreshModels} selectedLlm={selectedLlm} onSelectLlm={handleSelectLlm} />
+          )}
           {view === "compare" && <Compare datasets={datasets} />}
           {view === "settings" && <Settings />}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import { useI18n } from "../../i18n";
 
 export type SelectOption<T extends string = string> = {
   value: T;
@@ -11,10 +12,10 @@ export default function Select<T extends string = string>({
   value,
   options,
   onChange,
-  placeholder = "Seleccionar…",
+  placeholder,
   searchable = false,
-  searchPlaceholder = "Buscar…",
-  emptyLabel = "Sin resultados",
+  searchPlaceholder,
+  emptyLabel,
   className = "",
   renderValue,
 }: {
@@ -28,6 +29,10 @@ export default function Select<T extends string = string>({
   className?: string;
   renderValue?: (opt: SelectOption<T> | undefined) => ReactNode;
 }) {
+  const { t } = useI18n();
+  const placeholderText = placeholder ?? t("select.placeholder");
+  const searchText = searchPlaceholder ?? t("select.search");
+  const emptyText = emptyLabel ?? t("select.empty");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -67,7 +72,7 @@ export default function Select<T extends string = string>({
           ) : selected ? (
             selected.label
           ) : (
-            <span className="text-white/30">{placeholder}</span>
+            <span className="text-white/30">{placeholderText}</span>
           )}
         </span>
         <ChevronDown
@@ -83,14 +88,14 @@ export default function Select<T extends string = string>({
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={searchPlaceholder}
+                placeholder={searchText}
                 className="w-full rounded-md bg-white/5 px-2 py-1.5 text-xs outline-none placeholder:text-white/30"
               />
             </div>
           )}
           <div className="max-h-64 overflow-y-auto p-1">
             {filtered.length === 0 && (
-              <p className="px-2 py-2 text-xs text-white/30">{emptyLabel}</p>
+              <p className="px-2 py-2 text-xs text-white/30">{emptyText}</p>
             )}
             {filtered.map((opt) => (
               <button

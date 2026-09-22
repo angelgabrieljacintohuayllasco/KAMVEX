@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
+// ── Types ───────────────────────────────────────────────────────────────────
+
 export type Dataset = {
   name: string;
   n_records: number;
@@ -9,11 +11,23 @@ export type Dataset = {
   dim?: number;
   source_doc?: string;
   n_pages?: number;
+  built_at?: number;
+  embedding_backend?: string;
+  embedding_model?: string;
 };
 
 export type Fragment = { text: string; score: number; source_id: string | null };
-export type ChatResponse = { answer: string; fragments: Fragment[] };
+export type ChatResponse = { answer: string; fragments: Fragment[]; mode?: string; dataset?: string | null };
 export type BuildEvent = { stage: string; pct: number; msg: string };
+
+export type GpuInfo = {
+  vendor: string;
+  name: string;
+  vram_mb: number;
+  backend: string;
+  integrated: boolean;
+};
+
 export type HwInfo = {
   cpu_brand: string;
   physical_cores: number;
@@ -23,15 +37,12 @@ export type HwInfo = {
   gpus: GpuInfo[];
   has_vulkan: boolean;
   has_cuda: boolean;
+  has_avx2: boolean;
+  has_avx512: boolean;
+  os: string;
 };
 
-export type GpuInfo = {
-  vendor: string;
-  name: string;
-  vram_mb: number;
-  backend: string;
-};
-
+/** Single source of truth for llama-server flags — produced by Rust, applied by Rust. */
 export type Prescription = {
   backend: string;
   ngl: number;
@@ -43,7 +54,79 @@ export type Prescription = {
   flash_attn: boolean;
   mlock: boolean;
   draft_model: string | null;
+  warnings: string[];
+  offloaded_layers: number | null;
+  total_layers: number | null;
 };
+
+export type GgufInfo = {
+  architecture: string;
+  name: string;
+  file_type: number | null;
+  quant: string;
+  block_count: number | null;
+  context_length: number | null;
+  embedding_length: number | null;
+  expert_count: number | null;
+  vocab_size: number | null;
+  size_mb: number;
+  version: number;
+};
+
+export type SidecarStatus = {
+  port: number;
+  running: boolean;
+  ready: boolean;
+  launch: string;
+  pid: number | null;
+  log_path: string | null;
+};
+
+export type LlamaStatus = {
+  running: boolean;
+  port: number;
+  backend: string;
+  model: string | null;
+  pid: number | null;
+  log_path: string | null;
+};
+
+export type AppDirs = { data: string; models: string; binaries: string; logs: string };
+
+export type HealthInfo = {
+  status: string;
+  version: string;
+  dasa: boolean;
+  embeddings: "sentence-transformers" | "llama-gguf" | "none";
+  data_dir: string;
+  models_dir: string;
+};
+
+export type EmbeddingsStatus = {
+  backend: "sentence-transformers" | "llama-gguf" | "none";
+  ready: boolean;
+  st_installed: boolean;
+  server_bin: string | null;
+  model_path: string;
+  model_present: boolean;
+  model_repo: string;
+  model_file: string;
+  running: boolean;
+  port: number | null;
+  dim?: number | null;
+};
+
+export type SamplerOpts = {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repeat_penalty?: number;
+  max_tokens?: number;
+};
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+// ── Transport helpers ───────────────────────────────────────────────────────
 
 let _base: string | null = null;
 
@@ -53,6 +136,87 @@ async function base(): Promise<string> {
   _base = `http://127.0.0.1:${port}`;
   return _base;
 }
+
+async function getJson<T>(path: string, fallback?: T): Promise<T> {
+  const r = await fetch(`${await base()}${path}`);
+  if (!r.ok) {
+    if (fallback !== undefined) return fallback;
+    throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+  }
+  return r.json();
+}
+
+async function postJson<T>(path: string, body?: unknown): Promise<T> {
+  const r = await fetch(`${await base()}${path}`, {
+    method: "POST",
+    headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+  return r.json();
+}
+
+async function del<T>(path: string): Promise<T> {
+  const r = await fetch(`${await base()}${path}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+  return r.json();
+}
+
+/** FastAPI puts the human message in `detail`; surface it instead of raw JSON. */
+async function errorText(r: Response): Promise<string> {
+  const text = await r.text();
+  try {
+    const j = JSON.parse(text);
+    if (typeof j?.detail === "string") return j.detail;
+  } catch {
+    /* not JSON */
+  }
+  return text;
+}
+
+/** Read an SSE stream of JSON events until `isFinal` says so or the stream ends. */
+function subscribeSse<T>(path: string, onEvent: (e: T) => void, isFinal: (e: T) => boolean): () => void {
+  let stopped = false;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  (async () => {
+    try {
+      const resp = await fetch(`${await base()}${path}`);
+      reader = resp.body?.getReader() ?? null;
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (!stopped) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const ev = JSON.parse(line.slice(6)) as T;
+            onEvent(ev);
+            if (isFinal(ev)) {
+              stopped = true;
+              break;
+            }
+          } catch {
+            /* malformed line */
+          }
+        }
+      }
+    } catch {
+      /* connection lost — caller sees no further events */
+    } finally {
+      reader?.cancel().catch(() => {});
+    }
+  })();
+  return () => {
+    stopped = true;
+  };
+}
+
+// ── Shell (Rust) ────────────────────────────────────────────────────────────
 
 /** Poll the Rust side until the sidecar's port is open. */
 export async function waitForSidecar(timeoutMs = 90_000): Promise<boolean> {
@@ -64,15 +228,71 @@ export async function waitForSidecar(timeoutMs = 90_000): Promise<boolean> {
   return false;
 }
 
-export async function detectHardware(): Promise<HwInfo> {
-  return invoke<HwInfo>("detect_hardware");
+export const sidecarStatus = () => invoke<SidecarStatus>("sidecar_status");
+export const appDirs = () => invoke<AppDirs>("app_dirs");
+export const detectHardware = () => invoke<HwInfo>("detect_hardware");
+export const modelInfo = (path: string) => invoke<GgufInfo>("model_info", { path });
+
+export const llamaPort = () => invoke<number>("llama_port");
+export const llamaReady = () => invoke<boolean>("llama_ready");
+export const llamaStatus = () => invoke<LlamaStatus>("llama_status");
+export const llamaStop = () => invoke<void>("llama_stop");
+export const llamaEnsureBinary = (backend: string) => invoke<string>("llama_ensure_binary", { backendStr: backend });
+export const llamaBinaryPresent = (backend: string) => invoke<boolean>("llama_binary_present", { backendStr: backend });
+
+export function llamaStart(model: string, prescription: Prescription, extraFlags?: string[]): Promise<number> {
+  return invoke<number>("llama_start", { model, prescription, extraFlags: extraFlags ?? null });
 }
 
-export async function listDatasets(): Promise<Dataset[]> {
-  const r = await fetch(`${await base()}/datasets`);
-  if (!r.ok) throw new Error(`listDatasets ${r.status}`);
-  return r.json();
+/** Resolves true when llama-server answers, false on timeout; rejects if the process died. */
+export function llamaWaitReady(timeoutMs = 180_000): Promise<boolean> {
+  return invoke<boolean>("llama_wait_ready", { timeoutMs });
 }
+
+export function autotuneFlags(opts: { modelPath?: string; modelSizeMb?: number; preset: string }): Promise<Prescription> {
+  return invoke<Prescription>("autotune_flags", {
+    modelPath: opts.modelPath ?? null,
+    modelSizeMb: opts.modelSizeMb ?? null,
+    preset: opts.preset,
+  });
+}
+
+/**
+ * Full engine start: auto-tune → make sure the backend binary exists → spawn →
+ * wait for the model to load → hook the sidecar. Used by the Models page and by
+ * the chat auto-start so both follow exactly the same path.
+ */
+export async function startEngine(
+  modelPath: string,
+  preset: string,
+  options: { prescription?: Prescription; draftModel?: string | null; onStage?: (stage: string) => void } = {},
+): Promise<{ port: number; prescription: Prescription }> {
+  const stage = options.onStage ?? (() => {});
+  stage("autotune");
+  const prescription = options.prescription ?? (await autotuneFlags({ modelPath, preset }));
+  if (options.draftModel !== undefined) prescription.draft_model = options.draftModel;
+  stage("binary");
+  await llamaEnsureBinary(prescription.backend);
+  stage("spawn");
+  const port = await llamaStart(modelPath, prescription);
+  stage("loading");
+  const ready = await llamaWaitReady();
+  if (!ready) throw new Error("llama-server no respondió a tiempo (modelo demasiado grande o lento)");
+  stage("connect");
+  await inferenceConnect(port);
+  return { port, prescription };
+}
+
+// ── Sidecar: health / embeddings ────────────────────────────────────────────
+
+export const health = () => getJson<HealthInfo>("/health");
+export const embeddingsStatus = () => getJson<EmbeddingsStatus>("/embeddings/status");
+export const embeddingsSetup = () =>
+  postJson<{ status: "already" | "started"; download_id?: string; path?: string }>("/embeddings/setup");
+
+// ── Datasets ────────────────────────────────────────────────────────────────
+
+export const listDatasets = () => getJson<Dataset[]>("/datasets");
 
 export async function pickJsonFile(): Promise<string | null> {
   const selected = await open({
@@ -82,165 +302,82 @@ export async function pickJsonFile(): Promise<string | null> {
   return typeof selected === "string" ? selected : null;
 }
 
-export async function startBuild(
-  name: string,
-  json_path: string,
-  profile: string,
-): Promise<string> {
-  const r = await fetch(`${await base()}/datasets/build`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, json_path, profile }),
+export async function pickFile(name: string, extensions: string[]): Promise<string | null> {
+  const selected = await open({ multiple: false, filters: [{ name, extensions }] });
+  return typeof selected === "string" ? selected : null;
+}
+
+export async function startBuild(name: string, json_path: string, profile: string): Promise<string> {
+  return (await postJson<{ job_id: string }>("/datasets/build", { name, json_path, profile })).job_id;
+}
+
+export function startBuildText(name: string, text: string, profile = "low-ram", pdfPath?: string) {
+  return postJson<{ job_id: string; n_chunks: number }>("/datasets/build-text", {
+    name,
+    text,
+    profile,
+    pdf_path: pdfPath ?? "",
   });
-  if (!r.ok) throw new Error(`startBuild ${r.status}: ${await r.text()}`);
-  return (await r.json()).job_id as string;
 }
 
 /** Subscribe to build progress via SSE. Resolves when done, rejects on error. */
-export async function streamBuild(
-  jobId: string,
-  onEvent: (e: BuildEvent) => void,
-): Promise<void> {
-  const url = `${await base()}/datasets/build/${jobId}/events`;
+export function streamBuild(jobId: string, onEvent: (e: BuildEvent) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const es = new EventSource(url);
-    es.onmessage = (m) => {
-      const ev = JSON.parse(m.data) as BuildEvent;
-      onEvent(ev);
-      if (ev.stage === "done") {
-        es.close();
-        resolve();
-      } else if (ev.stage === "error") {
-        es.close();
-        reject(new Error(ev.msg));
-      }
-    };
-    es.onerror = () => {
-      es.close();
-      reject(new Error("conexión SSE perdida"));
-    };
+    let finished = false;
+    subscribeSse<BuildEvent>(
+      `/datasets/build/${jobId}/events`,
+      (ev) => {
+        onEvent(ev);
+        if (ev.stage === "done") {
+          finished = true;
+          resolve();
+        } else if (ev.stage === "error") {
+          finished = true;
+          reject(new Error(ev.msg));
+        }
+      },
+      (ev) => ev.stage === "done" || ev.stage === "error",
+    );
+    // A dropped connection without a final event must not hang the UI forever.
+    setTimeout(() => {
+      if (!finished) reject(new Error("conexión SSE perdida"));
+    }, 6 * 60 * 60 * 1000);
   });
 }
 
-export async function chat(
-  dataset: string,
-  query: string,
-  agentBMode: string = "statistical",
-  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
-): Promise<ChatResponse> {
-  const body: Record<string, unknown> = { dataset, query, agent_b_mode: agentBMode };
-  if (samplers) Object.assign(body, samplers);
-  const r = await fetch(`${await base()}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`chat ${r.status}: ${await r.text()}`);
-  return r.json();
+export const deleteDataset = (name: string) => del<{ status: string }>(`/datasets/${encodeURIComponent(name)}`);
+
+export async function exportDatasetUrl(dataset: string): Promise<string> {
+  return `${await base()}/datasets/${encodeURIComponent(dataset)}/export`;
 }
 
-// ── Free LLM chat (no dataset needed) ──────────────────────────────────────
-
-export async function freeChat(
-  query: string,
-  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
-): Promise<ChatResponse> {
-  const body: Record<string, unknown> = { query };
-  if (samplers) Object.assign(body, samplers);
-  const r = await fetch(`${await base()}/chat/free`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`freeChat ${r.status}: ${await r.text()}`);
-  return r.json();
+export async function datasetSummary(name: string): Promise<string> {
+  return (await postJson<{ summary: string }>(`/datasets/${encodeURIComponent(name)}/summary`)).summary;
 }
 
-// ── Local downloaded models ────────────────────────────────────────────────
+// ── Chat ────────────────────────────────────────────────────────────────────
 
-export type LocalModel = {
-  name: string;
-  file: string;
-  path: string;
-  size_mb: number;
+export function chat(dataset: string, query: string, agentBMode = "statistical", samplers?: SamplerOpts) {
+  return postJson<ChatResponse>("/chat", { dataset, query, agent_b_mode: agentBMode, ...(samplers ?? {}) });
+}
+
+export function freeChat(query: string, samplers?: SamplerOpts, history: ChatTurn[] = [], systemPrompt = "") {
+  return postJson<ChatResponse>("/chat/free", { query, history, system_prompt: systemPrompt, ...(samplers ?? {}) });
+}
+
+export type FederatedResponse = ChatResponse & { dataset: string | null; score: number };
+
+export function federatedChat(query: string, agentBMode = "statistical", samplers?: SamplerOpts) {
+  return postJson<FederatedResponse>("/federated", { query, agent_b_mode: agentBMode, ...(samplers ?? {}) });
+}
+
+export type CompareResult = {
+  a: { answer: string; mode: string; fragments: Fragment[] };
+  b: { answer: string; mode: string; fragments: Fragment[] };
 };
 
-export async function listLocalModels(): Promise<LocalModel[]> {
-  const r = await fetch(`${await base()}/models/local`);
-  if (!r.ok) return [];
-  return r.json();
-}
-
-// ── Inference engine (llama-server) ─────────────────────────────────────────
-
-export async function llamaPort(): Promise<number> {
-  return invoke<number>("llama_port");
-}
-
-export async function llamaReady(): Promise<boolean> {
-  return invoke<boolean>("llama_ready");
-}
-
-export async function llamaStart(model: string, flags: string[]): Promise<string> {
-  return invoke<string>("llama_start", { model, flags });
-}
-
-export async function llamaStop(): Promise<void> {
-  return invoke<void>("llama_stop");
-}
-
-export async function llamaEnsureBinary(backend: string): Promise<string> {
-  return invoke<string>("llama_ensure_binary", { backendStr: backend });
-}
-
-export async function llamaBinaryPresent(backend: string): Promise<boolean> {
-  return invoke<boolean>("llama_binary_present", { backendStr: backend });
-}
-
-export async function autotuneFlags(modelSizeMb: number, preset: string): Promise<Prescription> {
-  return invoke<Prescription>("autotune_flags", { modelSizeMb, preset });
-}
-
-export async function inferenceConnect(port: number): Promise<{ status: string; alive: boolean }> {
-  const r = await fetch(`${await base()}/inference/connect`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ port }),
-  });
-  if (!r.ok) throw new Error(`inferenceConnect ${r.status}`);
-  return r.json();
-}
-
-export async function inferenceDisconnect(): Promise<void> {
-  await fetch(`${await base()}/inference/disconnect`, { method: "POST" });
-}
-
-export async function inferenceStatus(): Promise<{ connected: boolean; alive?: boolean }> {
-  const r = await fetch(`${await base()}/inference/status`);
-  if (!r.ok) return { connected: false };
-  return r.json();
-}
-
-export type InferenceMetrics = {
-  connected: boolean;
-  active_slots: number;
-  total_decoded: number;
-  tokens_per_second: number;
-  ttft_ms: number;
-  context_used: number;
-  context_total: number;
-  context_pct: number;
-  ram_used_gb?: number;
-  ram_total_gb?: number;
-  vram_used_mb?: number;
-  vram_total_mb?: number;
-  slots: Array<{ id: number; is_processing: boolean; n_ctx: number; next_token?: { n_decoded: number } }>;
-};
-
-export async function inferenceMetrics(): Promise<InferenceMetrics> {
-  const r = await fetch(`${await base()}/inference/metrics`);
-  if (!r.ok) return { connected: false, active_slots: 0, total_decoded: 0, tokens_per_second: 0, ttft_ms: 0, context_used: 0, context_total: 0, context_pct: 0, slots: [] };
-  return r.json();
+export function compareModels(dataset: string, query: string, modeA = "statistical", modeB = "grounded") {
+  return postJson<CompareResult>("/compare", { dataset, query, mode_a: modeA, mode_b: modeB });
 }
 
 // ── Oregano Test (anti-hallucination quality audit) ─────────────────────────
@@ -262,30 +399,14 @@ export type OreganoResult = {
   details: OreganoDetail[];
 };
 
-export async function runOreganoTest(dataset: string): Promise<OreganoResult> {
-  const r = await fetch(`${await base()}/oregano/${encodeURIComponent(dataset)}`, {
-    method: "POST",
-  });
-  if (!r.ok) throw new Error(`oregano ${r.status}: ${await r.text()}`);
-  return r.json();
-}
+export const runOreganoTest = (dataset: string) => postJson<OreganoResult>(`/oregano/${encodeURIComponent(dataset)}`);
 
-// ── HuggingFace Hub (curated GGUF) ──────────────────────────────────────────
+// ── Local models + downloads ────────────────────────────────────────────────
 
-export type HubModel = {
-  repo: string;
-  file: string;
-  name: string;
-  size_mb: number;
-  desc: string;
-  category: string;
-};
+export type LocalModel = { name: string; file: string; path: string; size_mb: number; mtime?: number };
 
-export async function listHubModels(): Promise<HubModel[]> {
-  const r = await fetch(`${await base()}/models/hub`);
-  if (!r.ok) throw new Error(`listHubModels ${r.status}`);
-  return r.json();
-}
+export const listLocalModels = () => getJson<LocalModel[]>("/models/local", []);
+export const deleteLocalModel = (file: string) => del<{ status: string }>(`/models/local/${encodeURIComponent(file)}`);
 
 export type DownloadProgress = {
   status: "downloading" | "paused" | "done" | "error" | "cancelled";
@@ -294,134 +415,65 @@ export type DownloadProgress = {
   pct: number;
   speed_mbps: number;
   error: string;
+  file?: string;
 };
 
-export async function downloadHubModel(repo: string, file: string): Promise<{ status: string; download_id?: string; path?: string }> {
-  const r = await fetch(`${await base()}/models/hub/download`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repo, file }),
-  });
-  if (!r.ok) throw new Error(`downloadHubModel ${r.status}`);
-  return r.json();
+export type DownloadEntry = DownloadProgress & { download_id: string };
+
+export function downloadHubModel(repo: string, file: string) {
+  return postJson<{ status: "already" | "in_progress" | "started"; download_id?: string; path?: string }>(
+    "/models/hub/download",
+    { repo, file },
+  );
 }
+
+export const listDownloads = () => getJson<DownloadEntry[]>("/models/hub/downloads", []);
+
+const isFinalDownload = (p: DownloadProgress) => p.status === "done" || p.status === "error" || p.status === "cancelled";
 
 export function subscribeHubDownload(downloadId: string, onProgress: (p: DownloadProgress) => void): () => void {
-  let stopped = false;
-  (async () => {
-    const b = await base();
-    const resp = await fetch(`${b}/models/hub/download/${downloadId}/events`);
-    const reader = resp.body?.getReader();
-    if (!reader) return;
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (!stopped) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try { onProgress(JSON.parse(line.slice(6))); } catch {}
-        }
-      }
-    }
-    reader.cancel();
-  })();
-  return () => { stopped = true; };
+  return subscribeSse<DownloadProgress>(`/models/hub/download/${downloadId}/events`, onProgress, isFinalDownload);
 }
 
-export async function cancelHubDownload(downloadId: string): Promise<void> {
-  await fetch(`${await base()}/models/hub/download/${downloadId}/cancel`, { method: "POST" });
-}
+export const cancelHubDownload = (id: string) => postJson(`/models/hub/download/${id}/cancel`).then(() => {});
+export const pauseHubDownload = (id: string) => postJson(`/models/hub/download/${id}/pause`).then(() => {});
+export const resumeHubDownload = (id: string) => postJson(`/models/hub/download/${id}/resume`).then(() => {});
 
-export async function pauseHubDownload(downloadId: string): Promise<void> {
-  await fetch(`${await base()}/models/hub/download/${downloadId}/pause`, { method: "POST" });
-}
+// ── Inference hook (sidecar ↔ llama-server) ─────────────────────────────────
 
-export async function resumeHubDownload(downloadId: string): Promise<void> {
-  await fetch(`${await base()}/models/hub/download/${downloadId}/resume`, { method: "POST" });
-}
+export const inferenceConnect = (port: number) =>
+  postJson<{ status: string; alive: boolean }>("/inference/connect", { port });
+export const inferenceDisconnect = () => postJson("/inference/disconnect").then(() => {});
+export const inferenceStatus = () => getJson<{ connected: boolean; alive?: boolean }>("/inference/status", { connected: false });
 
-// ── Federated query (MoE semantic router) ───────────────────────────────────
-
-export type FederatedResponse = ChatResponse & {
-  dataset: string | null;
-  score: number;
+export type InferenceMetrics = {
+  connected: boolean;
+  active_slots: number;
+  total_decoded: number;
+  tokens_per_second: number;
+  ttft_ms: number;
+  context_used: number;
+  context_total: number;
+  context_pct: number;
+  ram_used_gb?: number;
+  ram_total_gb?: number;
+  vram_used_mb?: number;
+  vram_total_mb?: number;
+  slots: Array<{ id: number; is_processing: boolean; n_ctx: number; next_token?: { n_decoded: number } }>;
 };
 
-export async function federatedChat(
-  query: string,
-  agentBMode: string = "statistical",
-  samplers?: { temperature?: number; top_p?: number; top_k?: number; repeat_penalty?: number },
-): Promise<FederatedResponse> {
-  const body: Record<string, unknown> = { query, agent_b_mode: agentBMode };
-  if (samplers) Object.assign(body, samplers);
-  const r = await fetch(`${await base()}/federated`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`federated ${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-// ── Dataset export (.kamvex) ────────────────────────────────────────────────
-
-export async function exportDatasetUrl(dataset: string): Promise<string> {
-  const b = await base();
-  return `${b}/datasets/${encodeURIComponent(dataset)}/export`;
-}
-
-// ── Model A/B comparison ────────────────────────────────────────────────────
-
-export type CompareResult = {
-  a: { answer: string; mode: string; fragments: Fragment[] };
-  b: { answer: string; mode: string; fragments: Fragment[] };
+const EMPTY_METRICS: InferenceMetrics = {
+  connected: false, active_slots: 0, total_decoded: 0, tokens_per_second: 0, ttft_ms: 0,
+  context_used: 0, context_total: 0, context_pct: 0, slots: [],
 };
 
-export async function compareModels(
-  dataset: string,
-  query: string,
-  modeA: string = "statistical",
-  modeB: string = "grounded",
-): Promise<CompareResult> {
-  const r = await fetch(`${await base()}/compare`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dataset, query, mode_a: modeA, mode_b: modeB }),
-  });
-  if (!r.ok) throw new Error(`compare ${r.status}: ${await r.text()}`);
-  return r.json();
-}
+export const inferenceMetrics = () => getJson<InferenceMetrics>("/inference/metrics", EMPTY_METRICS);
 
-// ── Build dataset from raw text ─────────────────────────────────────────────
+// ── Citations ───────────────────────────────────────────────────────────────
+// PDF page citations are encoded into Fragment.source_id as "{document}.pdf · p.{N}"
+// (see sidecar/textsource.py). Parse it back out for display instead of threading
+// new fields through DASA's Fragment dataclass, which KAMVEX does not modify.
 
-export async function startBuildText(name: string, text: string, profile: string = "low-ram", pdfPath?: string): Promise<{ job_id: string; n_chunks: number }> {
-  const r = await fetch(`${await base()}/datasets/build-text`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, text, profile, pdf_path: pdfPath ?? "" }),
-  });
-  if (!r.ok) throw new Error(`startBuildText ${r.status}: ${await r.text()}`);
-  return r.json();
-}
-
-// ── Document summary (grounded, from the dataset's own source text) ────────
-
-export async function datasetSummary(name: string): Promise<string> {
-  const r = await fetch(`${await base()}/datasets/${encodeURIComponent(name)}/summary`, {
-    method: "POST",
-  });
-  if (!r.ok) throw new Error(`datasetSummary ${r.status}: ${await r.text()}`);
-  return (await r.json()).summary as string;
-}
-
-// ── PDF page citations are encoded into Fragment.source_id as
-//    "{document}.pdf · p.{N}" (see sidecar/server.py build_from_text). Parse
-//    it back out for display instead of threading new fields through DASA's
-//    Fragment dataclass, which KAMVEX does not modify.
 export type ParsedCitation = { doc: string | null; page: number | null; label: string };
 
 export function parseCitation(sourceId: string | null): ParsedCitation {

@@ -1,23 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ExternalLink, Download, Pause, Play, X, ChevronDown } from "lucide-react";
 import {
-  llamaReady,
-  llamaStart,
-  llamaStop,
-  llamaEnsureBinary,
-  autotuneFlags,
-  inferenceConnect,
-  inferenceDisconnect,
-  inferenceStatus,
   downloadHubModel,
+  listDownloads,
   subscribeHubDownload,
   cancelHubDownload,
   pauseHubDownload,
   resumeHubDownload,
-  type Prescription,
   type DownloadProgress,
 } from "../api/client";
 import { Badge, Button, Card, Field, Select, inputClass } from "../components/ui";
+import EngineCard from "../components/EngineCard";
 import { useI18n } from "../i18n";
 import {
   ALL_MODELS,
@@ -35,8 +28,6 @@ import {
   type SizeCategory,
 } from "../catalog";
 
-const PRESETS = ["eco", "balanced", "max"] as const;
-
 const SIZE_OPTIONS: { value: SizeCategory | ""; label: string }[] = [
   { value: "", label: "" },
   { value: "ultralight", label: "< 1 GB" },
@@ -45,6 +36,8 @@ const SIZE_OPTIONS: { value: SizeCategory | ""; label: string }[] = [
   { value: "large", label: "6-10 GB" },
   { value: "xl", label: "> 10 GB" },
 ];
+
+type DownloadMap = Record<string, { downloadId: string; progress: DownloadProgress }>;
 
 function formatSize(sizeMb: number): string {
   if (sizeMb >= 1000) return `${(sizeMb / 1000).toFixed(sizeMb % 1000 === 0 ? 0 : 1)} GB`;
@@ -73,34 +66,27 @@ function sizeTone(cat?: SizeCategory): "success" | "accent" | "warning" | "dange
   }
 }
 
-export default function Models({ onModelsChanged }: { onModelsChanged?: () => void }) {
+export default function Models({
+  onModelsChanged,
+  selectedLlm,
+  onSelectLlm,
+}: {
+  onModelsChanged?: () => void;
+  selectedLlm: string | null;
+  onSelectLlm: (path: string | null) => void;
+}) {
   const { t } = useI18n();
-
-  // ── Local engine state ──
-  const [modelPath, setModelPath] = useState<string | null>(null);
-  const [modelSizeMb, setModelSizeMb] = useState<number>(4000);
-  const [preset, setPreset] = useState<string>("balanced");
-  const [draftModelPath, setDraftModelPath] = useState<string | null>(null);
-  const [prescription, setPrescription] = useState<Prescription | null>(null);
-  const [running, setRunning] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [binaryReady, setBinaryReady] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   // ── Catalog state ──
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<CatalogFilters>({});
   const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [downloads, setDownloads] = useState<Record<string, { downloadId: string; progress: DownloadProgress }>>({});
-  const unsubsRef = useRef<Record<string, () => void>>({});
+  const [downloads, setDownloads] = useState<DownloadMap>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const unsubsRef = useRef<Record<string, () => void>>({});
 
-  useEffect(() => {
-    inferenceStatus().then((s) => setRunning(s.connected)).catch(() => {});
-  }, []);
-
-  // ── Filtered + sorted catalog ──
   const catalog = useMemo(() => {
     let result = searchModels(ALL_MODELS, query);
     result = applyFilters(result, filters);
@@ -144,115 +130,78 @@ export default function Models({ onModelsChanged }: { onModelsChanged?: () => vo
     { value: "provider", label: t("catalog.sort.provider") },
   ], [t]);
 
-  // ── Local engine actions ──
-  async function pickModel() {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const selected = await open({ multiple: false, filters: [{ name: "GGUF", extensions: ["gguf"] }] });
-    if (typeof selected === "string") {
-      setModelPath(selected);
-      setBinaryReady(false);
-      setPrescription(null);
-    }
-  }
+  const providerOptions = useMemo(() => [
+    { value: "", label: t("catalog.allProviders") },
+    ...PROVIDERS.map((p) => ({ value: p.id, label: p.name })),
+  ], [t]);
 
-  async function pickDraftModel() {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const selected = await open({ multiple: false, filters: [{ name: "GGUF", extensions: ["gguf"] }] });
-    if (typeof selected === "string") setDraftModelPath(selected);
-  }
-
-  async function computeTune() {
-    if (!modelPath) return;
-    setBusy(true); setError(null);
-    try {
-      const p = await autotuneFlags(modelSizeMb, preset);
-      setPrescription(p);
-      setBinaryReady(false);
-    } catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
-  }
-
-  async function ensureBinary() {
-    setDownloading(true); setError(null);
-    try {
-      await llamaEnsureBinary(prescription?.backend ?? "cpu");
-      setBinaryReady(true);
-    } catch (e) { setError(String(e)); }
-    finally { setDownloading(false); }
-  }
-
-  async function start() {
-    if (!modelPath || !prescription) return;
-    setBusy(true); setError(null);
-    try {
-      const flags = [
-        "-ngl", String(prescription.ngl), "-t", String(prescription.threads),
-        "-c", String(prescription.ctx), "-b", String(prescription.batch),
-        "-ub", String(prescription.batch), "-ctk", prescription.ctk, "-ctv", prescription.ctv,
-        "--flash-attn", prescription.flash_attn ? "on" : "off",
-        ...(prescription.mlock ? ["--mlock"] : []),
-        ...(draftModelPath ? ["-md", draftModelPath] : []),
-      ];
-      const portStr = await llamaStart(modelPath, flags);
-      const port = Number(portStr);
-      let ready = false;
-      for (let i = 0; i < 60; i++) {
-        if (await llamaReady()) { ready = true; break; }
-        await new Promise((r) => setTimeout(r, 500));
+  // ── Downloads ──
+  function track(modelId: string, downloadId: string, initial?: DownloadProgress) {
+    setDownloads((prev) => ({
+      ...prev,
+      [modelId]: {
+        downloadId,
+        progress: initial ?? { status: "downloading", downloaded: 0, total: 0, pct: 0, speed_mbps: 0, error: "" },
+      },
+    }));
+    unsubsRef.current[modelId]?.();
+    unsubsRef.current[modelId] = subscribeHubDownload(downloadId, (p) => {
+      setDownloads((prev) => {
+        const cur = prev[modelId];
+        if (!cur) return prev;
+        return { ...prev, [modelId]: { ...cur, progress: p } };
+      });
+      if (p.status === "done") {
+        delete unsubsRef.current[modelId];
+        setRefreshToken((n) => n + 1);
+        onModelsChanged?.();
       }
-      if (!ready) throw new Error("llama-server no respondió");
-      await inferenceConnect(port);
-      setRunning(true);
-    } catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
+      if (p.status === "error") setError(p.error);
+    });
   }
 
-  async function stop() {
-    setBusy(true);
-    try { await inferenceDisconnect(); await llamaStop(); setRunning(false); }
-    catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
-  }
+  // Re-attach to downloads still running in the sidecar (the page may have been unmounted).
+  useEffect(() => {
+    listDownloads()
+      .then((entries) => {
+        for (const e of entries) {
+          if (e.status !== "downloading" && e.status !== "paused") continue;
+          const m = ALL_MODELS.find((x) => x.file === e.file);
+          if (m) track(m.id, e.download_id, e);
+        }
+      })
+      .catch(() => {});
+    const unsubs = unsubsRef.current;
+    return () => {
+      Object.values(unsubs).forEach((u) => u());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function downloadLocal(m: CatalogModel) {
     if (!m.repo || !m.file) return;
+    setError(null);
     try {
       const res = await downloadHubModel(m.repo, m.file);
-      if (res.status === "already") { setModelPath(res.path ?? ""); return; }
-      const dlId = res.download_id;
-      if (!dlId) return;
-
-      setDownloads((prev) => ({
-        ...prev,
-        [m.id]: { downloadId: dlId, progress: { status: "downloading", downloaded: 0, total: 0, pct: 0, speed_mbps: 0, error: "" } },
-      }));
-
-      const unsub = subscribeHubDownload(dlId, (p) => {
-        setDownloads((prev) => {
-          const cur = prev[m.id];
-          if (!cur) return prev;
-          return { ...prev, [m.id]: { ...cur, progress: p } };
-        });
-        if (p.status === "done") {
-          delete unsubsRef.current[m.id];
-          onModelsChanged?.();
-        }
-        if (p.status === "error") setError(p.error);
-      });
-      unsubsRef.current[m.id] = unsub;
-    } catch (e) { setError(String(e)); }
+      if (res.status === "already") {
+        if (res.path) onSelectLlm(res.path);
+        setRefreshToken((n) => n + 1);
+        return;
+      }
+      if (res.download_id) track(m.id, res.download_id);
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function pauseDownload(modelId: string) {
     const dl = downloads[modelId];
-    if (!dl) return;
-    await pauseHubDownload(dl.downloadId);
+    if (dl) await pauseHubDownload(dl.downloadId);
   }
 
   async function resumeDownload(modelId: string) {
     const dl = downloads[modelId];
-    if (!dl) return;
-    await resumeHubDownload(dl.downloadId);
+    if (dl) await resumeHubDownload(dl.downloadId);
   }
 
   async function cancelDownload(modelId: string) {
@@ -273,12 +222,6 @@ export default function Models({ onModelsChanged }: { onModelsChanged?: () => vo
     setQuery("");
   }
 
-  // ── Provider filter options ──
-  const providerOptions = useMemo(() => [
-    { value: "", label: t("catalog.allProviders") },
-    ...PROVIDERS.map((p) => ({ value: p.id, label: p.name })),
-  ], [t]);
-
   return (
     <div className="p-6 max-w-5xl">
       {/* Header */}
@@ -288,6 +231,13 @@ export default function Models({ onModelsChanged }: { onModelsChanged?: () => vo
           {t("models.desc")} · {stats.total} {t("catalog.models")} · {stats.providers} {t("catalog.providers")}
         </p>
       </div>
+
+      <EngineCard
+        selectedModel={selectedLlm}
+        onSelectModel={onSelectLlm}
+        refreshToken={refreshToken}
+        onModelsChanged={onModelsChanged}
+      />
 
       {/* Search + filter toggle */}
       <div className="flex gap-3 mb-4">
@@ -340,85 +290,7 @@ export default function Models({ onModelsChanged }: { onModelsChanged?: () => vo
         </div>
       )}
 
-      {/* Local engine card */}
-      <Card className="mb-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="font-medium mb-1">{t("models.localModel")}</h2>
-            <p className="text-xs text-white/40">
-              {modelPath ? modelPath : t("models.importHint")}
-            </p>
-          </div>
-          <Button onClick={pickModel} variant="secondary">
-            {modelPath ? t("models.changeModel") : t("models.importGguf")}
-          </Button>
-        </div>
-
-        {modelPath && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label={t("models.sizeMb")}>
-              <input type="number" value={modelSizeMb} onChange={(e) => setModelSizeMb(Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label={t("models.preset")}>
-              <Select value={preset} options={PRESETS.map((p) => ({ value: p, label: p }))} onChange={setPreset} />
-            </Field>
-          </div>
-        )}
-
-        {modelPath && (
-          <Button onClick={computeTune} loading={busy} variant="primary" className="mt-4">
-            {t("models.computeFlags")}
-          </Button>
-        )}
-
-        {prescription && (
-          <div className="mt-4 rounded-lg bg-black/20 border border-white/10 p-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-white/60">
-              <span>backend <b className="text-white/90">{prescription.backend}</b></span>
-              <span>ngl <b className="text-white/90">{prescription.ngl}</b></span>
-              <span>threads <b className="text-white/90">{prescription.threads}</b></span>
-              <span>ctx <b className="text-white/90">{prescription.ctx}</b></span>
-              <span>KV <b className="text-white/90">{prescription.ctk}/{prescription.ctv}</b></span>
-              <span>{t("models.flashAttn")} <b className="text-white/90">{prescription.flash_attn ? t("models.on") : t("models.off")}</b></span>
-              <span>{t("models.mlock")} <b className="text-white/90">{prescription.mlock ? t("models.on") : t("models.off")}</b></span>
-              <span>
-                {t("models.specDecode")}{" "}
-                <b className="text-white/90">{draftModelPath ? t("models.on") : t("models.off")}</b>
-              </span>
-            </div>
-            {/* Speculative decoding — draft model */}
-            <div className="mt-2 flex items-center gap-2">
-              <Button onClick={pickDraftModel} variant="ghost" size="sm">
-                {draftModelPath ? t("models.changeDraft") : t("models.addDraft")}
-              </Button>
-              {draftModelPath && (
-                <>
-                  <span className="text-[10px] text-white/40 truncate max-w-[200px]">{draftModelPath.split(/[\\/]/).pop()}</span>
-                  <Button onClick={() => setDraftModelPath(null)} variant="ghost" size="sm" className="text-white/30 hover:text-red-400">
-                    ✕
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <Button onClick={ensureBinary} disabled={binaryReady} loading={downloading} variant="secondary" size="sm">
-                {binaryReady ? t("models.ready") : downloading ? t("models.downloading") : t("models.downloadBinary")}
-              </Button>
-              {!running ? (
-                <Button onClick={start} disabled={!binaryReady} loading={busy} variant="success" size="sm">
-                  {busy ? t("models.starting") : t("models.start")}
-                </Button>
-              ) : (
-                <Button onClick={stop} loading={busy} variant="danger" size="sm">
-                  {busy ? t("models.stopping") : t("models.stop")}
-                </Button>
-              )}
-              {running && <Badge tone="success">{t("models.active")}</Badge>}
-            </div>
-          </div>
-        )}
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-      </Card>
+      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
       {/* Catalog — Local models */}
       {localModels.length > 0 && (
@@ -569,12 +441,7 @@ function ModelCard({
               </Button>
             </div>
           ) : isLocal && onDownload && (!dlState || dlState.status === "cancelled" || dlState.status === "error") ? (
-            <Button
-              onClick={onDownload}
-              variant="secondary"
-              size="sm"
-              className="rounded-full"
-            >
+            <Button onClick={onDownload} variant="secondary" size="sm" className="rounded-full">
               <Download className="h-3.5 w-3.5" />
               {t("models.download")}
             </Button>
