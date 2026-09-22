@@ -50,10 +50,27 @@ try:
     from dasa.pipeline import DASAPipeline
     from dasa.agent_a.embeddings import EmbeddingEngine
     from shard.storage.shard_writer import ShardWriter
-    from shard.index.ivfpq_builder import build_ivfpq
     _DASA_AVAILABLE = True
 except ImportError:
     pass
+
+
+def _can_build() -> bool:
+    """Building an index needs scikit-learn (k-means); querying does not."""
+    return _DASA_AVAILABLE and importlib.util.find_spec("sklearn") is not None
+
+
+def _require_builder():
+    """Import the IVF-PQ builder lazily so chat keeps working when scikit-learn is absent."""
+    try:
+        from shard.index.ivfpq_builder import build_ivfpq
+    except ImportError as e:
+        raise HTTPException(
+            503,
+            f"Este sidecar no puede construir datasets (falta scikit-learn: {e}). "
+            "El chat sobre datasets ya construidos sí funciona.",
+        ) from e
+    return build_ivfpq
 
 from downloads import DownloadManager, is_valid_filename, is_valid_hf_repo  # noqa: E402
 from embedding_gguf import LlamaEmbeddingEngine  # noqa: E402
@@ -226,7 +243,8 @@ def _embeddings_status() -> dict:
         "port": None,
     }
     if isinstance(engine, LlamaEmbeddingEngine):
-        info.update({"running": engine.running, "port": engine.port, "dim": engine.dim})
+        d = engine.describe()
+        info.update({k: d.get(k) for k in ("running", "port", "pid", "dim", "job_assigned")})
     return info
 
 
@@ -387,6 +405,7 @@ def health():
         "status": "ok",
         "version": VERSION,
         "dasa": _DASA_AVAILABLE,
+        "can_build": _can_build(),
         "embeddings": _embeddings_status()["backend"],
         "data_dir": str(DATA_DIR),
         "models_dir": str(MODELS_DIR),
@@ -440,6 +459,7 @@ def list_datasets():
 
 
 def _start_build(name: str, json_path: Path, profile: str, extra_meta: dict | None = None) -> str:
+    build_ivfpq = _require_builder()
     job = BuildJob()
     jid = uuid.uuid4().hex
     _JOBS[jid] = job

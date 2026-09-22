@@ -136,7 +136,7 @@ answer uses the LLM (grounded when the corpus is relevant); otherwise it is stat
 
 ```bash
 # Sidecar: API, Agent B modes, validation, downloads, Oregano, GGUF embeddings
-python -m pytest sidecar -q            # 71 tests; the real-llama-server ones skip if
+python -m pytest sidecar -q            # 72 tests; the real-llama-server ones skip if
                                        # binarios/cpu/llama-server.exe or the MiniLM GGUF are absent
 # Rust: auto-tune, GGUF parser, hardware parsing, llama lifecycle, sidecar resolution
 cargo test --manifest-path src-tauri/Cargo.toml --lib     # 34 tests
@@ -156,8 +156,10 @@ python scripts/build-installer.py      # --sidecar-only / --skip-sidecar
 
 `bundle.createUpdaterArtifacts` is enabled, so `tauri build` needs
 `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). Auto-update reads
-`latest.json` from the GitHub release. The sidecar exe bundles DASA + SHARD + numpy but
-**not** torch; embeddings run through llama-server (see Prerequisites).
+`latest.json` from the GitHub release. The sidecar exe (~60 MB) bundles DASA + SHARD +
+numpy + scikit-learn but **not** torch; embeddings run through llama-server (see
+Prerequisites). Smoke-test it without Tauri:
+`sidecar/dist/kamvex-sidecar.exe --port 8765` then `curl http://127.0.0.1:8765/health`.
 
 ## Troubleshooting
 

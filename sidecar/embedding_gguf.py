@@ -50,6 +50,72 @@ def _creation_flags() -> int:
     return 0x08000000 if sys.platform == "win32" else 0
 
 
+def _kill_on_close_job():
+    """Windows Job Object that kills every assigned process when its handle closes.
+
+    The sidecar is normally terminated with TerminateProcess (Tauri `child.kill()`),
+    which skips `atexit`; a job handle owned by this process is closed by the OS at
+    death, so the embedding server can never outlive the sidecar. Returns None off Windows.
+    """
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.windll.kernel32
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        return None
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_ulonglong) for n in
+                    ("ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+                     "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+    class BasicLimit(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong),
+                    ("PerJobUserTimeLimit", ctypes.c_longlong),
+                    ("LimitFlags", wintypes.DWORD),
+                    ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t),
+                    ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t),
+                    ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class ExtendedLimit(ctypes.Structure):
+        _fields_ = [("BasicLimitInformation", BasicLimit),
+                    ("IoInfo", IoCounters),
+                    ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+    JobObjectExtendedLimitInformation = 9
+    info = ExtendedLimit()
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    ok = kernel32.SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                          ctypes.byref(info), ctypes.sizeof(info))
+    if not ok:
+        kernel32.CloseHandle(job)
+        return None
+    return job
+
+
+def _assign_to_job(job, proc: subprocess.Popen) -> bool:
+    if job is None or sys.platform != "win32":
+        return False
+    import ctypes
+    handle = ctypes.windll.kernel32.OpenProcess(0x1F0FFF, False, proc.pid)  # PROCESS_ALL_ACCESS
+    if not handle:
+        return False
+    try:
+        return bool(ctypes.windll.kernel32.AssignProcessToJobObject(job, handle))
+    finally:
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+
 class LlamaEmbeddingEngine:
     """Embeddings served by a private llama-server instance."""
 
@@ -65,6 +131,8 @@ class LlamaEmbeddingEngine:
         self._port: int | None = None
         self._dim: int | None = None
         self._atexit_registered = False
+        self._job = None          # Windows job handle: children die with this process
+        self.job_assigned = False
 
     # ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -88,7 +156,9 @@ class LlamaEmbeddingEngine:
             "server_bin": str(self.server_bin),
             "running": self.running,
             "port": self.port,
+            "pid": self._proc.pid if self.running else None,
             "dim": self._dim,
+            "job_assigned": self.job_assigned,
         }
 
     def _command(self, port: int) -> list[str]:
@@ -129,6 +199,9 @@ class LlamaEmbeddingEngine:
             creationflags=_creation_flags(),
         )
         self._port = port
+        if self._job is None:
+            self._job = _kill_on_close_job()
+        self.job_assigned = _assign_to_job(self._job, self._proc)
         if not self._atexit_registered:
             atexit.register(self.stop)
             self._atexit_registered = True

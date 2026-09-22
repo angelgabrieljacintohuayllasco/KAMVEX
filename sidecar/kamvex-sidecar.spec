@@ -3,9 +3,11 @@ PyInstaller spec for building the KAMVEX Python sidecar into a standalone exe.
 
 Bundles server.py + its modules (paths, downloads, embedding_gguf, jobs,
 llama_connector, oregano, textsource) + DASA (RAG anti-hallucination) + SHARD
-(vector DB) + deps (FastAPI, uvicorn, numpy, psutil, pypdf). torch and
-sentence-transformers are deliberately excluded (~2 GB): embeddings in the
-installer go through `llama-server --embedding` (see embedding_gguf.py).
+(vector DB) + deps (FastAPI, uvicorn, numpy, scikit-learn, psutil, pypdf).
+torch and sentence-transformers are deliberately excluded (~2 GB): embeddings
+in the installer go through `llama-server --embedding` (see embedding_gguf.py).
+scikit-learn must stay IN: shard.index.ivfpq_builder imports it at module
+level and the Knowledge page builds indexes with its MiniBatchKMeans.
 
 Usage:
     cd sidecar
@@ -47,6 +49,12 @@ a = Analysis(
         'numpy',
         'psutil',
         'pypdf',
+        'sklearn',
+        'sklearn.cluster',
+        'sklearn.utils._cython_blas',
+        'sklearn.utils._typedefs',
+        'sklearn.neighbors._partition_nodes',
+        'scipy.special._cdflib',
         'paths',
         'downloads',
         'embedding_gguf',
@@ -93,8 +101,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['torch', 'transformers', 'sentence_transformers', 'sklearn', 'scipy',
-              'pytest', 'httpx', 'IPython', 'matplotlib', 'tkinter'],
+    excludes=['torch', 'transformers', 'sentence_transformers',
+              'pytest', 'httpx', 'IPython', 'matplotlib', 'tkinter', 'PIL', 'pandas'],
     cipher=block_cipher,
     noarchive=False,
 )

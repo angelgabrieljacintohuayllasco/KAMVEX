@@ -20,6 +20,14 @@ All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog
 - **RAG dead in the installer**: PyInstaller excludes torch/sentence-transformers, so every
   build/chat failed. Embeddings now run through `llama-server --embedding` with the
   all-MiniLM-L6-v2 GGUF (same model, same 384-dim space) when sentence-transformers is absent.
+- **Bundled sidecar reported "DASA/SHARD no disponibles"**: `shard.index.ivfpq_builder` imports
+  scikit-learn at module level and the PyInstaller spec excluded it, so the whole DASA import
+  failed inside the exe. The builder is now imported lazily (chat works without scikit-learn)
+  and scikit-learn ships in the bundle (dataset builds need its k-means).
+- **Embedding llama-server outlived the sidecar**: Tauri terminates the sidecar with
+  `TerminateProcess`, which skips `atexit`; the embedding server is now assigned to a
+  Windows Job Object with `KILL_ON_JOB_CLOSE`, so it dies with the sidecar no matter how
+  the sidecar ends (verified by force-killing the process).
 - **CUDA backend could not start**: the CUDA runtime DLLs (`cudart-*.zip`) were never downloaded.
 - Oregano Test always ran a single generic query (`pipeline.agent_a._cfg` does not exist);
   test cases are now generated from the real records (`keys.json` written at build time).
@@ -55,8 +63,8 @@ All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog
 - Sidecar receives its directories from the shell (`KAMVEX_DATA_DIR`, `KAMVEX_MODELS_DIR`,
   `KAMVEX_BINARIES_DIR`, `KAMVEX_LLAMA_SERVER`); `KAMVEX_HOME` overrides everything.
 - Logs: `logs/sidecar.log` and `logs/llama-server.log`.
-- Test suites: 71 sidecar tests (API, modes, security, downloads, Oregano, GGUF embeddings
-  with a real llama-server) and 34 Rust unit tests.
+- Test suites: 72 sidecar tests (API, modes, security, downloads, Oregano, GGUF embeddings
+  with a real llama-server, job-object cleanup) and 34 Rust unit tests.
 
 ### Changed
 - Sidecar split into modules: `paths.py`, `downloads.py`, `embedding_gguf.py`, `textsource.py`.

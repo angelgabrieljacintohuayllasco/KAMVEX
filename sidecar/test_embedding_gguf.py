@@ -5,6 +5,8 @@ spawns the real llama-server with the MiniLM GGUF when both are present.
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pytest
 
@@ -55,6 +57,31 @@ def test_command_line_shape():
     assert cmd[cmd.index("-c") + 1] == "256"
     assert cmd[cmd.index("-t") + 1] == "2"
     assert "--no-webui" in cmd
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows job objects")
+def test_job_object_kills_child_when_handle_closes():
+    """The embedding server must die with the sidecar even on TerminateProcess."""
+    import ctypes
+    import subprocess
+    import time
+    from embedding_gguf import _assign_to_job, _kill_on_close_job
+
+    job = _kill_on_close_job()
+    assert job, "CreateJobObject failed"
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                             creationflags=0x08000000)
+    try:
+        assert _assign_to_job(job, child) is True
+        assert child.poll() is None
+        ctypes.windll.kernel32.CloseHandle(job)   # what the OS does when the sidecar dies
+        deadline = time.time() + 5
+        while child.poll() is None and time.time() < deadline:
+            time.sleep(0.1)
+        assert child.poll() is not None, "child survived the job close"
+    finally:
+        if child.poll() is None:
+            child.kill()
 
 
 @pytest.mark.skipif(not HAVE_REAL, reason="llama-server binary or MiniLM GGUF not present")
