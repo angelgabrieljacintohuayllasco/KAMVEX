@@ -1,0 +1,545 @@
+[
+ {
+  "expert": "salud",
+  "rows": [
+   {
+    "q": "¿Qué es la diabetes?",
+    "expected": [
+     "glucosa",
+     "azúcar",
+     "sangre"
+    ],
+    "expert": {
+     "answer": "La diabetes, o diabetes mellitus, es una enfermedad en la que los niveles de glucosa (o azúcar) en sangre son demasiado altos.",
+     "hit": true,
+     "ms": 2500,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "medlineplus-salud-es"
+      ],
+      "search_ms": 17.7,
+      "total_ms": 2497.2
+     }
+    },
+    "corpus": {
+     "answer": "La diabetes, o diabetes mellitus, es una enfermedad en la que los niveles de glucosa (o azúcar) en sangre son demasiado altos.",
+     "hit": true,
+     "ms": 1130
+    },
+    "modelo": {
+     "answer": "La diabetes es un trastorno en el metabolismo que afecta la cantidad de glucosa en el sangre. La glucosa es un tipo de azúcar que se obtiene de los alimentos y se utiliza como energía por el cuerpo. \n\nEn la diabetes, la cantidad de glucosa en el sangre se eleva por encima de los niveles normales. Esto puede ocurrir por dos razones principales: la insuficiencia de la hormona insulina o la resistencia a la insulina.\n\nLa diabetes se divide en tres tipos principales: la diabetes mellitus tipo 1, la diabetes mellitus tipo 2 y la diabetes mellitus gestacional. Cada uno tiene sus propias causas y tratamientos.",
+     "hit": true,
+     "ms": 4344
+    }
+   },
+   {
+    "q": "¿Qué es la anemia?",
+    "expected": [
+     "glóbulos rojos",
+     "hemoglobina",
+     "hierro"
+    ],
+    "expert": {
+     "answer": "Anemia: Si tiene anemia, es debido a que su sangre no está transportando suficiente oxígeno al resto de su cuerpo. La causa más común de anemia es no tener suficiente hierro . El cuerpo necesita este mineral para producir hemoglobina. La hemoglobina es una proteína rica en hierro que da a la sangre su color rojo y transporta oxígeno desde los pulmones al resto del cuerpo.\n\nLas tres causas principales de anemia son: pérdida de sangre, no producir glóbulos rojos y destrucción de estos a gran velocidad.\n\nLos problemas médicos que pueden causar anemia pueden ser:\nPeríodos menstruales muy abundantes\nEmbarazo\nUlceras\nPólipos en el colon o cáncer del colon\nTrastornos hereditarios\nUna dieta que no contiene suficiente hierro, ácido fólico o vitamina B 12\nAlgunos trastornos, tales como anemia falciforme , talasemia o cáncer\nAnemia aplásica , una afección que puede ser hereditaria o adquirida\nDeficiencia de glucosa -6- fosfato-deshidrogenasa\n\nLa anemia puede hacerlo sentirse débil, tener frío, estar mareado e irritable. También puede sentir dificultad para respirar o dolores de cabeza.\n\nEl doctor diagnosticará la enfermedad a través de un examen físico y de sangre. El tratamiento depende del tipo de anemia que usted tenga.\n\nNIH: Instituto Nacional del Corazón, los Pulmones y la Sangre",
+     "hit": true,
+     "ms": 3693,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.8,
+      "unsupported": [
+       "carec",
+       "condi",
+       "insuf"
+      ],
+      "fallback": true,
+      "llm_answer": "La anemia es una condición en la cual su sangre no está transportando suficiente oxígeno al resto de su cuerpo debido a que su sangre carece de hierro, lo que hace que la hemoglobina (una proteína rica en hierro) sea insuficiente para transportar oxígeno.",
+      "fallback_engine": "exact",
+      "corpus": true,
+      "datasets": [
+       "medlineplus-salud-es"
+      ],
+      "search_ms": 22.0,
+      "total_ms": 3670.8
+     }
+    },
+    "corpus": {
+     "answer": "Anemia: Si tiene anemia, es debido a que su sangre no está transportando suficiente oxígeno al resto de su cuerpo. La causa más común de anemia es no tener suficiente hierro . El cuerpo necesita este mineral para producir hemoglobina. La hemoglobina es una proteína rica en hierro que da a la sangre su color rojo y transporta oxígeno desde los pulmones al resto del cuerpo.\n\nLas tres causas principales de anemia son: pérdida de sangre, no producir glóbulos rojos y destrucción de estos a gran velocidad.\n\nLos problemas médicos que pueden causar anemia pueden ser:\nPeríodos menstruales muy abundantes\nEmbarazo\nUlceras\nPólipos en el colon o cáncer del colon\nTrastornos hereditarios\nUna dieta que no contiene suficiente hierro, ácido fólico o vitamina B 12\nAlgunos trastornos, tales como anemia falciforme , talasemia o cáncer\nAnemia aplásica , una afección que puede ser hereditaria o adquirida\nDeficiencia de glucosa -6- fosfato-deshidrogenasa\n\nLa anemia puede hacerlo sentirse débil, tener frío, estar mareado e irritable. También puede sentir dificultad para respirar o dolores de cabeza.\n\nEl doctor diagnosticará la enfermedad a través de un examen físico y de sangre. El tratamiento depende del tipo de anemia que usted tenga.\n\nNIH: Instituto Nacional del Corazón, los Pulmones y la Sangre",
+     "hit": true,
+     "ms": 2101
+    },
+    "modelo": {
+     "answer": "La anemia es un problema de salud en el que el cuerpo tiene menos hemoglobina o menos rolo de rocas en sus células sanguíneas. Esto significa que la sangre no puede transportar suficiente oxígeno a los tejidos del cuerpo. La anemia puede causar síntomas como fatiga, debilidad, palidez y, en casos severos, problemas de corazón y cerebro.",
+     "hit": true,
+     "ms": 2620
+    }
+   },
+   {
+    "q": "¿Qué es el asma?",
+    "expected": [
+     "vías respiratorias",
+     "pulmones",
+     "respirar"
+    ],
+    "expert": {
+     "answer": "El asma es una enfermedad pulmonar crónica (de largo plazo) que afecta a las vías respiratorias.",
+     "hit": true,
+     "ms": 2635,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.889,
+      "unsupported": [
+       "afect"
+      ],
+      "corpus": true,
+      "datasets": [
+       "medlineplus-salud-es"
+      ],
+      "search_ms": 27.9,
+      "total_ms": 2612.4
+     }
+    },
+    "corpus": {
+     "answer": "El asma es una enfermedad pulmonar crónica (de largo plazo) que afecta a las vías respiratorias.",
+     "hit": true,
+     "ms": 898
+    },
+    "modelo": {
+     "answer": "El asma es una condición en la que el sistema respiratorio se inflama y se dificulta la respiración. Se caracteriza por episodios de tos, dificultad para respirar y con frecuencia, erupción en la piel. El asma puede ser causado por factores externos como el polvo, el polen o el polvo de insectos, o por factores internos como el estrés, el tabaco o el tabloide.",
+     "hit": true,
+     "ms": 2739
+    }
+   },
+   {
+    "q": "¿Qué es la hipertensión?",
+    "expected": [
+     "presión arterial",
+     "presión",
+     "sangre"
+    ],
+    "expert": {
+     "answer": "La información disponible no cubre este tema.",
+     "hit": false,
+     "ms": 2062,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "medlineplus-salud-es"
+      ],
+      "search_ms": 25.3,
+      "total_ms": 2059.4
+     }
+    },
+    "corpus": {
+     "answer": "La información disponible no cubre este tema.",
+     "hit": false,
+     "ms": 325
+    },
+    "modelo": {
+     "answer": "La hipertensión es una condición en la que el nivel de presión arterial en el cuerpo es mayor de lo normal. Normalmente, la presión arterial está controlada por músculos en los vasos sanguíneos que se contraen y relajan. Cuando estos músculos se contraen demasiado o se relajan demasiado, puede aumentar la presión arterial. La hipertensión puede ser arterial sistólica, arterial diastólica o sistólica-diastólica, y puede ser leve, moderada o severa.",
+     "hit": true,
+     "ms": 3286
+    }
+   },
+   {
+    "q": "¿Qué es la migraña?",
+    "expected": [
+     "dolor de cabeza",
+     "cefalea",
+     "cabeza"
+    ],
+    "expert": {
+     "answer": "Las migrañas son un tipo recurrente de dolor de cabeza.",
+     "hit": true,
+     "ms": 2077,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "medlineplus-salud-es"
+      ],
+      "search_ms": 36.3,
+      "total_ms": 2050.3
+     }
+    },
+    "corpus": {
+     "answer": "Las migrañas son un tipo recurrente de dolor de cabeza.",
+     "hit": true,
+     "ms": 463
+    },
+    "modelo": {
+     "answer": "La migraña es un tipo de dolor de cabeza que puede ser severo y recurrente. Se caracteriza por:\n\n1. Dolor de cabeza intensamente doloroso, generalmente en la parte frontal o occipital.\n2. Puede ser acompañado de náuseas, vómitos y sensibilidad a los estímulos visuales.\n3. Puede durar de 4 a 72 horas.\n4. Puede afectar a personas de todas las edades, pero es más común en la juventud.\n5. Se puede producir por varias causas, incluyendo factores genéticos, ambientales y dietéticos.\n\nEs importante recordar que aunque la migraña puede ser desagradable, es una condición que puede ser controlada con medicamentos y cambios en la dieta y estilo de vida.",
+     "hit": true,
+     "ms": 4997
+    }
+   }
+  ],
+  "name": "Salud",
+  "summary": {
+   "expert": {
+    "hits": 4,
+    "n": 5,
+    "p50_ms": 2500
+   },
+   "corpus": {
+    "hits": 4,
+    "n": 5,
+    "p50_ms": 898
+   },
+   "modelo": {
+    "hits": 5,
+    "n": 5,
+    "p50_ms": 3286
+   }
+  }
+ },
+ {
+  "expert": "leyes-peru",
+  "rows": [
+   {
+    "q": "¿Qué dice el Artículo 1 de la Constitución?",
+    "expected": [
+     "dignidad",
+     "persona humana",
+     "fin supremo"
+    ],
+    "expert": {
+     "answer": "Artículo 1: La defensa de la persona humana y el respeto de su dignidad son el fin supremo de la sociedad y del Estado.",
+     "hit": true,
+     "ms": 34,
+     "meta": {
+      "engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "constitucion-peru-1993"
+      ],
+      "search_ms": 20.8,
+      "total_ms": 21.0
+     }
+    },
+    "corpus": {
+     "answer": "La defensa de la persona humana y el respeto de su dignidad son el fin supremo de la sociedad y del Estado.",
+     "hit": true,
+     "ms": 1160
+    },
+    "modelo": {
+     "answer": "El Artículo 1 de la Constitución de la República Argentina establece:\n\n\"Artículo 1°\n\nLa República Argentina es un Estado soberano, social, democrático y federal, con un sistema político constitucional, basado en la libertad, la igualdad, la fraternidad y el pluralismo político.\n\nLa soberanía nacional reside en el pueblo, cuya representación es el Congreso Nacional, y en los gobernadores, que son elegidos por el pueblo.\n\nLa soberanía es ejercida por el pueblo a través de sus representantes en el Congreso Nacional y en los gobernadores, y por los ciudadanos en sus respectivos municipios.\"\n\nEste artículo define la naturaleza del Estado, sus principios y la estructura de gobierno.",
+     "hit": false,
+     "ms": 4489
+    }
+   },
+   {
+    "q": "¿Qué establece el Artículo 2 sobre la igualdad?",
+    "expected": [
+     "igualdad",
+     "discriminado"
+    ],
+    "expert": {
+     "answer": "A la igualdad ante la ley. Además, artículo 2: Toda persona tiene derecho:\n1.",
+     "hit": true,
+     "ms": 23,
+     "meta": {
+      "engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "constitucion-peru-1993"
+      ],
+      "search_ms": 6.1,
+      "total_ms": 6.8
+     }
+    },
+    "corpus": {
+     "answer": "El Artículo 2 establece que nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.",
+     "hit": true,
+     "ms": 3059
+    },
+    "modelo": {
+     "answer": "El Artículo 2 de la Constitución de la República Argentina establece que \"La igualdad de los ciudadanos es un derecho y una obligación\".",
+     "hit": true,
+     "ms": 1095
+    }
+   },
+   {
+    "q": "¿Qué dice el Artículo 139?",
+    "expected": [
+     "jurisdiccional",
+     "justicia",
+     "proceso"
+    ],
+    "expert": {
+     "answer": "Artículo 139: Son principios y derechos de la función jurisdiccional:\n1. La unidad y exclusividad de la función jurisdiccional.No existe ni puede establecerse jurisdicción alguna independiente, con excepción de la militar y la arbitral.No hay proceso judicial por comisión o delegación.\n2. La independencia en el ejercicio de la función jurisdiccional.Ninguna autoridad puede avocarse a causas pendientes ante el órgano jurisdiccional ni interferir en el ejercicio de sus funciones. Tampoco puede dejar sin efecto resoluciones que han pasado en autoridad de cosa juzgada, ni cortar procedimientos en trámite, ni modificar sentencias ni retardar su ejecución. Estas disposiciones no afectan el derecho de gracia ni la facultad de investigación del Congreso, cuyo ejercicio no debe, sin embargo, interferir en el procedimiento jurisdiccional ni surte efecto jurisdiccional alguno.\n3. La observancia del debido proceso y la tutela jurisdiccional.Ninguna persona puede ser desviada de la jurisdicción predeterminada por la ley, ni sometida a procedimiento distinto de los previamente establecidos, ni juzgada por órganos jurisdiccionales de excepción ni por comisiones especiales creadas al efecto, cualquiera sea su denominación.\n4. La publicidad en los procesos, salvo disposición contraria de la ley.Los procesos judiciales por responsabilidad de funcionarios públicos, y por los delitos cometidos por medio de la prensa y los que se refieren a derechos fundamentales garantizados por la Constitución, son siempre públicos.\n5. La motivación escrita de las resoluciones judiciales en todas las instancias, excepto los decretos de mero trámite, con mención expresa de la ley aplicable y de los fundamentos de hecho en que se sustentan.\n6. La pluralidad de la instancia.\n7. La indemnización, en la forma que determine la ley, por los errores judiciales en los procesos penales y por las detenciones arbitrarias, sin perjuicio de la responsabilidad a que hubiere lugar.\n8. El principio de no dejar de administrar justicia por vacío o deficiencia de la ley.En tal caso, deben aplicarse los principios generales del derecho y el derecho consuetudinario.\n9. El principio de inaplicabilidad por analogía de la ley penal y de las normas que restrinjan derechos.\n10. El principio de no ser penado sin proceso judicial.\n11. La aplicación de la ley más favorable al procesado en caso de duda o de conflicto entre leyes penales.\n12. El principio de no ser condenado en ausencia.\n13. La prohibición de revivir procesos fenecidos con resolución ejecutoriada. La amnistía, el indulto, el sobreseimiento definitivo y la prescripción producen los efectos de cosa juzgada.\n14. El principio de no ser privado del derecho de defensa en ningún estado del proceso. Toda persona será informada inmediatamente y por escrito de la causa o las razones de su detención. Tiene derecho a comunicarse personalmente con un defensor de su elección y a ser asesorada por éste desde que es citada o detenida por cualquier autoridad.\n15. El principio de que toda persona debe ser informada, inmediatamente y por escrito, de las causas o razones de su detención.\n16. El principio de la gratuidad de la administración de justicia y de la defensa gratuita para las personas de escasos recursos; y para todos, en los casos que la ley señala.\n17. La participación popular en el nombramiento y en la revocación de magistrados, conforme a ley.\n18. La obligación del Poder Ejecutivo de prestar la colaboración que en los procesos le sea requerida.\n19. La prohibición de ejercer función judicial por quien no ha sido nombrado en la forma prevista por la Constitución o la ley. Los órganos jurisdiccionales no pueden darle posesión del cargo, bajo responsabilidad.\n20. El principio del derecho de toda persona de formular análisis y críticas de las resoluciones y sentencias judiciales, con las limitaciones de ley.\n21. El derecho de los reclusos y sentenciados de ocupar establecimientos adecuados.\n22. El principio de que el régimen penitenciario tiene por objeto la reeducación, rehabilitación y reincorporación del penado a la sociedad.",
+     "hit": true,
+     "ms": 22,
+     "meta": {
+      "engine": "exact",
+      "corpus": true,
+      "datasets": [
+       "constitucion-peru-1993"
+      ],
+      "search_ms": 18.2,
+      "total_ms": 18.3
+     }
+    },
+    "corpus": {
+     "answer": "El Artículo 139 establece que la unidad y exclusividad de la función jurisdiccional no existe ni puede establecerse jurisdicción alguna independiente, con excepción de la militar y la arbitral. Además, se menciona que ninguna autoridad puede avocarse a causas pendientes ante el órgano jurisdiccional ni interferir en el ejercicio de sus funciones.",
+     "hit": true,
+     "ms": 3952
+    },
+    "modelo": {
+     "answer": "Lo siento, pero no puedo proporcionar información sobre el Artículo 139 sin más contexto. Este artículo podría referirse a un código penal específico, pero necesitaría más detalles para poder ayudarte con la información exacta. ¿Podrías especificar en qué contexto o país se refiere?",
+     "hit": false,
+     "ms": 1747
+    }
+   }
+  ],
+  "name": "Leyes del Perú",
+  "summary": {
+   "expert": {
+    "hits": 3,
+    "n": 3,
+    "p50_ms": 23
+   },
+   "corpus": {
+    "hits": 3,
+    "n": 3,
+    "p50_ms": 3059
+   },
+   "modelo": {
+    "hits": 1,
+    "n": 3,
+    "p50_ms": 1747
+   }
+  }
+ },
+ {
+  "expert": "peru",
+  "rows": [
+   {
+    "q": "¿Cuál es la capital del departamento de Amazonas?",
+    "expected": [
+     "Chachapoyas"
+    ],
+    "expert": {
+     "answer": "La capital del departamento de Amazonas es Chachapoyas.",
+     "hit": true,
+     "ms": 2239,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "wikipedia-es-peru"
+      ],
+      "search_ms": 41.9,
+      "total_ms": 2236.4
+     }
+    },
+    "corpus": {
+     "answer": "La capital del departamento de Amazonas es Chachapoyas.",
+     "hit": true,
+     "ms": 501
+    },
+    "modelo": {
+     "answer": "La capital del departamento de Amazonas es Leticia.",
+     "hit": false,
+     "ms": 430
+    }
+   },
+   {
+    "q": "¿Qué es el ceviche?",
+    "expected": [
+     "pescado",
+     "plato",
+     "limón"
+    ],
+    "expert": {
+     "answer": "El ceviche o ceviche es un plato de amplio consumo en toda la costa peruana, al punto de haber sido declarado formalmente como Patrimonio Cultural de la Nación y catalogado como el plato más representativo de Perú. Su historia se remonta a épocas precolombinas y es servido en un tipo de restaurante conocido como cebichería.",
+     "hit": true,
+     "ms": 4019,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "wikipedia-es-peru"
+      ],
+      "search_ms": 37.2,
+      "total_ms": 4017.1
+     }
+    },
+    "corpus": {
+     "answer": "El ceviche o ceviche es un plato de amplio consumo en toda la costa peruana, al punto de haber sido declarado formalmente como Patrimonio Cultural de la Nación y catalogado como el plato más representativo de Perú. Su historia se remonta a épocas precolombinas y es servido en un tipo de restaurante conocido como cebichería.",
+     "hit": true,
+     "ms": 2509
+    },
+    "modelo": {
+     "answer": "El ceviche es una receta de comida peruana que se prepara con pescado o mariscos, generalmente salmón, y un aporte de limones. La receta incluye sal, aceite de oliva, y un aderezo de limón y ajo. El pescado se cocina con un poco de sal y aceite, luego se mezcla con limones y ajo para crear un aporte de sabor. Es una receta popular que se puede preparar en casa o en restaurantes.",
+     "hit": true,
+     "ms": 3097
+    }
+   },
+   {
+    "q": "¿Qué es Machu Picchu?",
+    "expected": [
+     "inca",
+     "ciudadela",
+     "Cusco",
+     "santuario"
+    ],
+    "expert": {
+     "answer": "Machu Picchu es una montaña ubicada en Cusco, Perú, conocida por ser parte del macizo de Salcantay y pertenecer a la Cordillera Central de los Andes peruanos. Es famosa como el santuario y sitio arqueológico que se encuentra sobre sus faldas, considerado patrimonio de la humanidad.",
+     "hit": true,
+     "ms": 3288,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.87,
+      "unsupported": [
+       "famos",
+       "perte",
+       "ubica"
+      ],
+      "corpus": true,
+      "datasets": [
+       "wikipedia-es-peru"
+      ],
+      "search_ms": 50.4,
+      "total_ms": 3286.0
+     }
+    },
+    "corpus": {
+     "answer": "Machu Picchu es una montaña ubicada en Cusco, Perú, conocida por ser parte del macizo de Salcantay y pertenecer a la Cordillera Central de los Andes peruanos. Es famosa como el santuario y sitio arqueológico que se encuentra sobre sus faldas, considerado patrimonio de la humanidad.",
+     "hit": true,
+     "ms": 2313
+    },
+    "modelo": {
+     "answer": "Machu Picchu es una antigua ciudad en el Andes, ubicada en la región de Cusco, Perú. Fue construida por los Incas en el siglo XVI y es conocida por su arquitectura y paisaje impresionantes. Es famosa por su presencia en la lista de Patrimonio de la Humanidad de la UNESCO.",
+     "hit": true,
+     "ms": 2313
+    }
+   }
+  ],
+  "name": "Perú (cultura y geografía)",
+  "summary": {
+   "expert": {
+    "hits": 3,
+    "n": 3,
+    "p50_ms": 3288
+   },
+   "corpus": {
+    "hits": 3,
+    "n": 3,
+    "p50_ms": 2313
+   },
+   "modelo": {
+    "hits": 2,
+    "n": 3,
+    "p50_ms": 2313
+   }
+  }
+ },
+ {
+  "expert": "lengua",
+  "rows": [
+   {
+    "q": "¿Qué significa efímero?",
+    "expected": [
+     "breve",
+     "poco tiempo",
+     "pasajero"
+    ],
+    "expert": {
+     "answer": "efémero: Que existe por un tiempo muy breve.",
+     "hit": true,
+     "ms": 142,
+     "meta": {
+      "engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "diccionario-es"
+      ],
+      "search_ms": 126.0,
+      "total_ms": 126.2
+     }
+    },
+    "corpus": {
+     "answer": "efémero: Que existe por un tiempo muy breve.",
+     "hit": true,
+     "ms": 828
+    },
+    "modelo": {
+     "answer": "\"Efímero\" significa que algo o alguien es breve y transitorio, no permanece por mucho tiempo.",
+     "hit": true,
+     "ms": 725
+    }
+   },
+   {
+    "q": "¿Qué significa abanico?",
+    "expected": [
+     "aire",
+     "instrumento",
+     "abanicar"
+    ],
+    "expert": {
+     "answer": "abanico: Un objeto decorativo para refrescarse con el aire que produce al moverlo.",
+     "hit": true,
+     "ms": 49,
+     "meta": {
+      "engine": "exact",
+      "corpus": true,
+      "datasets": [
+       "diccionario-es"
+      ],
+      "search_ms": 46.8,
+      "total_ms": 46.9
+     }
+    },
+    "corpus": {
+     "answer": "Un objeto decorativo para refrescarse con el aire que produce al moverlo.",
+     "hit": true,
+     "ms": 889
+    },
+    "modelo": {
+     "answer": "Un abanico es una herramienta de trabajo que se usa para levantar y transportar objetos pesados. Es un dispositivo que se coloca sobre los hombros o en la cabeza para facilitar la carga de cargas pesadas.",
+     "hit": false,
+     "ms": 1388
+    }
+   }
+  ],
+  "name": "Lengua española",
+  "summary": {
+   "expert": {
+    "hits": 2,
+    "n": 2,
+    "p50_ms": 95.5
+   },
+   "corpus": {
+    "hits": 2,
+    "n": 2,
+    "p50_ms": 858.5
+   },
+   "modelo": {
+    "hits": 1,
+    "n": 2,
+    "p50_ms": 1056.5
+   }
+  }
+ }
+]

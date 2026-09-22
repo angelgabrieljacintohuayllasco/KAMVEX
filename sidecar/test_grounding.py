@@ -62,6 +62,23 @@ def test_focus_text_keeps_the_answering_sentence():
     assert focus_text("x", "corto.", max_chars=400) == "corto."
 
 
+def test_focus_text_prefers_prose_over_code_examples():
+    """Documentation records mix a description with examples; the description must win."""
+    from grounding import looks_like_code
+    text = (
+        "sub(pattern, repl, string, count=0, flags=0) "
+        "Retorna la cadena obtenida reemplazando las ocurrencias no superpuestas del patrón en la cadena. "
+        ">>> re.sub(r'def\\s+([a-zA-Z_]*)', r'static PyObject* py_\\1(void)', 'def myfunc():') "
+        ">>> re.sub('-{1,2}', dashrepl, 'pro----gram-files') "
+        ">>> re.sub(r'\\sAND\\s', ' & ', 'Baked Beans And Spam', flags=re.IGNORECASE) "
+    )
+    focused = focus_text("¿Qué hace re.sub?", text, max_chars=220)
+    assert "Retorna la cadena obtenida reemplazando" in focused
+    assert focused.count(">>>") <= 1
+    assert looks_like_code(">>> re.sub('a', 'b', s)") > 0.5
+    assert looks_like_code("Retorna la cadena obtenida reemplazando las ocurrencias.") < 0.4
+
+
 def test_trim_fragments_focuses_each_fragment():
     long_text = "Tema: introducción. " + "relleno sin relación. " * 100 + "El dato clave es 42."
     frags = [Frag(long_text), Frag("otro"), Frag("tercero"), Frag("cuarto")]

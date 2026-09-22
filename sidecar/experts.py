@@ -23,7 +23,9 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+import paths
+
+HERE = paths.SIDECAR_DIR
 CATALOG_FILE = HERE / "experts_catalog.json"
 
 MODES = ("statistical", "grounded", "free")

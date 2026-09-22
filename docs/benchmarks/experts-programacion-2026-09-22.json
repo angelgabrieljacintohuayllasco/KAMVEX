@@ -1,0 +1,520 @@
+[
+ {
+  "expert": "programacion",
+  "rows": [
+   {
+    "q": "¿Qué hace functools.lru_cache?",
+    "expected": [
+     "caché",
+     "cache",
+     "memoriz",
+     "llamadas"
+    ],
+    "expert": {
+     "answer": "functools. Además, lru_cache: lru_cache(user_function)\n\nDecorador para envolver una función con un memorizador invocable que guarda hasta el *maxsize* de las llamadas más recientes.",
+     "hit": true,
+     "ms": 9590,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.471,
+      "unsupported": [
+       "calcu",
+       "evita",
+       "innec",
+       "mecan",
+       "mejor",
+       "permi",
+       "pytho",
+       "rendi",
+       "repet"
+      ],
+      "fallback": true,
+      "llm_answer": "functools.lru_cache(user_function) es una función que implementa un mecanismo de caché para funciones Python. Permite almacenar los resultados de las llamadas a la función en caché, lo que puede mejorar el rendimiento al evitar la repetición de cálculos innecesarios.",
+      "fallback_engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 72.7,
+      "total_ms": 9565.3
+     }
+    },
+    "corpus": {
+     "answer": "functools. Además, lru_cache: lru_cache(user_function)\n\nDecorador para envolver una función con un memorizador invocable que guarda hasta el *maxsize* de las llamadas más recientes.",
+     "hit": true,
+     "ms": 4234
+    },
+    "modelo": {
+     "answer": "`functools.lru_cache` es una función en Python que mejora el rendimiento de las funciones que se ejecutan repetidamente con los mismos argumentos. Al usar `lru_cache`, Python guarda los resultados de las llamadas anteriores y los reutiliza cuando las mismas entradas se pasan de nuevo, lo que evita la necesidad de volver a calcularlos. Esto es especialmente útil en funciones que realizan cálculos intensivos o que se llaman muchas veces con los mismos datos.",
+     "hit": true,
+     "ms": 5611
+    }
+   },
+   {
+    "q": "¿Qué hace json.dumps?",
+    "expected": [
+     "serializa",
+     "json",
+     "cadena",
+     "str"
+    ],
+    "expert": {
+     "answer": "json.dumps(obj, *, skipkeys=False, ensure_ascii=True, \\ Serializa *obj* en un str con formato JSON usando esta conversion table. Los argumentos tienen el mismo significado que en dump.",
+     "hit": true,
+     "ms": 5887,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 118.1,
+      "total_ms": 5884.8
+     }
+    },
+    "corpus": {
+     "answer": "dumps: dumps(obj, *, skipkeys=False, ensure_ascii=True, \\\n\nSerializa *obj* en un str con formato JSON usando esta conversion table. Además, los argumentos tienen el mismo significado que en dump.",
+     "hit": true,
+     "ms": 1454
+    },
+    "modelo": {
+     "answer": "`json.dumps()` es una función en Python que se utiliza para convertir un objeto Python en una cadena JSON. JSON (JavaScript Object Notation) es un formato de texto ligero para el intercambio de datos. Aquí tienes algunos puntos clave sobre `json.dumps()`:\n\n1. **Función**: `json.dumps()` toma un objeto Python y lo convierte en una cadena JSON.\n\n2. **Parámetros**:\n   - `obj`: El objeto Python que deseas convertir.\n   - `indent` (opcional): Un número entero que especifica el número de espacios para indentar el JSON. Esto hace que el JSON sea más legible.\n   - `sort_keys` (opcional): Un booleano que especifica si los objetos JSON deben ordenarse por clave antes de ser convertidos.\n\n3. **Retorno**: Devuelve una cadena JSON.\n\n4. **Ejemplo**:\n   ```python\n   import json\n\n   data = {\n       \"name\": \"John\",\n       \"age\": 30,\n       \"",
+     "hit": true,
+     "ms": 11572
+    }
+   },
+   {
+    "q": "¿Para qué sirve os.path.join?",
+    "expected": [
+     "une",
+     "ruta",
+     "componentes"
+    ],
+    "expert": {
+     "answer": "os.path.join une uno o más componentes de ruta de forma inteligente.",
+     "hit": true,
+     "ms": 3968,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 113.2,
+      "total_ms": 3965.5
+     }
+    },
+    "corpus": {
+     "answer": "os.path.join une uno o más componentes de ruta de forma inteligente.",
+     "hit": true,
+     "ms": 998
+    },
+    "modelo": {
+     "answer": "`os.path.join` es una función en Python que se utiliza para unir varios componentes de un camino de archivo en una sola cadena. Esto es útil para crear rutas de archivo que funcionen correctamente en diferentes sistemas operativos, ya que los separadores de directorios pueden variar entre sistemas (por ejemplo, '/' en Unix/Linux y '\\' en Windows).\n\nPor ejemplo, si tienes un directorio base y dos componentes de ruta adicionales, puedes usar `os.path.join` para crear una ruta completa:\n\n```python\nimport os\n\nbase_dir = \"/home/user\"\nfile_name = \"document.txt\"\n\nfull_path = os.path.join(base_dir, file_name)\nprint(full_path)  # Salida: /home/user/document.txt\n```\n\nEsta función es especialmente útil cuando trabajas con rutas de archivo en aplicaciones que deben funcionar en múltiples plataformas.",
+     "hit": true,
+     "ms": 10139
+    }
+   },
+   {
+    "q": "¿Qué devuelve Array.prototype.reduce?",
+    "expected": [
+     "único valor",
+     "valor único",
+     "reductora",
+     "acumulador"
+    ],
+    "expert": {
+     "answer": "El método **`reduce()`** ejecuta una función reductora sobre cada elemento de un array, devolviendo como resultado un único valor.",
+     "hit": true,
+     "ms": 7659,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 49.3,
+      "total_ms": 7644.1
+     }
+    },
+    "corpus": {
+     "answer": "La información disponible no cubre este tema.",
+     "hit": false,
+     "ms": 796
+    },
+    "modelo": {
+     "answer": "El método `Array.prototype.reduce` devuelve un único valor que es el resultado de aplicar una función a todos los elementos del array. La función que se pasa a `reduce` toma cuatro argumentos: el valor acumulado, el valor actual, el índice del elemento actual y el array sobre el que se está trabajando.",
+     "hit": true,
+     "ms": 3861
+    }
+   },
+   {
+    "q": "¿Qué hace la declaración let en JavaScript?",
+    "expected": [
+     "bloque",
+     "ámbito",
+     "variable"
+    ],
+    "expert": {
+     "answer": "La declaración **`let`** en JavaScript declara una variable de alcance local con ámbito de bloque(blockscope), permitiendo que las variables sean accesibles solo dentro del bloque en el que se declaran. Además, opcionalmente, puede inicializarse con un valor.",
+     "hit": true,
+     "ms": 6057,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.857,
+      "unsupported": [
+       "acces",
+       "permi"
+      ],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 106.6,
+      "total_ms": 6041.5
+     }
+    },
+    "corpus": {
+     "answer": "# Let the base class default method raise the TypeError. Además, py\nJSON (JavaScript Object Notation), especificado por 7159 (que hace obsoleto a 4627) y por ECMA-404, es un formato de intercambio de datos ligero inspirado en la sintaxis literal del objeto JavaScript (aunque no es un subconjunto estricto de JavaScript [#rfc-errata]_ ).",
+     "hit": false,
+     "ms": 6334
+    },
+    "modelo": {
+     "answer": "La declaración `let` en JavaScript es una forma de declarar variables con un ámbito de bloque. Esto significa que las variables declaradas con `let` solo son accesibles dentro del bloque en el que se declaran, como un bloque de código entre llaves `{}`. Esto es diferente de las variables declaradas con `var`, que tienen un ámbito de función o global, lo que puede causar problemas de hoisting y conflictos de nombres.\n\nAquí tienes algunos puntos clave sobre `let`:\n\n1. **Ámbito de bloque**: Las variables declaradas con `let` son limitadas al bloque en el que se declaran, lo que ayuda a prevenir conflictos de nombres y errores de hoisting.\n\n2. **Hoisting**: `let` no tiene hoisting, lo que significa que no se mueve a la parte superior del bloque como `var` hace. Esto puede ser útil para evitar errores de referencia antes de que la variable esté inicializada.\n\n3. **Re-declaración**: No puedes re-declarar una variable con `let",
+     "hit": true,
+     "ms": 11177
+    }
+   },
+   {
+    "q": "¿Qué hace itertools.chain?",
+    "expected": [
+     "iterador",
+     "iterables",
+     "consumido"
+    ],
+    "expert": {
+     "answer": "itertools. Además, aproximadamente equivalente a::\ndef chain(*iterables):\n# chain('ABC', 'DEF') → A B C D E F\nfor iterable in iterables:\nyield from iterable.",
+     "hit": true,
+     "ms": 3254,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.833,
+      "unsupported": [
+       "pasa",
+       "suces"
+      ],
+      "fallback": true,
+      "llm_answer": "itertools.chain crea un iterador que retorna elementos de los primeros iterables hasta que es consumido, luego pasa al siguiente iterable y así sucesivamente.",
+      "fallback_engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 79.1,
+      "total_ms": 3251.5
+     }
+    },
+    "corpus": {
+     "answer": "itertools. Además, aproximadamente equivalente a::\ndef chain(*iterables):\n# chain('ABC', 'DEF') → A B C D E F\nfor iterable in iterables:\nyield from iterable.",
+     "hit": true,
+     "ms": 1839
+    },
+    "modelo": {
+     "answer": "`itertools.chain` es una función en Python que permite combinar múltiples iterables en uno solo. Esto es útil cuando necesitas procesar datos de múltiples fuentes de manera secuencial. Por ejemplo, si tienes una lista de listas y quieres unirlas en una sola lista, puedes usar `itertools.chain` para hacerlo de manera eficiente.\n\nAquí tienes un ejemplo:\n\n```python\nimport itertools\n\nlist1 = [1, 2, 3]\nlist2 = [4, 5, 6]\nlist3 = [7, 8, 9]\n\ncombined_list = list(itertools.chain(list1, list2, list3))\nprint(combined_list)  # Output: [1, 2, 3, 4, 5, 6, 7, 8, 9]\n```\n\nEn este ejemplo, `itertools.chain` toma tres listas y las combina en una sola lista secuencialmente.",
+     "hit": true,
+     "ms": 10899
+    }
+   },
+   {
+    "q": "¿Qué hace re.sub?",
+    "expected": [
+     "reemplaz",
+     "patrón",
+     "cadena"
+    ],
+    "expert": {
+     "answer": "re.sub retorna la cadena obtenida reemplazando las ocurrencias no superpuestas del patrón en la cadena por el reemplazo de repl. Si el patrón no se encuentra, se retorna la cadena sin cambios.",
+     "hit": true,
+     "ms": 9349,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 120.2,
+      "total_ms": 9346.4
+     }
+    },
+    "corpus": {
+     "answer": "sub('-{1,2}', dashrepl, 'pro----gram-files')\n'pro--gram files'\n>>> re. Además, sub(r'\\sAND\\s', ' & ', 'Baked Beans And Spam', flags=re.",
+     "hit": false,
+     "ms": 2955
+    },
+    "modelo": {
+     "answer": "`re.sub` es una función en Python que se utiliza para buscar y reemplazar patrones en una cadena de texto. Aquí tienes una breve explicación de cómo funciona:\n\n1. **Patrón**: Es el texto que se busca en la cadena de texto original.\n\n2. **Reemplazo**: Es el texto que se insertará en lugar del patrón encontrado.\n\n3. **Cadena de texto original**: Es la cadena en la que se realizará la búsqueda y reemplazo.\n\n4. **Opcional: Grupo de captura**: Si el patrón contiene grupos de captura (paréntesis), puedes especificar cuál grupo de captura deseas reemplazar.\n\nLa sintaxis básica es:\n\n```python\nimport re\n\n# Cadena de texto original\ntext = \"Hola, mundo! Hola, Python!\"\n\n# Patrón a buscar\npattern = \"Hola\"\n\n# Reemplazo\nreplacement = \"Adiós\"\n\n# Realizar la búsqueda y reemplazo\nnew_text = re.sub(pattern, replacement",
+     "hit": true,
+     "ms": 11746
+    }
+   },
+   {
+    "q": "¿Qué es fetch() en JavaScript?",
+    "expected": [
+     "solicitud",
+     "red",
+     "promesa",
+     "recurso"
+    ],
+    "expert": {
+     "answer": "fetch(miSolicitud). Además, fetch(miSolicitud,miInicializador).",
+     "hit": true,
+     "ms": 4959,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.615,
+      "unsupported": [
+       "based",
+       "javas",
+       "moder",
+       "sinta",
+       "xmlht"
+      ],
+      "fallback": true,
+      "llm_answer": "Fetch API es un método en JavaScript que lanza el proceso de solicitud de un recurso de la red, similar al método XMLHttpRequest pero con una sintaxis más moderna y promesa-based.",
+      "fallback_engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 110.9,
+      "total_ms": 4956.1
+     }
+    },
+    "corpus": {
+     "answer": "js_output(attrs=None)\n\nRetorna un fragmento de código JavaScript que, si se ejecuta en un navegador que admita JavaScript, actuará de la misma forma que si se hubiera enviado el encabezado HTTP. Además, js_output: Morsel.",
+     "hit": false,
+     "ms": 3409
+    },
+    "modelo": {
+     "answer": "`fetch()` es una función en JavaScript que se utiliza para realizar solicitudes HTTP. Es una forma más moderna y flexible de hacer peticiones a servidores en comparación con métodos como `XMLHttpRequest`. Permite hacer solicitudes GET, POST, PUT, DELETE, entre otros, y maneja promesas de manera más intuitiva.\n\nAquí tienes algunos puntos clave sobre `fetch()`:\n\n1. **Simplicidad**: Ofrece una sintaxis más clara y concisa para hacer solicitudes HTTP.\n\n2. **Promesas**: Devuelve una promesa, lo que significa que puedes manejar la respuesta de la solicitud de manera asincrónica.\n\n3. **Parámetros**: Puede recibir opciones como el método, cabeceras, cuerpo de la solicitud, etc.\n\n4. **Soporte nativo**: Es compatible con todos los navegadores modernos, incluyendo Internet Explorer 11 y superior.\n\n5. **CORS**: Maneja el CORS automáticamente, lo que significa que no necesitas configurar nada especial para hacer solic",
+     "hit": true,
+     "ms": 11492
+    }
+   },
+   {
+    "q": "¿Qué parámetros acepta functools.lru_cache?",
+    "expected": [
+     "maxsize",
+     "typed"
+    ],
+    "expert": {
+     "answer": "functools. Además, lru_cache: lru_cache(user_function)\n\nDecorador para envolver una función con un memorizador invocable que guarda hasta el *maxsize* de las llamadas más recientes.",
+     "hit": true,
+     "ms": 8192,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.846,
+      "unsupported": [
+       "acept",
+       "enter"
+      ],
+      "fallback": true,
+      "llm_answer": "functools.lru_cache acepta los siguientes parámetros:\n\n- user_function: Una llamada.\n- maxsize: None o un número entero.\n- typed: Verdadero o falso.",
+      "fallback_engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 117.8,
+      "total_ms": 8189.4
+     }
+    },
+    "corpus": {
+     "answer": "functools. Además, lru_cache: lru_cache(user_function)\n\nDecorador para envolver una función con un memorizador invocable que guarda hasta el *maxsize* de las llamadas más recientes.",
+     "hit": true,
+     "ms": 6047
+    },
+    "modelo": {
+     "answer": "El parámetro `functools.lru_cache` acepta varios parámetros para controlar el comportamiento de la caché:\n\n1. **maxsize**: Es el número máximo de elementos que la caché puede almacenar. Si se establece en `None`, la caché no tiene un límite de tamaño.\n\n2. **typed**: Si se establece en `True`, la caché almacenará diferentes versiones de la función con diferentes tipos de argumentos. Si se establece en `False`, la caché almacenará solo la versión de la función con los tipos de argumentos especificados.\n\n3. **cache_args**: Si se establece en `True`, la caché almacenará los argumentos de la función en lugar de su hash. Esto puede ser útil si los argumentos no son hashables.\n\n4. **cache_kwargs**: Si se establece en `True`, la caché almacenará los argumentos de la función en lugar de su hash. Esto puede ser útil si los argumentos no son hashables.\n\n5. **key**:",
+     "hit": true,
+     "ms": 11501
+    }
+   },
+   {
+    "q": "¿Qué hace el parámetro ensure_ascii de json.dumps?",
+    "expected": [
+     "ascii",
+     "escap",
+     "no-ascii",
+     "caracteres"
+    ],
+    "expert": {
+     "answer": "dumps: dumps(obj, *, skipkeys=False, ensure_ascii=True, \\\n\nSerializa *obj* en un str con formato JSON usando esta conversion table. Además, los argumentos tienen el mismo significado que en dump.",
+     "hit": true,
+     "ms": 6968,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.294,
+      "unsupported": [
+       "carac",
+       "codif",
+       "deben",
+       "deter",
+       "escap",
+       "espec",
+       "evita",
+       "param",
+       "probl",
+       "secue",
+       "unico",
+       "util"
+      ],
+      "fallback": true,
+      "llm_answer": "El parámetro `ensure_ascii` en `json.dumps` determina si los caracteres no ASCII se deben escapar como secuencias Unicode. Si es `True`, estos caracteres se escapan, lo que puede ser útil para evitar problemas con la codificación de caracteres especiales en el texto JSON.",
+      "fallback_engine": "rewriter",
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 119.1,
+      "total_ms": 6965.8
+     }
+    },
+    "corpus": {
+     "answer": "dumps: dumps(obj, *, skipkeys=False, ensure_ascii=True, \\\n\nSerializa *obj* en un str con formato JSON usando esta conversion table. Además, los argumentos tienen el mismo significado que en dump.",
+     "hit": true,
+     "ms": 3229
+    },
+    "modelo": {
+     "answer": "El parámetro `ensure_ascii` en `json.dumps()` es una opción que controla cómo se manejan los caracteres ASCII en los strings JSON. Aquí hay una explicación detallada:\n\n- **`ensure_ascii=True` (por defecto)**: Los caracteres que no son ASCII (como caracteres especiales, tildes, etc.) se representan como secuencias de escape Unicode (por ejemplo, `\\uXXXX`), donde `XXXX` es el código Unicode del carácter. Esto es útil cuando se necesita que el JSON sea compatible con sistemas que no soporten caracteres ASCII.\n\n- **`ensure_ascii=False`**: Los caracteres que no son ASCII se mantienen en su forma original, sin ser convertidos a secuencias de escape Unicode. Esto es útil cuando se necesita que el JSON sea más legible o cuando se necesita que el JSON sea compatible con sistemas que sí soportan caracteres ASCII.\n\nPor ejemplo:\n\n```python\nimport json\n\ndata = {'name': 'Ángel', 'age': 30}\n\n# Con ensure_ascii=True",
+     "hit": true,
+     "ms": 11529
+    }
+   },
+   {
+    "q": "¿Qué devuelve os.path.splitext?",
+    "expected": [
+     "par",
+     "extensión",
+     "raíz",
+     "root",
+     "ext"
+    ],
+    "expert": {
+     "answer": "Devuelve un par (root, ext) donde root es el nombre de la ruta sin la extensión y ext es la extensión o vacío si no hay ninguna.",
+     "hit": true,
+     "ms": 4997,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 0.857,
+      "unsupported": [
+       "devue"
+      ],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 124.6,
+      "total_ms": 4983.1
+     }
+    },
+    "corpus": {
+     "answer": "Devuelve un par (root, ext) donde root es el nombre de la ruta sin la extensión y ext es la extensión o vacío si no hay ninguna.",
+     "hit": true,
+     "ms": 2108
+    },
+    "modelo": {
+     "answer": "`os.path.splitext` es una función en Python que divide un archivo en su nombre base y su extensión. Devuelve una tupla con dos elementos: el nombre base del archivo y la extensión. Por ejemplo, si tienes un archivo llamado \"archivo.txt\", `os.path.splitext(\"archivo.txt\")` devolverá `(\"archivo\", \".txt\")`.",
+     "hit": true,
+     "ms": 4367
+    }
+   },
+   {
+    "q": "¿Qué hace Array.prototype.flatMap?",
+    "expected": [
+     "aplanar",
+     "aplana",
+     "map",
+     "profundidad",
+     "nivel"
+    ],
+    "expert": {
+     "answer": "El método `flatMap()` primero mapea cada elemento usando una función de mapeo, luego aplana el resultado en una nueva matriz. Es idéntico a un map seguido de un flattende profundidad 1, pero `flatMap` es a menudo útil y la fusión de ambos en un método es ligeramente más eficiente.",
+     "hit": true,
+     "ms": 9806,
+     "meta": {
+      "engine": "llm",
+      "deterministic": true,
+      "coverage": 1.0,
+      "unsupported": [],
+      "corpus": true,
+      "datasets": [
+       "python-docs-es",
+       "mdn-web-es"
+      ],
+      "search_ms": 65.9,
+      "total_ms": 9803.2
+     }
+    },
+    "corpus": {
+     "answer": "La información disponible no cubre este tema.",
+     "hit": false,
+     "ms": 819
+    },
+    "modelo": {
+     "answer": "`Array.prototype.flatMap` es un método en JavaScript que combina el funcionamiento de `map` y `flat` en una sola operación. Aquí te explico cómo funciona:\n\n1. **`map`**: Este método crea un nuevo array aplicando una función a cada elemento del array original. Por ejemplo, si tienes un array de números y quieres convertirlos a strings, puedes usar `map` para hacer eso.\n\n2. **`flat`**: Este método reduce un array de arrays a un solo array. Por ejemplo, si tienes un array de arrays y quieres unirlos en uno solo, puedes usar `flat`.\n\n`flatMap` combina estos dos comportamientos en una sola función. Primero, aplica la función a cada elemento del array original, y luego reduce el resultado a un solo array.\n\nAquí tienes un ejemplo para ilustrar cómo funciona:\n\n```javascript\nconst numbers = [1, 2, 3, 4];\n\n// Usando map y flat\nconst result1 = numbers.map(x => [x, x * 2",
+     "hit": true,
+     "ms": 11140
+    }
+   }
+  ],
+  "name": "Programación",
+  "summary": {
+   "expert": {
+    "hits": 12,
+    "n": 12,
+    "p50_ms": 6512.5
+   },
+   "corpus": {
+    "hits": 7,
+    "n": 12,
+    "p50_ms": 2531.5
+   },
+   "modelo": {
+    "hits": 12,
+    "n": 12,
+    "p50_ms": 11158.5
+   }
+  }
+ }
+]

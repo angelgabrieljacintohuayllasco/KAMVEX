@@ -2,6 +2,63 @@
 
 All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] — 2026-09-22
+
+### Added
+- **Experts**: domain profiles that tie a corpus, a recommended GGUF, a default mode, a
+  system prompt and decoding settings. `GET /experts`, `POST /experts/{id}/chat`, an
+  Experts page that installs everything missing in one click, an expert selector in the
+  chat top bar and clickable example questions. Included: Programación, Salud, Leyes del
+  Perú, Lengua española, Perú and General. Measured on a Ryzen 5 5600GT without GPU:
+  12/12 answers for the programming expert against 7/12 with the same corpus and a
+  generic prompt, and 3/3 against 1/3 for the bare model on the Peruvian constitution.
+- **Ready-made knowledge**: six corpora published as `.kamvex` bundles (shards + IVF-PQ
+  index + records) in the `datasets-v1` release — Constitución del Perú (206 artículos),
+  MedlinePlus salud (1 014 temas), Wikipedia Perú (2 512 artículos), diccionario español
+  (64 643 lemas), documentación de Python en español (5 770 símbolos) and MDN Web Docs en
+  español (1 780 páginas). `GET /datasets/catalog` reads the release manifest (bundled
+  copy as offline fallback), `POST /datasets/install` downloads, verifies the sha256 and
+  unpacks it, `POST /datasets/import` installs a local bundle and
+  `POST /datasets/{name}/rebuild` re-embeds from the bundled records.
+- `scripts/datasets/`: fetchers for every corpus and `build_kamvex.py` (records → bundle
+  + manifest with size and sha256). `scripts/qa/stack.py` brings up the real stack and
+  `scripts/qa/ui.mjs` drives the packaged app through WebView2's debugging port.
+- `sidecar/bench.py` (hit@1, hit@5, groundedness, fallback rate, latency, Oregano) and
+  `sidecar/bench_experts.py` (expert vs. generic prompt vs. bare model); results and
+  method in `docs/benchmarks/`.
+- Models page: advanced editor for every flag (backend, ngl, threads, ctx, batch, KV
+  quant, flash attention, mlock) on top of the automatic prescription.
+
+### Fixed
+- **Retrieval missed exact names**: "Artículo 2" retrieved "Artículo 55". A lexical key
+  index (n-gram, prefix and 1-edit fuzzy over the dataset's own keys) now pulls the named
+  record straight from the SHARD store and merges it in front of the semantic candidates:
+  hit@1 went to 100 % on the four measured corpora. Ambiguous names ("Departamento de
+  Amazonas" matches Perú, Colombia and the Confederación) are ranked so only the best one
+  reaches the grounded context.
+- **Grounded mode refused to answer**: a 1.5B model read the strict rule as an easy way
+  out and replied "La información disponible no cubre este tema" with the answer in front
+  of it. The prompt now carries a worked example, and each fragment is reduced to the
+  sentences that actually answer the question — the model stopped missing facts buried in
+  2 000 characters and grounded latency halved.
+- Documentation records put code examples before the description, and those examples
+  repeat the symbol name, so they outranked the prose. Code-looking sentences are demoted.
+- `llama-server --embedding` answered HTTP 500 when a request exceeded the physical batch
+  (any large corpus): requests are capped by a token budget and split on failure.
+- NVIDIA adapters with drivers older than 525 cannot run the CUDA 12 build (below 470 not
+  even Vulkan); they are marked unusable and the largest usable adapter wins, so a Radeon
+  APU is no longer skipped in favour of a 2012 card. Driver and reason shown in Settings.
+- The packaged sidecar could not find its catalogs (PyInstaller extracts data files to
+  `sys._MEIPASS`, not next to the source).
+
+### Changed
+- Spanish questions are normalized (`¿`, `¡`, `?`, `!`) before retrieval so DASA's
+  exact-key boost fires.
+- Grounded mode is deterministic by default (greedy + fixed seed) and the lexical
+  guardrail can be disabled per request (`guardrail: false`).
+- `/chat` returns a `meta` block: engine used, coverage, fallback, unsupported words and
+  timings.
+
 ## [0.2.0] — 2026-09-21
 
 ### Fixed

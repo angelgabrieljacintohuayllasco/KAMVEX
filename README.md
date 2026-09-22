@@ -16,9 +16,40 @@ ignores), and the **deterministic anti-hallucination RAG** of
 | RWKV / Mamba | partial | if gguf | if gguf | yes | planned |
 | Anti-hallucination RAG | no | no | no | no | **yes (DASA)** |
 | Dataset → intelligence builder | no | no | no | no | **yes (SHARD)** |
+| Ready-made corpora (one click, pre-indexed) | no | no | no | no | **yes** |
+| Domain experts (corpus + model + prompt) | no | no | no | no | **yes** |
 | Hardware auto-tune (layer-aware) | no | no | partial | no | **yes** |
 | Quality audit (Oregano Test) | no | no | no | no | **yes** |
 | Ease of use | max | medium | medium | min | **max** |
+
+## Expertos: hacer al modelo bueno en un área
+
+Un modelo de 1,5B no sabe qué dice el Artículo 2 de la Constitución peruana ni qué
+parámetros acepta `functools.lru_cache`. Un **experto** de KAMVEX ata las cuatro cosas
+que sí lo hacen preciso en ese dominio, y las instala con un botón:
+
+| | |
+|---|---|
+| **corpus** | los datasets del área, ya convertidos en shards + índice |
+| **modelo** | el GGUF que rinde mejor ahí (código → Qwen2.5-Coder) |
+| **modo** | Exacto para normas y definiciones, Anclado para explicar |
+| **prompt + decodificación** | instrucciones del dominio, temperatura 0 y semilla fija |
+
+Expertos incluidos: **Programación** (documentación de Python y MDN en español),
+**Salud** (MedlinePlus), **Leyes del Perú** (Constitución), **Lengua española**
+(64 643 lemas), **Perú** (Wikipedia) y **General** (sin corpus).
+
+Medido en un Ryzen 5 5600GT sin GPU ([benchmarks](docs/benchmarks/)):
+
+| experto | con el experto | mismo corpus, prompt genérico | el modelo solo |
+|---|---|---|---|
+| Programación (Coder-3B) | **12/12** | 7/12 | 12/12 |
+| Leyes del Perú | **3/3** | 3/3 | 1/3 |
+| Perú (cultura) | **3/3** | 3/3 | 2/3 |
+| Lengua española | **2/2** | 2/2 | 1/2 |
+
+Recuperación: **hit@1 del 100 %** en los cuatro corpus medidos y **Oregano 100/100**
+(cero alucinaciones). Modo Exacto responde en 26-80 ms; Anclado, entre 1,2 y 3,2 s en CPU.
 
 > **Status: v0.2.0.** Every v1/v2 feature is implemented; 0.2.0 is the hardening release
 > (release paths, backend wiring, real grounded mode, embeddings without torch, process
@@ -82,11 +113,17 @@ the app to the tray; **Salir** in the tray quits and kills the sidecar and llama
 
 ## Use
 
-1. **Knowledge** — if the banner says the embedding engine is not ready, click *Preparar
-   embeddings* (downloads the CPU engine + MiniLM GGUF once). Then pick a JSON/JSONL/CSV,
-   paste text or import a PDF, choose a profile (`low-ram` / `medium` / `fast`) and build.
-   Progress streams live. Run the **Oregano Test** to audit anti-hallucination quality;
-   *Gestionar* shows details, export (`.kamvex`) and deletion.
+0. **Expertos** — pick a field, press *Instalar lo que falta* and KAMVEX downloads its
+   corpus (already indexed) and its recommended model. From then on the chat answers from
+   that corpus with the mode, prompt and decoding of that expert. The example questions on
+   each card open the chat with the question already typed.
+1. **Knowledge** — *Conocimiento listo para usar* lists the pre-built corpora: one click
+   downloads a `.kamvex` bundle, verifies its sha256 and installs it — no embedding work
+   on your machine. You can also import a `.kamvex` file, or build your own: pick a
+   JSON/JSONL/CSV, paste text or import a PDF, choose a profile (`low-ram` / `medium` /
+   `fast`) and build (needs the embedding engine: the banner installs it once). Progress
+   streams live. Run the **Oregano Test** to audit anti-hallucination quality; *Gestionar*
+   shows details, rebuild, export (`.kamvex`) and deletion.
 2. **Models** — download a GGUF from the catalog (pause / resume / cancel) or import one.
    The engine card reads the GGUF metadata (architecture, layers, trained context,
    quantization), auto-tunes flags for your hardware (Eco / Balanceado / Máx), shows
@@ -127,6 +164,8 @@ answer uses the LLM (grounded when the corpus is relevant); otherwise it is stat
 | `KAMVEX_LLAMA_SERVER` | llama-server binary used for embeddings |
 | `KAMVEX_EMBED_BACKEND` | `auto` (default) · `st` (sentence-transformers) · `gguf` |
 | `KAMVEX_EMBED_MODEL` | Path to the embedding GGUF |
+| `KAMVEX_DATASET_CATALOG_URL` | Dataset catalog manifest (`off` to use the bundled copy) |
+| `KAMVEX_ALLOWED_HOSTS` | Extra hosts allowed for downloads (default: github.com, huggingface.co) |
 | `KAMVEX_CORS_ORIGINS` | Extra browser origins allowed to call the sidecar |
 | `KAMVEX_PYTHON` | Interpreter for `sidecar/server.py` in dev (default `python`) |
 | `KAMVEX_SIDECAR_BIN` / `KAMVEX_USE_SIDECAR_BIN=1` | Force a sidecar executable |
@@ -135,11 +174,11 @@ answer uses the LLM (grounded when the corpus is relevant); otherwise it is stat
 ## Tests
 
 ```bash
-# Sidecar: API, Agent B modes, validation, downloads, Oregano, GGUF embeddings
-python -m pytest sidecar -q            # 72 tests; the real-llama-server ones skip if
+# Sidecar: API, modes, experts, key index, grounding, validation, downloads, Oregano
+python -m pytest sidecar -q            # 104 tests; the real-llama-server ones skip if
                                        # binarios/cpu/llama-server.exe or the MiniLM GGUF are absent
 # Rust: auto-tune, GGUF parser, hardware parsing, llama lifecycle, sidecar resolution
-cargo test --manifest-path src-tauri/Cargo.toml --lib     # 34 tests
+cargo test --manifest-path src-tauri/Cargo.toml --lib     # 39 tests
 cargo test --manifest-path src-tauri/Cargo.toml --lib -- --ignored   # spawns the real sidecar
 # Frontend
 npm run build                          # tsc strict + vite
@@ -172,12 +211,30 @@ Prerequisites). Smoke-test it without Tauri:
 - **"Motor de embeddings no listo"** — click *Preparar embeddings* in Knowledge, or install
   `sentence-transformers` in the dev venv.
 
+## Add your own dataset or expert
+
+A dataset is a JSON array of records; `title`/`lemma`/`name` is the key and
+`content`/`definition`/`text` the body. To publish one as a ready-made bundle:
+
+```bash
+python scripts/datasets/build_kamvex.py datasets-src/mi-dataset.json --profile low-ram
+# → datasets-out/mi-dataset.kamvex + an entry in manifest.json (size + sha256)
+```
+
+Upload the bundle and `manifest.json` to a GitHub release and point
+`KAMVEX_DATASET_CATALOG_URL` at that manifest: the catalog in the app picks it up.
+`scripts/datasets/fetch_*.py` are the fetchers used for the bundled corpora.
+
+An expert is one object in `sidecar/experts_catalog.json`: its datasets, its recommended
+models, its default mode, its system prompt and its samplers. No code changes needed.
+
 ## Roadmap
 
 - `bitnet.cpp` ternary and `rwkv.cpp` backends (enums and download slots exist; no official
   Windows binaries yet).
 - Token streaming in the chat, mmproj (vision) wiring, knowledge-graph view.
 - Production CSP for the webview (policy drafted; needs a runtime check on a packaged build).
+- Publishing the bundles on Hugging Face as well (today they live in a GitHub release).
 
 ## License
 

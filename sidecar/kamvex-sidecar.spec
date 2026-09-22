@@ -31,7 +31,8 @@ a = Analysis(
     ['server.py'],
     pathex=['.', _DASA, _SHARD],
     binaries=[],
-    datas=[('datasets_catalog.json', '.')],   # offline fallback of the dataset catalog
+    # Offline fallbacks: dataset catalog and the expert profiles.
+    datas=[('datasets_catalog.json', '.'), ('experts_catalog.json', '.')],
     hiddenimports=[
         # ── Sidecar modules ──
         'uvicorn',
@@ -58,7 +59,10 @@ a = Analysis(
         'paths',
         'downloads',
         'embedding_gguf',
+        'experts',
+        'grounding',
         'jobs',
+        'keyindex',
         'llama_connector',
         'oregano',
         'textsource',

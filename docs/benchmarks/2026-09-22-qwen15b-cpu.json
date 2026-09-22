@@ -1,0 +1,2458 @@
+{
+ "label": "Qwen2.5-1.5B Q4_K_M · CPU 6 hilos · Ryzen 5 5600GT",
+ "results": [
+  {
+   "dataset": "constitucion-peru-1993",
+   "records": 206,
+   "modes": {
+    "statistical": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 0.3,
+     "recall_mean": 0.5542418453704425,
+     "coverage_mean": null,
+     "fallback_rate": null,
+     "not_covered_rate": null,
+     "p50_ms": 25.71620000526309,
+     "p95_ms": 37.09060000255704,
+     "cases": [
+      {
+       "q": "¿Qué dice el Artículo 35 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.386,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 10,
+       "answer": "Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a"
+      },
+      {
+       "q": "¿Qué dice el Artículo 146 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.3,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 11,
+       "answer": "Sólo están sometidos a la Constitución y la ley. Además, artículo 146: La función jurisdiccional es incompatible con cualquiera otra actividad pública o privada"
+      },
+      {
+       "q": "¿Qué dice el Artículo 206 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.035,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 13,
+       "answer": "Promulgada la presente Constitución sustituye a la del año 1979. Además, constitución del Perú (1993)\nConstitución del Perú (1993)\nCategoría:D1993\nen:Constituti"
+      },
+      {
+       "q": "¿Qué dice el Artículo 196 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 16,
+       "answer": "Artículo 196: La capital de la República, las capitales de provincias con rango metropolitano y las capitales de departamento de ubicación fronteriza tienen rég"
+      },
+      {
+       "q": "¿Qué dice el Artículo 17 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.138,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 38,
+       "answer": "Artículo 17: La educación inicial, primaria y secundaria son obligatorias. Además, en las instituciones del Estado, la educación es gratuita."
+      },
+      {
+       "q": "¿Qué dice el Artículo 66 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.364,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 31,
+       "answer": "Artículo 66: Los recursos naturales, renovables y no renovables, son patrimonio de la Nación. Además, el Estado es soberano en su aprovechamiento."
+      },
+      {
+       "q": "¿Qué dice el Artículo 31 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.173,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 33,
+       "answer": "Artículo 31: Los ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum. Además, iniciativa legislativa."
+      },
+      {
+       "q": "¿Qué dice el Artículo 127 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 11,
+       "answer": "Artículo 127: No hay ministros interinos. Además, el Presidente de la República puede encomendar a un ministro que, con retención de su cartera, se encargue de "
+      },
+      {
+       "q": "¿Qué dice el Artículo 195 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 37,
+       "answer": "Artículo 195: La ley regula la cooperación de la Policía Nacional con las municipalidades en materia de seguridad ciudadana."
+      },
+      {
+       "q": "¿Qué dice el Artículo 116 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 32,
+       "answer": "Artículo 116: El Presidente de la República presta juramento de ley y asume el cargo, ante el Congreso, el 28 de julio del año en que se realiza la elección."
+      },
+      {
+       "q": "¿Qué dice el Artículo 121 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.538,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 29,
+       "answer": "Artículo 121: Los ministros, reunidos, forman el Consejo de Ministros. Además, la ley determina su organización y funciones."
+      },
+      {
+       "q": "¿Qué dice el Artículo 167 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.667,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 11,
+       "answer": "Artículo 167: El Presidente de la República es el Jefe Supremo de las Fuerzas Armadas y de la Policía Nacional. Además, concordancia:\nConst."
+      },
+      {
+       "q": "¿Qué dice el Artículo 98 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 11,
+       "answer": "Artículo 98: El Presidente de la República está obligado a poner a disposición del Congreso los efectivos de las Fuerzas Armadas y de la Policía Nacional que de"
+      },
+      {
+       "q": "¿Qué dice el Artículo 202 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.417,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 11,
+       "answer": "Artículo 202: Corresponde al Tribunal Constitucional:\n1. Además, conocer los conflictos de competencia, o de atribuciones asignadas por la Constitución conforme"
+      },
+      {
+       "q": "¿Qué dice el Artículo 54 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.324,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 25,
+       "answer": "Artículo 54: El territorio del Estado es inalienable e inviolable. Además, comprende el suelo, el subsuelo, el dominio marítimo y el espacio aéreo que los cubre"
+      },
+      {
+       "q": "¿Qué dice el Artículo 25 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.68,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 9,
+       "answer": "Artículo 25: La jornada ordinaria de trabajo es de ocho horas diarias o cuarenta y ocho horas semanales, como máximo. Además, en caso de jornadas acumulativas o"
+      },
+      {
+       "q": "¿Qué dice el Artículo 125 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.269,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 26,
+       "answer": "Artículo 125: Son atribuciones del Consejo de Ministros:\n1. Además, las demás que le otorgan la Constitución y la ley."
+      },
+      {
+       "q": "¿Qué dice el Artículo 8 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 29,
+       "answer": "Artículo 8: El Estado combate y sanciona el tráfico ilícito de drogas. Además, asimismo, regula el uso de los tóxicos sociales."
+      },
+      {
+       "q": "¿Qué dice el Artículo 100 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.5,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 32,
+       "answer": "Artículo 100: Corresponde al Congreso, sin participación de la Comisión Permanente, suspender o no al funcionario acusado o inhabilitarlo para el ejercicio de l"
+      },
+      {
+       "q": "¿Qué dice el Artículo 111 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.294,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 31,
+       "answer": "Artículo 111: El Presidente de la República se elige por sufragio directo. Además, es elegido el candidato que obtiene más de la mitad de los votos."
+      }
+     ]
+    },
+    "grounded": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 0.35,
+     "recall_mean": 0.5753002146971943,
+     "coverage_mean": 0.9031,
+     "fallback_rate": 0.2,
+     "not_covered_rate": 0.05,
+     "p50_ms": 2976.247299986426,
+     "p95_ms": 4464.567799994256,
+     "cases": [
+      {
+       "q": "¿Qué dice el Artículo 35 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.523,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3334,
+       "answer": "El Artículo 35 establece que los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alia"
+      },
+      {
+       "q": "¿Qué dice el Artículo 146 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.46,
+       "coverage": 0.962,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3938,
+       "answer": "El Artículo 146 de la Constitución establece que la función jurisdiccional es incompatible con cualquiera otra actividad pública o privada, excepto para la doce"
+      },
+      {
+       "q": "¿Qué dice el Artículo 206 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.066,
+       "coverage": 0.947,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3729,
+       "answer": "El Artículo 206 establece que toda reforma constitucional debe ser aprobada por el Congreso con mayoría absoluta del número legal de sus miembros, y ratificada "
+      },
+      {
+       "q": "¿Qué dice el Artículo 196 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 0.941,
+       "coverage": 0.947,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3268,
+       "answer": "El Artículo 196 de la Constitución establece que las capitales de la República, las capitales de provincias metropolitana y las capitales de departamento con ub"
+      },
+      {
+       "q": "¿Qué dice el Artículo 17 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.138,
+       "coverage": 0.8,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 6634,
+       "answer": "Artículo 17: La educación inicial, primaria y secundaria son obligatorias. Además, en las instituciones del Estado, la educación es gratuita."
+      },
+      {
+       "q": "¿Qué dice el Artículo 66 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.318,
+       "coverage": 0.9,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1772,
+       "answer": "El Artículo 66 establece que los recursos naturales son patrimonio de la Nación y que el Estado es soberano en su aprovechamiento."
+      },
+      {
+       "q": "¿Qué dice el Artículo 31 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.173,
+       "coverage": 0.8,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 2354,
+       "answer": "Artículo 31: Los ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum. Además, iniciativa legislativa."
+      },
+      {
+       "q": "¿Qué dice el Artículo 127 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.895,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2976,
+       "answer": "El Artículo 127 de la Constitución establece que no hay ministros interinos. El Presidente de la República puede encomendar a un ministro que, con retención de "
+      },
+      {
+       "q": "¿Qué dice el Artículo 195 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 691,
+       "answer": "La información disponible no cubre este tema."
+      },
+      {
+       "q": "¿Qué dice el Artículo 116 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.867,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1988,
+       "answer": "El Artículo 116 de la Constitución establece que el Presidente de la República presta juramento de ley y asume el cargo ante el Congreso, el 28 de julio del año"
+      },
+      {
+       "q": "¿Qué dice el Artículo 121 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 0.846,
+       "coverage": 0.867,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2335,
+       "answer": "El Artículo 121 establece que los ministros forman el Consejo de Ministros y determina su organización y funciones. El Presidente del Consejo de Ministros es el"
+      },
+      {
+       "q": "¿Qué dice el Artículo 167 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.533,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1418,
+       "answer": "El Presidente de la República es el Jefe Supremo de las Fuerzas Armadas y de la Policía Nacional."
+      },
+      {
+       "q": "¿Qué dice el Artículo 98 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.81,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 2709,
+       "answer": "Artículo 98: El Presidente de la República está obligado a poner a disposición del Congreso los efectivos de las Fuerzas Armadas y de la Policía Nacional que de"
+      },
+      {
+       "q": "¿Qué dice el Artículo 202 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.963,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 4096,
+       "answer": "El Artículo 202 de la Constitución establece que corresponde al Tribunal Constitucional:\n\n1. Conocer, en instancia única, la acción de inconstitucionalidad.\n2. "
+      },
+      {
+       "q": "¿Qué dice el Artículo 54 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.353,
+       "coverage": 0.875,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3331,
+       "answer": "El Artículo 54 de la Constitución establece que el territorio del Estado es inalienable e inviolable, comprendiendo el suelo, el subsuelo, el dominio marítimo y"
+      },
+      {
+       "q": "¿Qué dice el Artículo 25 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.68,
+       "coverage": 0.95,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2955,
+       "answer": "El Artículo 25 establece que la jornada ordinaria de trabajo es de ocho horas diarias o cuarenta y ocho horas semanales, como máximo. Además, los trabajadores t"
+      },
+      {
+       "q": "¿Qué dice el Artículo 125 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.385,
+       "coverage": 0.857,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2434,
+       "answer": "El Artículo 125 de la Constitución establece las atribuciones del Consejo de Ministros, incluyendo aprobación de proyectos de ley, decretos legislativos y urgen"
+      },
+      {
+       "q": "¿Qué dice el Artículo 8 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.786,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 1605,
+       "answer": "Artículo 8: El Estado combate y sanciona el tráfico ilícito de drogas. Además, asimismo, regula el uso de los tóxicos sociales."
+      },
+      {
+       "q": "¿Qué dice el Artículo 100 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.354,
+       "coverage": 0.905,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 4019,
+       "answer": "El Artículo 100 de la Constitución establece que corresponde al Congreso, sin participación de la Comisión Permanente, suspender o no al funcionario acusado o i"
+      },
+      {
+       "q": "¿Qué dice el Artículo 111 de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.735,
+       "coverage": 0.931,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 4465,
+       "answer": "El Artículo 111 establece que el Presidente de la República se eleja por sufragio directo. Se elige al candidato que obtiene más de la mitad de los votos, y si "
+      }
+     ]
+    }
+   },
+   "oregano": {
+    "dataset": "constitucion-peru-1993",
+    "score": 100,
+    "total": 8,
+    "passed": 8,
+    "hallucinations": 0,
+    "details": [
+     {
+      "query": "¿Qué es Artículo 1?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 1: La defensa de la persona humana y el respeto de su dignidad son el fin supremo de la sociedad y del Estado."
+     },
+     {
+      "query": "¿Qué es Artículo 2?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     },
+     {
+      "query": "¿Qué es Artículo 3?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 3: La enumeración de los derechos establecidos en este capítulo no excluye los demás que la Constitución garant"
+     },
+     {
+      "query": "¿Qué es Artículo 4?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     },
+     {
+      "query": "¿Qué es Artículo 5?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     },
+     {
+      "query": "¿Qué es Artículo 6?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     },
+     {
+      "query": "¿Qué es Artículo 7?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     },
+     {
+      "query": "¿Qué es Artículo 8?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Artículo 55: Los tratados celebrados por el Estado y en vigor forman parte del derecho nacional."
+     }
+    ]
+   }
+  },
+  {
+   "dataset": "medlineplus-salud-es",
+   "records": 1014,
+   "modes": {
+    "statistical": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 1.0,
+     "recall_mean": 1.0,
+     "coverage_mean": null,
+     "fallback_rate": null,
+     "not_covered_rate": null,
+     "p50_ms": 42.539800007943995,
+     "p95_ms": 59.79189999925438,
+     "cases": [
+      {
+       "q": "¿Qué es Medicinas para la tos y el resfrío?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 31,
+       "answer": "Medicinas para la tos y el resfrío: ¿Qué son las medicinas para la tos y el resfrío?\nLos medicamentos para el resfriado y la tos pueden ayudar a aliviar los sín"
+      },
+      {
+       "q": "¿Qué es Reflujo gastroesofágico en niños?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 49,
+       "answer": "Reflujo gastroesofágico en niños: ¿Qué es el reflujo gastroesofágico (RGE) y la enfermedad por reflujo gastroesofágico (ERGE)?\nEl reflujo gastroesofágico (RGE),"
+      },
+      {
+       "q": "¿Qué es Residencias con atención personalizada?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 55,
+       "answer": "Residencias con atención personalizada: Las residencias con atención personalizada (también llamados centros de vida asistida) entregan vivienda y servicios a p"
+      },
+      {
+       "q": "¿Qué es Abuso de las personas mayores?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 36,
+       "answer": "Abuso de las personas mayores: Muchos adultos mayores son víctimas de abusos. Este maltrato a una persona mayor es por lo general de parte de un cuidador. Puede"
+      },
+      {
+       "q": "¿Qué es Problemas de audición en niños?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 44,
+       "answer": "Problemas de audición en niños: La mayoría de los niños puede oír desde el momento del nacimiento. Aprenden a hablar por imitación de los sonidos que escuchan a"
+      },
+      {
+       "q": "¿Qué es Gripe aviar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 32,
+       "answer": "Gripe aviar: ¿Qué es la gripe aviar?\nLas aves, al igual que las personas, pueden contraer la gripe. Otro nombre para la gripe aviar es influenza aviar. Los viru"
+      },
+      {
+       "q": "¿Qué es Ejercicio y estado físico?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 40,
+       "answer": "Ejercicio y estado físico: ¿Cuáles son los principios básicos del ejercicio y el estado físico?\n\nEl ejercicio es cualquier cosa que ponga su cuerpo en movimient"
+      },
+      {
+       "q": "¿Qué es Profesiones en el campo de la salud?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 57,
+       "answer": "Profesiones en el campo de la salud: Todos los días, durante todo el día, las personas que trabajan en la industria al cuidado de la salud suministran cuidados "
+      },
+      {
+       "q": "¿Qué es Salud sexual?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 53,
+       "answer": "Salud sexual: La sexualidad es una parte importante del ser humano. El amor, el afecto y la intimidad sexual representan un papel importante en las relaciones s"
+      },
+      {
+       "q": "¿Qué es Diabetes insípida?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 31,
+       "answer": "Diabetes insípida: La diabetes insípida causa deseos de orinar muy seguido. Las personas con diabetes insípida tienen mucha sed. Entonces toman muchos líquidos."
+      },
+      {
+       "q": "¿Qué es Manejo del dolor sin medicamentos?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 26,
+       "answer": "Manejo del dolor sin medicamentos: ¿Qué es el dolor?\nEl dolor es una señal del sistema nervioso de que algo no anda bien. Es una sensación desagradable, como un"
+      },
+      {
+       "q": "¿Qué es Tumores de la glándula pituitaria?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 26,
+       "answer": "Tumores de la glándula pituitaria: Su glándula pituitaria es del tamaño de una arveja y está en la base de su cerebro. La glándula pituitaria es la \"glándula de"
+      },
+      {
+       "q": "¿Qué es Celulitis?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 15,
+       "answer": "Celulitis: La celulitis es una infección de la piel y los tejidos más profundos. El estreptococo del grupo A es la causa más común. La bacteria entra en su cuer"
+      },
+      {
+       "q": "¿Qué es Trastorno por consumo de alcohol?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 60,
+       "answer": "Trastorno por consumo de alcohol: ¿Qué es el trastorno por consumo de alcohol?\nPara la mayoría de los adultos, el consumo moderado de alcohol probablemente no e"
+      },
+      {
+       "q": "¿Qué es Enfermedades de la piel?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 66,
+       "answer": "Enfermedades de la piel: ¿Para qué sirve la piel?\nLa piel es el órgano más grande del cuerpo, cubriendo todo su exterior. Hay muchas maneras en que la piel le p"
+      },
+      {
+       "q": "¿Qué es Anatomía?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 21,
+       "answer": "Anatomía: Anatomía es la ciencia que estudia la estructura del cuerpo. En esta página, encontrará enlaces a descripciones e imágenes de partes del cuerpo humano"
+      },
+      {
+       "q": "¿Qué es Alergia?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 47,
+       "answer": "Alergia: Una alergia es una reacción de su sistema inmunitario hacia algo que no molesta a la mayoría de las demás personas. Quienes tienen alergias suelen ser "
+      },
+      {
+       "q": "¿Qué es Amigdalitis?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 37,
+       "answer": "Amigdalitis: ¿Qué son las amígdalas?\nLas amígdalas son masas de tejido en la parte posterior de la garganta. Hay dos de ellas, una a cada lado. Junto con las ad"
+      },
+      {
+       "q": "¿Qué es Osteogénesis imperfecta?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 43,
+       "answer": "Osteogénesis imperfecta: La osteogénesis imperfecta es un trastorno genético en el cual los huesos se fracturan (se rompen) con facilidad. Algunas veces, los hu"
+      },
+      {
+       "q": "¿Qué es Lesiones de la espalda?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 54,
+       "answer": "Lesiones de la espalda: La espalda está compuesta de huesos, músculos y otros tejidos que se extienden desde el cuello hasta la pelvis. Las lesiones en la espal"
+      }
+     ]
+    },
+    "grounded": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 0.2,
+     "recall_mean": 0.32294712589603763,
+     "coverage_mean": 0.9308,
+     "fallback_rate": 0.15,
+     "not_covered_rate": 0.0,
+     "p50_ms": 3235.677000004216,
+     "p95_ms": 5874.343299990869,
+     "cases": [
+      {
+       "q": "¿Qué es Medicinas para la tos y el resfrío?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.812,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 5159,
+       "answer": "Medicinas para la tos y el resfrío: ¿Qué son las medicinas para la tos y el resfrío?\nLos medicamentos para el resfriado y la tos pueden ayudar a aliviar los sín"
+      },
+      {
+       "q": "¿Qué es Reflujo gastroesofágico en niños?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.046,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3664,
+       "answer": "El reflujo gastroesofágico (RGE), frecuentemente llamado reflujo, ocurre cuando los alimentos o los ácidos del estómago suben de nuevo desde el estómago hacia e"
+      },
+      {
+       "q": "¿Qué es Residencias con atención personalizada?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.165,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2903,
+       "answer": "Las residencias con atención personalizada (también llamados centros de vida asistida) entregan vivienda y servicios a personas que necesitan ayuda con su cuida"
+      },
+      {
+       "q": "¿Qué es Abuso de las personas mayores?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.196,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2901,
+       "answer": "El abuso a una persona mayor puede ser por lo general de parte de un cuidador y puede ocurrir dentro de la familia, en centros especiales o residencias para adu"
+      },
+      {
+       "q": "¿Qué es Problemas de audición en niños?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.765,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 3685,
+       "answer": "Problemas de audición en niños: La mayoría de los niños puede oír desde el momento del nacimiento. Aprenden a hablar por imitación de los sonidos que escuchan a"
+      },
+      {
+       "q": "¿Qué es Gripe aviar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.073,
+       "coverage": 0.917,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3573,
+       "answer": "La gripe aviar se refiere al nombre que se da a una enfermedad causada por virus en las aves, incluyendo gallinas, otras aves de corral y aves silvestres como l"
+      },
+      {
+       "q": "¿Qué es Ejercicio y estado físico?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.064,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3290,
+       "answer": "El ejercicio y el estado físico son cualquier cosa que ponga su cuerpo en movimiento y tiene muchos beneficios, entre ellos mejorar su salud y aptitud física ge"
+      },
+      {
+       "q": "¿Qué es Profesiones en el campo de la salud?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.27,
+       "coverage": 0.917,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2808,
+       "answer": "Las profesiones en el campo de la salud son aquellos trabajadores que proporcionan cuidados médicos y de atención a las personas, desde recién nacidos hasta pac"
+      },
+      {
+       "q": "¿Qué es Salud sexual?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 0.857,
+       "coverage": 0.968,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 5874,
+       "answer": "La salud sexual se refiere a una parte importante de la humanidad. Incluye aspectos como el amor, el afecto y la intimidad sexual, que son importantes en relaci"
+      },
+      {
+       "q": "¿Qué es Diabetes insípida?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.196,
+       "coverage": 0.917,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3238,
+       "answer": "La diabetes insípida es una enfermedad que causa deseos de orinar muy seguido debido a un problema con los riñones o la glándula pituitaria."
+      },
+      {
+       "q": "¿Qué es Manejo del dolor sin medicamentos?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.556,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 2819,
+       "answer": "Manejo del dolor sin medicamentos: ¿Qué es el dolor?\nEl dolor es una señal del sistema nervioso de que algo no anda bien. Es una sensación desagradable, como un"
+      },
+      {
+       "q": "¿Qué es Tumores de la glándula pituitaria?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.565,
+       "coverage": 0.963,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 5895,
+       "answer": "Los tumores de la glándula pituitaria son comunes y no causan problemas de salud a menudo. La mayoría de las personas con estos tumores nunca saben que los tien"
+      },
+      {
+       "q": "¿Qué es Celulitis?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.093,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2358,
+       "answer": "La celulitis es una infección de la piel y los tejidos más profundos."
+      },
+      {
+       "q": "¿Qué es Trastorno por consumo de alcohol?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.043,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2551,
+       "answer": "El trastorno por consumo de alcohol es una enfermedad que causa síntomas como atracones de alcohol."
+      },
+      {
+       "q": "¿Qué es Enfermedades de la piel?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.038,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2496,
+       "answer": "Enfermedades de la piel son problemas y enfermedades diferentes que pueden afectar su piel."
+      },
+      {
+       "q": "¿Qué es Anatomía?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.312,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1051,
+       "answer": "Anatomía es la ciencia que estudia la estructura del cuerpo."
+      },
+      {
+       "q": "¿Qué es Alergia?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.102,
+       "coverage": 0.857,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3161,
+       "answer": "Una alergia es una reacción del sistema inmunitario contra algo que no causa problemas para la mayoría de las personas."
+      },
+      {
+       "q": "¿Qué es Amigdalitis?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.011,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2825,
+       "answer": "Amigdalitis es una inflamación de las amígdalas."
+      },
+      {
+       "q": "¿Qué es Osteogénesis imperfecta?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.23,
+       "coverage": 0.944,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3702,
+       "answer": "Osteogénesis imperfecta es un trastorno genético que afecta el cuerpo a través del mal funcionamiento de genes. Esto causa la fractura fácil de los huesos, pérd"
+      },
+      {
+       "q": "¿Qué es Lesiones de la espalda?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.196,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3236,
+       "answer": "Las lesiones en la espalda pueden ser provocadas por el deporte, trabajos en la casa o en el jardín o una sacudida repentina, como en un accidente de tránsito."
+      }
+     ]
+    }
+   },
+   "oregano": {
+    "dataset": "medlineplus-salud-es",
+    "score": 100,
+    "total": 8,
+    "passed": 8,
+    "hallucinations": 0,
+    "details": [
+     {
+      "query": "¿Qué es Aborto?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Aborto: Un aborto inducido es un procedimiento para terminar un embarazo. Además, si está pensando en hacerse un aborto "
+     },
+     {
+      "query": "¿Qué es Abscesos?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Abscesos: Un absceso es una cavidad donde se acumula pus. Además, se puede tener abscesos en casi cualquier parte del cu"
+     },
+     {
+      "query": "¿Qué es Abuso de las personas mayores?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Abuso de las personas mayores: Muchos adultos mayores son víctimas de abusos. Además, el abuso de personas mayores no se"
+     },
+     {
+      "query": "¿Qué es Abuso sexual de menores?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Abuso sexual de menores: El abuso sexual de menores es una forma de maltrato al menor. Además, utilizar niños en pornogr"
+     },
+     {
+      "query": "¿Qué es Accidente cerebrovascular?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Accidente cerebrovascular: ¿Qué es un accidente cerebrovascular. Además, cada minuto cuenta durante un accidente cerebro"
+     },
+     {
+      "query": "¿Qué es Accidente cerebrovascular hemorrágico?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Accidente cerebrovascular: ¿Qué es un accidente cerebrovascular. Además, cada minuto cuenta durante un accidente cerebro"
+     },
+     {
+      "query": "¿Qué es Accidente cerebrovascular isquémico?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Accidente cerebrovascular: ¿Qué es un accidente cerebrovascular. Además, cada minuto cuenta durante un accidente cerebro"
+     },
+     {
+      "query": "¿Qué es Acidez estomacal?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Acidez estomacal: La acidez es una sensación de ardor dolorosa en el pecho o la garganta. Además, si tiene acidez más de"
+     }
+    ]
+   }
+  },
+  {
+   "dataset": "wikipedia-es-peru",
+   "records": 2512,
+   "modes": {
+    "statistical": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 1.0,
+     "recall_mean": 1.0,
+     "coverage_mean": null,
+     "fallback_rate": null,
+     "not_covered_rate": null,
+     "p50_ms": 59.05380001058802,
+     "p95_ms": 73.9216999936616,
+     "cases": [
+      {
+       "q": "¿Qué es Alpamayo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 79,
+       "answer": "Alpamayo: El Alpamayo (en quechua I: Allpa mayu), también conocido localmente como Shuytu rahu (del quechua ancashino: 'nevado oblongo'), es una montaña de la c"
+      },
+      {
+       "q": "¿Qué es Museo de Sitio Las Peañas?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 74,
+       "answer": "Museo de Sitio Las Peañas: El Museo de Sitio Las Peañas es un museo arqueológico situado en el departamento de Tacna. El museo abarca cronológicamente desde los"
+      },
+      {
+       "q": "¿Qué es Elecciones generales de Perú de 1962?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 40,
+       "answer": "Elecciones generales de Perú de 1962: Las elecciones generales de Perú de 1962 se realizaron el 10 de junio de 1962 para elegir al presidente de la república pa"
+      },
+      {
+       "q": "¿Qué es Partidos políticos de Perú?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 70,
+       "answer": "Partidos políticos de Perú: Los partidos políticos de Perú son agrupaciones de ciudadanos cuyo objetivo es participar en los asuntos públicos de la República de"
+      },
+      {
+       "q": "¿Qué es Banco del Perú y Londres?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 45,
+       "answer": "Banco del Perú y Londres: El Banco del Perú y Londres fue una entidad económica inglesa que operó en Lima, Perú, a inicios del siglo XX.\nFue fundado en 1897 par"
+      },
+      {
+       "q": "¿Qué es Río Ica?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 73,
+       "answer": "Río Ica: El río Ica es un río del Perú, uno de los cuatro que, de norte a sur, descienden en forma paralela y conforman la red hídrica del departamento de Ica. "
+      },
+      {
+       "q": "¿Qué es Eleodoro Vargas Vicuña?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 34,
+       "answer": "Eleodoro Vargas Vicuña: Eleodoro Vargas Vicuña (Cerro de Pasco, 1924 - Lima, 10 de abril de 1997) fue un escritor peruano. Se le ubica dentro de la corriente ne"
+      },
+      {
+       "q": "¿Qué es Pontificia Universidad Católica?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 73,
+       "answer": "Pontificia Universidad Católica: Pontificia Universidad Católica es el nombre de varias universidades hispanoamericanas:\n\nPontificia Universidad, un tipo de uni"
+      },
+      {
+       "q": "¿Qué es Quechua inca?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 42,
+       "answer": "Quechua inca: La expresión quechua inca (o quichua inca) puede referir a cuatro variedades lingüísticas distintas de la familia lingüística quechua:\n\nAl quechua"
+      },
+      {
+       "q": "¿Qué es Sierra de Contamana?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 64,
+       "answer": "Sierra de Contamana: La sierra de Contamana​​ (en portugués: Serra da Contamana)​ es una cordillera rocosa y amazónica que se encuentra repartida entre Brasil y"
+      },
+      {
+       "q": "¿Qué es Etimología de Perú?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 71,
+       "answer": "Etimología de Perú: La etimología de «Perú», de lograr establecerse, consistiría en el étimo o palabra fuente del topónimo Perú, incluyendo su significado; la l"
+      },
+      {
+       "q": "¿Qué es Llactán?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 34,
+       "answer": "Llactán: Llactán (posiblemente del quechua Llaqta 'lugar' (pueblo, ciudad, país, nación), -n un sufijo)​ es un sitio arqueológico en Perú. Está situado en la Re"
+      },
+      {
+       "q": "¿Qué es Estadio Nacional de Costa Rica (1924)?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 62,
+       "answer": "Estadio Nacional de Costa Rica (1924): El antiguo Estadio Nacional de Costa Rica fue un estadio ubicado en el parque Metropolitano La Sabana, en San José, Costa"
+      },
+      {
+       "q": "¿Qué es Elecciones generales de Perú de 2016?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 31,
+       "answer": "Elecciones generales de Perú de 2016: Las elecciones generales de Perú de 2016 se realizaron el 10 de abril de 2016, para elegir al presidente de la República, "
+      },
+      {
+       "q": "¿Qué es Provincia de Churcampa?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 59,
+       "answer": "Provincia de Churcampa: La provincia de Churcampa es una de las siete provincias que conforman el departamento de Huancavelica en el sur del Perú. Se ubica en l"
+      },
+      {
+       "q": "¿Qué es Huanacaure (sitio arqueológico)?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 47,
+       "answer": "Huanacaure (sitio arqueológico): Huanacaure es un sitio arqueológico perteneciente a la cultura inca y a diversas culturas preinca. Está situado en la región Hu"
+      },
+      {
+       "q": "¿Qué dice el Artículo 272 del Código Penal de Perú de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "rewriter",
+       "ms": 69,
+       "answer": "Artículo 272 del Código Penal de Perú: El artículo 272 del Código Penal de Perú del año 1863 penalizó la homosexualidad en todo el territorio peruano, imponiend"
+      },
+      {
+       "q": "¿Qué es Parque Quinta Normal?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 47,
+       "answer": "Parque Quinta Normal: El Parque Quinta Normal está ubicado en la ciudad de Santiago en Chile. Ocupa aproximadamente 35 hectáreas con cierre perimetral, siendo e"
+      },
+      {
+       "q": "¿Qué es Sitio arqueológico El Zapotal?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 53,
+       "answer": "Sitio arqueológico El Zapotal: El sitio arqueológico El Zapotal es un área de yacimientos funerarios precolombinos ubicado en la provincia de Loreto, departamen"
+      },
+      {
+       "q": "¿Qué es Cordillera de los Andes?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 29,
+       "answer": "Cordillera de los Andes: La cordillera de los Andes es una cordillera que ocupa la zona occidental de América del Sur, bordeando toda su costa en el océano Pací"
+      }
+     ]
+    },
+    "grounded": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 0.15,
+     "recall_mean": 0.4104398005437001,
+     "coverage_mean": 0.9663999999999999,
+     "fallback_rate": 0.1,
+     "not_covered_rate": 0.05,
+     "p50_ms": 2863.198499995633,
+     "p95_ms": 6012.117099991883,
+     "cases": [
+      {
+       "q": "¿Qué es Alpamayo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.112,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3444,
+       "answer": "Alpamayo es una montaña situada en el ramal occidental de la cordillera Blanca, dentro del parque nacional Huascarán en el Perú."
+      },
+      {
+       "q": "¿Qué es Museo de Sitio Las Peañas?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.406,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2838,
+       "answer": "El Museo de Sitio Las Peañas es un museo arqueológico situado en el departamento de Tacna, que abarca cronológicamente desde los 8000 años de antigüedad hasta e"
+      },
+      {
+       "q": "¿Qué es Elecciones generales de Perú de 1962?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.48,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2626,
+       "answer": "Las elecciones generales de Perú de 1962 se realizaron el 10 de junio de 1962 para elegir al presidente de la república para el periodo 1962-1968."
+      },
+      {
+       "q": "¿Qué es Partidos políticos de Perú?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.286,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2281,
+       "answer": "Los partidos políticos de Perú son agrupaciones de ciudadanos cuyo objetivo es participar en los asuntos públicos de la República del Perú."
+      },
+      {
+       "q": "¿Qué es Banco del Perú y Londres?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.123,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2842,
+       "answer": "Banco del Perú y Londres fue una entidad económica inglesa que operó en Lima, Perú, a inicios del siglo XX."
+      },
+      {
+       "q": "¿Qué es Río Ica?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.75,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 1673,
+       "answer": "Río Ica: El río Ica es un río del Perú, uno de los cuatro que, de norte a sur, descienden en forma paralela y conforman la red hídrica del departamento de Ica. "
+      },
+      {
+       "q": "¿Qué es Eleodoro Vargas Vicuña?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.543,
+       "coverage": 0.95,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2984,
+       "answer": "Eleodoro Vargas Vicuña fue un escritor peruano que se encuentra dentro de la corriente neoindigenista. Su obra literaria, aunque breve, es bien trabajada y demu"
+      },
+      {
+       "q": "¿Qué es Pontificia Universidad Católica?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.229,
+       "coverage": 0.889,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2951,
+       "answer": "Pontificia Universidad Católica es el nombre de varias universidades hispanoamericanas, incluyendo la Pontificia Universidad Católica de Chile y la Pontificia U"
+      },
+      {
+       "q": "¿Qué es Quechua inca?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.455,
+       "coverage": 0.952,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 5011,
+       "answer": "Quechua inca se refiere a cuatro variedades lingüísticas distintas de la familia lingüística quechua, incluyendo Al quechua del imperio incaico, hablado en el i"
+      },
+      {
+       "q": "¿Qué es Sierra de Contamana?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.514,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 3672,
+       "answer": "La sierra de Contamana​ (en portugués: Serra da Contamana)​ es una cordillera rocosa y amazónica que se encuentra repartida entre Brasil y Perú, más exactamente"
+      },
+      {
+       "q": "¿Qué es Etimología de Perú?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.846,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 3093,
+       "answer": "Etimología de Perú: La etimología de «Perú», de lograr establecerse, consistiría en el étimo o palabra fuente del topónimo Perú, incluyendo su significado; la l"
+      },
+      {
+       "q": "¿Qué es Llactán?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.172,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2915,
+       "answer": "Llactán es un sitio arqueológico ubicado en la Región Amazonas, provincia de Bagua, Distrito de La Peca, Perú."
+      },
+      {
+       "q": "¿Qué es Estadio Nacional de Costa Rica (1924)?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.409,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1861,
+       "answer": "El Estadio Nacional de Costa Rica (1924) era un estadio ubicado en el parque Metropolitano La Sabana, en San José, Costa Rica."
+      },
+      {
+       "q": "¿Qué es Elecciones generales de Perú de 2016?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.06,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 6316,
+       "answer": "Las elecciones generales de Perú de 2016 se realizaron el 10 de abril de 2016 y fueron para elegir al presidente de la República, dos vicepresidentes de la mism"
+      },
+      {
+       "q": "¿Qué es Provincia de Churcampa?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.458,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2551,
+       "answer": "La provincia de Churcampa es una de las siete provincias que conforman el departamento de Huancavelica en el sur del Perú, ubicada en la zona de los Andes centr"
+      },
+      {
+       "q": "¿Qué es Huanacaure (sitio arqueológico)?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 0.941,
+       "coverage": 0.941,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2863,
+       "answer": "Huanacaure es un sitio arqueológico perteneciente a la cultura inca y a diversas culturas preinca, ubicado en la región Huánuco, provincia de Huánuco, distrito "
+      },
+      {
+       "q": "¿Qué dice el Artículo 272 del Código Penal de Perú de la Constitución?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1217,
+       "answer": "La información disponible no cubre este tema."
+      },
+      {
+       "q": "¿Qué es Parque Quinta Normal?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.092,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2607,
+       "answer": "El Parque Quinta Normal es un parque urbano ubicado en la ciudad de Santiago, Chile."
+      },
+      {
+       "q": "¿Qué es Sitio arqueológico El Zapotal?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.684,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2024,
+       "answer": "El sitio arqueológico El Zapotal es un área de yacimientos funerarios precolombinos ubicado en la provincia de Loreto, departamento de Loreto, al noreste del Pe"
+      },
+      {
+       "q": "¿Qué es Cordillera de los Andes?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.244,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 6012,
+       "answer": "La Cordillera de los Andes es una cordillera que ocupa la zona occidental de América del Sur, bordeando toda su costa en el oceano Pacífico. Es la cordillera co"
+      }
+     ]
+    }
+   },
+   "oregano": {
+    "dataset": "wikipedia-es-peru",
+    "score": 100,
+    "total": 8,
+    "passed": 8,
+    "hallucinations": 0,
+    "details": [
+     {
+      "query": "¿Qué es 100 años de cine en el Perú: Una historia crítica?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "100 años de cine en el Perú: Una historia crítica: 100 años de cine en el Perú: Una historia crítica es un libro históri"
+     },
+     {
+      "query": "¿Qué es 24.ª Comandancia de la Guardia Civil del Perú?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Parque nacional Yaguas: El parque nacional Yaguas es un área protegida en el Perú. Además, está ubicada en el distrito d"
+     },
+     {
+      "query": "¿Qué es Academia Diplomática del Perú Javier Pérez de Cuéllar?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Academia Diplomática del Perú Javier Pérez de Cuéllar: La Academia Diplomática del Perú Javier Pérez de Cuellar (ADP) es"
+     },
+     {
+      "query": "¿Qué es Academia Nacional de la Historia (Perú)?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Academia Nacional de la Historia (Perú): La Academia Nacional de la Historia del Perú es la institución intelectual y ci"
+     },
+     {
+      "query": "¿Qué es Academia Peruana de la Lengua?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Academia Peruana de la Lengua: La Academia Peruana de la Lengua (APL) es una institución cultural que agrupa a literatos"
+     },
+     {
+      "query": "¿Qué es Achojcha rellena?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Achojcha rellena: La achojcha rellena, también llamada caigua rellena, es un plato típico de la gastronomía peruana y bo"
+     },
+     {
+      "query": "¿Qué es Achoma?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Provincia de Acobamba: La provincia de Acobamba es una de las siete provincias que conforman el departamento de Huancave"
+     },
+     {
+      "query": "¿Qué es Acta de Independencia del Perú?",
+      "forbidden": [
+       "oregano",
+       "tomillo",
+       "romero"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "Ejército Real del Perú: El Ejército Real del Perú​ fue la unidad militar organizada por el virrey del Perú, José Fernand"
+     }
+    ]
+   }
+  },
+  {
+   "dataset": "diccionario-es",
+   "records": 64643,
+   "modes": {
+    "statistical": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 1.0,
+     "recall_mean": 1.0,
+     "coverage_mean": null,
+     "fallback_rate": null,
+     "not_covered_rate": null,
+     "p50_ms": 80.4987000010442,
+     "p95_ms": 118.87520000163931,
+     "cases": [
+      {
+       "q": "¿Qué significa caracoleta?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 93,
+       "answer": "caracoleta: Una especie de caracol marino comestible."
+      },
+      {
+       "q": "¿Qué significa matacán?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 95,
+       "answer": "matacán: Una herramienta de mano usada para cavar."
+      },
+      {
+       "q": "¿Qué significa pelusear?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 222,
+       "answer": "pelusear: Quitar las pelusas de una prenda."
+      },
+      {
+       "q": "¿Qué significa senil?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 119,
+       "answer": "senil: Que tiene síntomas de la vejez, como la pérdida de memoria."
+      },
+      {
+       "q": "¿Qué significa cuidapalos?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 57,
+       "answer": "cuidapalos: Persona que se encarga de cuidar a los demás."
+      },
+      {
+       "q": "¿Qué significa bajamar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 71,
+       "answer": "bajamar: Disminución de la altura del agua de un mar o lago."
+      },
+      {
+       "q": "¿Qué significa piruetear?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 80,
+       "answer": "piruetear: girar rápidamente sobre un pie o sobre sí mismo."
+      },
+      {
+       "q": "¿Qué significa desgarradamente?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 64,
+       "answer": "desgarradamente: con gran tristeza."
+      },
+      {
+       "q": "¿Qué significa tajadura?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 62,
+       "answer": "tajadura: una herida o corte en la piel."
+      },
+      {
+       "q": "¿Qué significa pegullo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 78,
+       "answer": "pegullo: Se refiere a alguien que es muy desordenado."
+      },
+      {
+       "q": "¿Qué significa vomitera?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 69,
+       "answer": "vomitera: Persona que suele vomitar con frecuencia."
+      },
+      {
+       "q": "¿Qué significa parnasianismo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 92,
+       "answer": "parnasianismo: Una corriente literaria que se enfoca en la belleza y la perfección de la poesía."
+      },
+      {
+       "q": "¿Qué significa grao?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 85,
+       "answer": "grao: Un grao es una unidad de medida de la cantidad de una sustancia."
+      },
+      {
+       "q": "¿Qué significa trebolar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 100,
+       "answer": "trebolar: Un trebolar es una estructura de tres patas, generalmente utilizada como soporte para una mesa o una lámpara."
+      },
+      {
+       "q": "¿Qué significa vigor?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 109,
+       "answer": "vigor: Es la energía y el entusiasmo que alguien muestra al hacer algo."
+      },
+      {
+       "q": "¿Qué significa esfigmómetro?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 50,
+       "answer": "esfigmómetro: Instrumento para medir la presión arterial."
+      },
+      {
+       "q": "¿Qué significa guargüero?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 71,
+       "answer": "guargüero: Persona que se dedica a la venta ambulante de alimentos."
+      },
+      {
+       "q": "¿Qué significa revuelco?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 84,
+       "answer": "revuelco: Una revuelta o una situación caótica."
+      },
+      {
+       "q": "¿Qué significa teodolito?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 80,
+       "answer": "teodolito: Locrio: Un plato típico de la gastronomía de algunos países latinoamericanos, hecho a base de arroz y carne."
+      },
+      {
+       "q": "¿Qué significa narval?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": null,
+       "fallback": null,
+       "engine": "exact",
+       "ms": 62,
+       "answer": "narval: Mamífero marino de la familia de los cetáceos, con una sola larga y curvada asta en la cabeza."
+      }
+     ]
+    },
+    "grounded": {
+     "n": 20,
+     "errors": 0,
+     "hit1": 1.0,
+     "hit5": 1.0,
+     "exact": 0.95,
+     "recall_mean": 0.9888888888888889,
+     "coverage_mean": 0.8916499999999999,
+     "fallback_rate": 0.2,
+     "not_covered_rate": 0.0,
+     "p50_ms": 1232.8438999975333,
+     "p95_ms": 2605.2194999938365,
+     "cases": [
+      {
+       "q": "¿Qué significa caracoleta?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 990,
+       "answer": "Caracoleta es una especie de caracol marino comestible."
+      },
+      {
+       "q": "¿Qué significa matacán?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1076,
+       "answer": "Un matacán es una herramienta de mano usada para cavar."
+      },
+      {
+       "q": "¿Qué significa pelusear?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1113,
+       "answer": "Pelusear es la acción de quitar las pelusas de una prenda."
+      },
+      {
+       "q": "¿Qué significa senil?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1233,
+       "answer": "Senil significa que tiene síntomas de la vejez, como la pérdida de memoria."
+      },
+      {
+       "q": "¿Qué significa cuidapalos?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.333,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 1233,
+       "answer": "cuidapalos: Persona que se encarga de cuidar a los demás."
+      },
+      {
+       "q": "¿Qué significa bajamar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1167,
+       "answer": "Bajamar significa disminución de la altura del agua de un mar o lago."
+      },
+      {
+       "q": "¿Qué significa piruetear?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1120,
+       "answer": "piruetear: girar rápidamente sobre un pie o sobre sí mismo."
+      },
+      {
+       "q": "¿Qué significa desgarradamente?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 787,
+       "answer": "Desgarradamente significa con gran tristeza."
+      },
+      {
+       "q": "¿Qué significa tajadura?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1073,
+       "answer": "Tajadura significa una herida o corte en la piel."
+      },
+      {
+       "q": "¿Qué significa pegullo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 925,
+       "answer": "Se refiere a alguien que es muy desordenado."
+      },
+      {
+       "q": "¿Qué significa vomitera?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1024,
+       "answer": "Vomitera es una persona que suele vomitar con frecuencia."
+      },
+      {
+       "q": "¿Qué significa parnasianismo?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2397,
+       "answer": "Una corriente literaria que se enfoca en la belleza y la perfección de la poesía."
+      },
+      {
+       "q": "¿Qué significa grao?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1544,
+       "answer": "Un grao es una unidad de medida de la cantidad de una sustancia."
+      },
+      {
+       "q": "¿Qué significa trebolar?",
+       "hit1": true,
+       "hit5": true,
+       "exact": false,
+       "recall": 0.778,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 2605,
+       "answer": "Un trebolar es una estructura de tres patas que se utiliza como soporte para una mesa o una lámpara."
+      },
+      {
+       "q": "¿Qué significa vigor?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1479,
+       "answer": "El vigor es la energía y el entusiasmo que alguien muestra al hacer algo."
+      },
+      {
+       "q": "¿Qué significa esfigmómetro?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.833,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 1401,
+       "answer": "esfigmómetro: Instrumento para medir la presión arterial."
+      },
+      {
+       "q": "¿Qué significa guargüero?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1846,
+       "answer": "Un guargüero es una persona que se dedica a la venta ambulante de alimentos."
+      },
+      {
+       "q": "¿Qué significa revuelco?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 1.0,
+       "fallback": null,
+       "engine": "llm",
+       "ms": 1341,
+       "answer": "Un revuelto es una revuelta o una situación caótica."
+      },
+      {
+       "q": "¿Qué significa teodolito?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.167,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 2091,
+       "answer": "teodolito: Locrio: Un plato típico de la gastronomía de algunos países latinoamericanos, hecho a base de arroz y carne."
+      },
+      {
+       "q": "¿Qué significa narval?",
+       "hit1": true,
+       "hit5": true,
+       "exact": true,
+       "recall": 1.0,
+       "coverage": 0.5,
+       "fallback": true,
+       "engine": "llm",
+       "ms": 3129,
+       "answer": "narval: Mamífero marino de la familia de los cetáceos, con una sola larga y curvada asta en la cabeza."
+      }
+     ]
+    }
+   },
+   "oregano": {
+    "dataset": "diccionario-es",
+    "score": 100,
+    "total": 8,
+    "passed": 8,
+    "hallucinations": 0,
+    "details": [
+     {
+      "query": "¿Qué es a?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "como: Igual que."
+     },
+     {
+      "query": "¿Qué es abaá?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "estelar: Que es de gran brillo y fama."
+     },
+     {
+      "query": "¿Qué es ababillarse?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "embarbillado: Envolver algo con cuerdas."
+     },
+     {
+      "query": "¿Qué es ababol?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "quemazón: Ardor provocado por el fuego o el calor."
+     },
+     {
+      "query": "¿Qué es abacá?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "como: Igual que."
+     },
+     {
+      "query": "¿Qué es abacal?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "frescal: algo que se refiere a algo malo o de baja calidad."
+     },
+     {
+      "query": "¿Qué es abacería?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "cazurría: algo que es malo o de mala calidad."
+     },
+     {
+      "query": "¿Qué es abacial?",
+      "forbidden": [
+       "orégano",
+       "oregano",
+       "tomillo"
+      ],
+      "forbidden_found": [],
+      "passed": true,
+      "answer_preview": "abacial: Relativo a una abadía."
+     }
+    ]
+   }
+  }
+ ],
+ "metrics": null
+}

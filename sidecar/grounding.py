@@ -49,6 +49,33 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in SENTENCE_RE.split(text) if s.strip()]
 
 
+_CODE_START_RE = re.compile(r"^(>>>|\.\.\.|#|\$|[A-Za-z_][\w.]*\s*\()")
+
+
+def looks_like_code(sentence: str) -> float:
+    """0 = prose, 1 = clearly a code example.
+
+    Documentation records mix a description with examples, and the examples repeat the
+    symbol name, so a naive overlap score picks `>>> re.sub(r'\\s', ...)` over
+    "Retorna la cadena obtenida reemplazando…". This keeps the prose on top.
+    """
+    s = sentence.strip()
+    if not s:
+        return 1.0
+    score = 0.0
+    if _CODE_START_RE.match(s):
+        score += 0.6
+    letters = sum(c.isalpha() or c.isspace() for c in s)
+    if letters / len(s) < 0.75:
+        score += 0.4
+    words = s.split()
+    if len(words) <= 4:
+        score += 0.2
+    if any(tok in s for tok in ("=>", "::", "{", "}", "()", "()", "$(")):
+        score += 0.2
+    return min(1.0, score)
+
+
 def focus_text(query: str, text: str, max_chars: int = GROUNDED_MAX_CHARS) -> str:
     """Keep the sentences that answer `query`, in their original order.
 
@@ -68,11 +95,20 @@ def focus_text(query: str, text: str, max_chars: int = GROUNDED_MAX_CHARS) -> st
         terms = content_terms(s)
         overlap = len(q_terms & terms) / (len(q_terms) or 1)
         # tiny positional prior: earlier sentences are usually the definition
-        scored.append((overlap + max(0.0, 0.15 - i * 0.01), i))
+        # and code examples are demoted: they repeat the symbol without explaining it
+        scored.append((overlap + max(0.0, 0.15 - i * 0.01) - 0.5 * looks_like_code(s), i))
     scored.sort(reverse=True)
 
+    # The opening sentence anchors the record, but if it is just a signature keep the
+    # first prose sentence as well (that is where the explanation lives).
     keep = {0}
     used = len(sentences[0])
+    if looks_like_code(sentences[0]) >= 0.6:
+        for i, s in enumerate(sentences[1:], start=1):
+            if looks_like_code(s) < 0.4:
+                keep.add(i)
+                used += len(s) + 1
+                break
     for _, i in scored:
         if i in keep:
             continue

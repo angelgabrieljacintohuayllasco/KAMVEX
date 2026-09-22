@@ -86,7 +86,7 @@ from llama_connector import LlamaCppConnector  # noqa: E402
 from oregano import run_oregano_test  # noqa: E402
 from textsource import records_from_pdf, records_from_text  # noqa: E402
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 NUM_SHARDS = 64
 PROFILES = ("low-ram", "medium", "fast")
 MODES = ("statistical", "grounded", "free")

@@ -24,8 +24,10 @@ from pathlib import Path
 APP_ID = "com.kamvex.app"
 
 _HERE = Path(__file__).resolve()
-SIDECAR_DIR = _HERE.parent
 FROZEN = bool(getattr(sys, "frozen", False))
+# In a PyInstaller bundle the data files live in the extraction dir (`sys._MEIPASS`),
+# not next to this source file, so catalogs must be looked up there.
+SIDECAR_DIR = Path(getattr(sys, "_MEIPASS", _HERE.parent)) if FROZEN else _HERE.parent
 
 
 def _env_path(*names: str) -> Path | None:
