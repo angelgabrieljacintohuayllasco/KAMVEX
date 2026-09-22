@@ -45,3 +45,13 @@ src-tauri/binaries/
 *.njsproj
 *.sln
 *.sw?
+
+# Python venv (local dev)
+.venv/
+
+# Sidecar-local model files + partial downloads (never commit)
+sidecar/models/
+*.part
+
+# Maratón / session state (local)
+MISSION.md

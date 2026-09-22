@@ -1,0 +1,240 @@
+"""
+Background file downloads with pause / resume / cancel and SSE-friendly progress.
+
+Used for GGUF models pulled from HuggingFace and for the embedding model the
+sidecar needs when sentence-transformers is not installed (installer builds).
+
+Design:
+- One `DownloadState` per download, kept in memory (a sidecar restart forgets
+  active downloads; the `.part` file on disk still allows resuming later).
+- The worker thread streams 256 KB chunks into `<dest>.part`, honours
+  `pause_ev` / `cancel_ev`, and resumes with an HTTP Range request when a
+  `.part` file already exists.
+- Progress events are pushed to `state.q`; the HTTP layer drains that queue
+  into a Server-Sent Events stream.
+"""
+
+from __future__ import annotations
+
+import os
+import queue
+import re
+import threading
+import time
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
+
+CHUNK_SIZE = 256 * 1024
+EMIT_EVERY_S = 0.5
+FINAL_STATES = ("done", "error", "cancelled")
+
+_HF_REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
+_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$")
+
+
+def is_valid_hf_repo(repo: str) -> bool:
+    return bool(_HF_REPO_RE.match(repo or ""))
+
+
+def is_valid_filename(name: str) -> bool:
+    """A single path component: no separators, no traversal, sane characters."""
+    if not name or ".." in name or "/" in name or "\\" in name:
+        return False
+    return bool(_FILENAME_RE.match(name))
+
+
+def hf_resolve_url(repo: str, file: str) -> str:
+    return f"https://huggingface.co/{repo}/resolve/main/{file}"
+
+
+class DownloadState:
+    """Tracks a single download with pause/cancel support."""
+
+    __slots__ = ("id", "repo", "file", "dest", "url", "total", "downloaded",
+                 "speed", "status", "error", "cancel_ev", "pause_ev", "q", "thread")
+
+    def __init__(self, dl_id: str, repo: str, file: str, dest: Path, url: str):
+        self.id = dl_id
+        self.repo = repo
+        self.file = file
+        self.dest = dest
+        self.url = url
+        self.total: int = 0
+        self.downloaded: int = 0
+        self.speed: float = 0.0
+        self.status: str = "downloading"  # downloading | paused | done | error | cancelled
+        self.error: str = ""
+        self.cancel_ev = threading.Event()
+        self.pause_ev = threading.Event()  # SET = running, CLEAR = paused
+        self.pause_ev.set()
+        self.q: queue.Queue = queue.Queue()
+        self.thread: threading.Thread | None = None
+
+    @property
+    def active(self) -> bool:
+        return self.status in ("downloading", "paused")
+
+    def progress_pct(self) -> float:
+        if self.total <= 0:
+            return 0.0
+        return round(self.downloaded / self.total * 100, 1)
+
+    def snapshot(self) -> dict:
+        return {
+            "status": self.status,
+            "downloaded": self.downloaded,
+            "total": self.total,
+            "pct": self.progress_pct(),
+            "speed_mbps": round(self.speed, 2),
+            "error": self.error,
+            "file": self.file,
+        }
+
+    def emit(self) -> None:
+        self.q.put(self.snapshot())
+
+    def pause(self) -> None:
+        if self.status == "downloading":
+            self.pause_ev.clear()
+            self.status = "paused"
+            self.emit()
+
+    def resume(self) -> None:
+        if self.status == "paused":
+            self.status = "downloading"
+            self.pause_ev.set()
+            self.emit()
+
+    def cancel(self) -> None:
+        self.cancel_ev.set()
+        self.pause_ev.set()
+
+
+def _request_headers(resume_from: int) -> dict:
+    headers = {"User-Agent": "KAMVEX/0.1 (+https://github.com/angelgabrieljacintohuayllasco/KAMVEX)"}
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if resume_from > 0:
+        headers["Range"] = f"bytes={resume_from}-"
+    return headers
+
+
+def run_download(state: DownloadState) -> None:
+    """Worker: chunked download with pause/cancel/resume. Never raises."""
+    part = Path(str(state.dest) + ".part")
+    resume_from = part.stat().st_size if part.exists() else 0
+
+    try:
+        part.parent.mkdir(parents=True, exist_ok=True)
+        req = urllib.request.Request(state.url, headers=_request_headers(resume_from))
+        resp = urllib.request.urlopen(req, timeout=30)
+
+        content_length = resp.headers.get("Content-Length")
+        resumed = resume_from > 0 and resp.status == 206
+        if resumed:
+            state.downloaded = resume_from
+            content_range = resp.headers.get("Content-Range", "")
+            if "/" in content_range and content_range.split("/")[-1].isdigit():
+                state.total = int(content_range.split("/")[-1])
+            elif content_length:
+                state.total = resume_from + int(content_length)
+        else:
+            # Server ignored the Range header (or nothing to resume): start over.
+            state.downloaded = 0
+            state.total = int(content_length) if content_length else 0
+
+        state.emit()
+
+        last_time = time.time()
+        last_bytes = state.downloaded
+
+        with open(part, "ab" if resumed else "wb") as f:
+            while True:
+                if state.cancel_ev.is_set():
+                    state.status = "cancelled"
+                    state.emit()
+                    f.close()
+                    part.unlink(missing_ok=True)
+                    return
+
+                state.pause_ev.wait()
+                if state.cancel_ev.is_set():
+                    continue
+
+                data = resp.read(CHUNK_SIZE)
+                if not data:
+                    break
+
+                f.write(data)
+                state.downloaded += len(data)
+
+                now = time.time()
+                elapsed = now - last_time
+                if elapsed >= EMIT_EVERY_S:
+                    state.speed = (state.downloaded - last_bytes) / elapsed / 1_000_000
+                    last_time = now
+                    last_bytes = state.downloaded
+                    state.emit()
+
+        if state.total and state.downloaded != state.total:
+            raise IOError(
+                f"descarga incompleta: {state.downloaded} de {state.total} bytes "
+                "(reintenta para reanudar)"
+            )
+
+        state.dest.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(part, state.dest)
+        state.status = "done"
+        state.speed = 0.0
+        state.emit()
+
+    except urllib.error.HTTPError as e:
+        state.status = "error"
+        state.error = f"HTTP {e.code} al descargar {state.file}"
+        if e.code in (401, 403):
+            state.error += " (repositorio privado o con acceso restringido; define HF_TOKEN)"
+        state.emit()
+    except Exception as e:  # noqa: BLE001 — surface any failure to the UI
+        state.status = "error"
+        state.error = str(e)
+        state.emit()
+
+
+class DownloadManager:
+    """Registry of downloads keyed by id. Thread-safe for the sidecar's needs."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, DownloadState] = {}
+        self._lock = threading.Lock()
+
+    def get(self, dl_id: str) -> DownloadState | None:
+        return self._items.get(dl_id)
+
+    def active_for(self, dest: Path) -> DownloadState | None:
+        with self._lock:
+            for dl in self._items.values():
+                if dl.dest == dest and dl.active:
+                    return dl
+        return None
+
+    def start(self, repo: str, file: str, dest: Path) -> DownloadState:
+        """Start (or return the already running) download of repo/file into dest."""
+        existing = self.active_for(dest)
+        if existing is not None:
+            return existing
+        dl_id = uuid.uuid4().hex[:12]
+        state = DownloadState(dl_id, repo, file, dest, hf_resolve_url(repo, file))
+        with self._lock:
+            self._items[dl_id] = state
+        t = threading.Thread(target=run_download, args=(state,), daemon=True,
+                             name=f"download-{dl_id}")
+        state.thread = t
+        t.start()
+        return state
+
+    def snapshot(self) -> list[dict]:
+        with self._lock:
+            return [{"download_id": k, **v.snapshot()} for k, v in self._items.items()]

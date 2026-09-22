@@ -10,8 +10,23 @@ The canonical "Oregano Test" from DASA: if a recipe dataset entry omits
 in the answer. If it does, that's a hallucination.
 """
 
+from __future__ import annotations
+
 import json
+import re
 from pathlib import Path
+
+# Plausible-sounding terms that a model may "helpfully" add. Only those absent
+# from the corpus are used as forbidden terms for a given dataset.
+COMMON_FORBIDDEN = [
+    "orégano", "oregano", "tomillo", "romero", "albahaca", "cilantro",
+    "pimentón", "comino", "cúrcuma", "azafrán", "wasabi", "jengibre",
+    "aproximadamente", "generalmente", "probablemente", "según expertos",
+    "por ejemplo", "además", "sin embargo", "importante destacar",
+]
+SAMPLE_RECORDS = 8          # queries generated per audit
+CORPUS_SAMPLE = 500         # records read to build the corpus vocabulary
+KEY_FIELDS = ("lemma", "term", "title", "name")
 
 
 def run_oregano_test(pipeline, dataset_name: str) -> dict:
@@ -25,42 +40,21 @@ def run_oregano_test(pipeline, dataset_name: str) -> dict:
 
     Returns a result dict with score 0-100, passed/total, hallucinations count.
     """
-    db_path = Path(pipeline.agent_a._db_path) if hasattr(pipeline.agent_a, '_db_path') else None
+    db_path = _db_path(pipeline)
+    keys = _load_keys(db_path)
+    records = _read_records(db_path, keys, CORPUS_SAMPLE)
 
-    # Collect all vocabulary from the dataset to identify forbidden terms
-    corpus_text = _collect_corpus_text(pipeline)
-    corpus_words = set(_tokenize(corpus_text))
-
-    # Common cooking/herb terms that are likely NOT in a small dataset
-    # This is the "oregano" principle: terms that sound plausible but aren't in the corpus
-    common_forbidden = [
-        "oregano", "tomillo", "romero", "albahaca", "cilantro",
-        "pimentón", "comino", "cúrcuma", "azafrán", "wasabi",
-    ]
-
-    # Filter to terms that are NOT in the corpus (these are the real forbidden terms)
-    forbidden_terms = [t for t in common_forbidden if t.lower() not in corpus_words]
-
-    # If all common terms are in corpus, use synthetic forbidden terms
+    corpus_words = set(_tokenize(" ".join(_record_text(r) for r in records)))
+    forbidden_terms = [t for t in COMMON_FORBIDDEN if t.lower() not in corpus_words]
     if not forbidden_terms:
         forbidden_terms = ["zzzfake_ingredient_1", "zzzfake_ingredient_2"]
 
-    # Generate test queries from the dataset
-    test_cases = _generate_test_cases(pipeline, forbidden_terms)
-
+    test_cases = _generate_test_cases(records, forbidden_terms)
     if not test_cases:
-        return {
-            "dataset": dataset_name,
-            "score": 100,
-            "total": 0,
-            "passed": 0,
-            "hallucinations": 0,
-            "details": [],
-        }
+        return _result(dataset_name, [], 0)
 
     results = []
     hallucinations = 0
-
     for case in test_cases:
         query = case["query"]
         forbidden = case["forbidden"]
@@ -70,10 +64,8 @@ def run_oregano_test(pipeline, dataset_name: str) -> dict:
         fragments = pipeline.agent_a.search(query)
         answer = pipeline.agent_b.synthesize(query, fragments) or ""
 
-        # Check if any forbidden term appears in the answer
         answer_lower = answer.lower()
         forbidden_found = [t for t in forbidden if t.lower() in answer_lower]
-
         passed = len(forbidden_found) == 0
         if not passed:
             hallucinations += len(forbidden_found)
@@ -86,10 +78,13 @@ def run_oregano_test(pipeline, dataset_name: str) -> dict:
             "answer_preview": answer[:120],
         })
 
+    return _result(dataset_name, results, hallucinations)
+
+
+def _result(dataset_name: str, results: list[dict], hallucinations: int) -> dict:
     total = len(results)
     passed = sum(1 for r in results if r["passed"])
     score = int((passed / total) * 100) if total > 0 else 100
-
     return {
         "dataset": dataset_name,
         "score": score,
@@ -100,95 +95,75 @@ def run_oregano_test(pipeline, dataset_name: str) -> dict:
     }
 
 
-def _collect_corpus_text(pipeline) -> str:
-    """Collect all text from the pipeline's cached fragments/pipeline."""
-    # Try to read the raw records from the SHARD DB
+def _db_path(pipeline) -> Path | None:
+    cfg = getattr(pipeline, "config", None)
+    p = getattr(cfg, "shard_db_path", None)
+    return Path(p) if p else None
+
+
+def _load_keys(db_path: Path | None) -> list[str]:
+    """Ordered record keys: keys.json (KAMVEX builds) or embedding_keys.json (legacy)."""
+    if db_path is None:
+        return []
+    for name in ("keys.json", "embedding_keys.json"):
+        f = db_path / name
+        if f.exists():
+            try:
+                keys = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(keys, list):
+                    return [str(k) for k in keys]
+            except (json.JSONDecodeError, OSError):
+                continue
+    return []
+
+
+def _read_records(db_path: Path | None, keys: list[str], limit: int) -> list[dict]:
+    """Read up to `limit` raw records from the SHARD DB by key."""
+    if db_path is None or not keys:
+        return []
     try:
         from shard.storage.mmap_reader import MMapReader
-        db_path = pipeline.agent_a._shard_db_path if hasattr(pipeline.agent_a, '_shard_db_path') else None
-        if db_path is None:
-            # Try to get it from the config
-            db_path = pipeline.agent_a._cfg.shard_db_path if hasattr(pipeline.agent_a, '_cfg') else None
+        meta = json.loads((db_path / "meta.json").read_text(encoding="utf-8"))
+        num_shards = int(meta.get("num_shards", 64))
+    except Exception:  # noqa: BLE001 — no DB, no records
+        return []
 
-        if db_path and Path(db_path).exists():
-            meta_path = Path(db_path) / "meta.json"
-            if meta_path.exists():
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                num_shards = meta.get("num_shards", 64)
-
-                texts = []
-                reader = MMapReader(str(db_path), num_shards=num_shards)
-                # We can't easily iterate all keys, so use the embedding cache keys
-                keys_path = Path(db_path) / "embedding_keys.json"
-                if keys_path.exists():
-                    keys = json.loads(keys_path.read_text(encoding="utf-8"))
-                    for key in keys[:500]:  # sample first 500 for speed
-                        val = reader.find(key)
-                        if val:
-                            texts.append(val)
-                reader.close()
-                return " ".join(texts)
-    except Exception:
-        pass
-
-    # Fallback: use whatever fragments we can get from a simple search
+    out: list[dict] = []
+    reader = MMapReader(str(db_path), num_shards=num_shards)
     try:
-        fragments = pipeline.agent_a.search("a b c d e f g h i j k l m n o p")
-        return " ".join(f.text for f in fragments)
-    except Exception:
-        return ""
+        for key in keys[:limit]:
+            raw = reader.find(key)
+            if not raw:
+                continue
+            try:
+                rec = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                rec = {"text": str(raw)}
+            if isinstance(rec, dict):
+                out.append(rec)
+    finally:
+        reader.close()
+    return out
+
+
+def _record_text(record: dict) -> str:
+    return " ".join(str(v) for v in record.values() if v)
 
 
 def _tokenize(text: str) -> set[str]:
     """Split text into lowercase word tokens."""
-    import re
-    return set(re.findall(r'\w+', text.lower()))
+    return set(re.findall(r"\w+", text.lower()))
 
 
-def _generate_test_cases(pipeline, forbidden_terms: list[str]) -> list[dict]:
-    """Generate test queries from the dataset."""
-    test_cases = []
-
-    # Get some sample queries by reading the dataset records
-    try:
-        from shard.storage.mmap_reader import MMapReader
-        db_path = pipeline.agent_a._shard_db_path if hasattr(pipeline.agent_a, '_shard_db_path') else None
-        if db_path is None:
-            db_path = pipeline.agent_a._cfg.shard_db_path if hasattr(pipeline.agent_a, '_cfg') else None
-
-        if db_path and Path(db_path).exists():
-            meta_path = Path(db_path) / "meta.json"
-            if meta_path.exists():
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
-                num_shards = meta.get("num_shards", 64)
-
-                reader = MMapReader(str(db_path), num_shards=num_shards)
-                keys_path = Path(db_path) / "embedding_keys.json"
-                if keys_path.exists():
-                    keys = json.loads(keys_path.read_text(encoding="utf-8"))
-                    # Take up to 5 sample records to generate queries
-                    for key in keys[:5]:
-                        val = reader.find(key)
-                        if val:
-                            record = json.loads(val)
-                            # Generate a query from the record's key field
-                            for field in ("lemma", "term", "title", "name"):
-                                if record.get(field):
-                                    query = f"¿Qué es {record[field]}?"
-                                    test_cases.append({
-                                        "query": query,
-                                        "forbidden": forbidden_terms[:3],  # check first 3 forbidden terms
-                                    })
-                                    break
-                reader.close()
-    except Exception:
-        pass
-
-    # If we couldn't generate from records, add a generic test
-    if not test_cases:
-        test_cases.append({
-            "query": "test query",
-            "forbidden": forbidden_terms[:3],
-        })
-
-    return test_cases
+def _generate_test_cases(records: list[dict], forbidden_terms: list[str]) -> list[dict]:
+    """One '¿Qué es X?' query per sampled record (X = its key field)."""
+    forbidden = forbidden_terms[:3]
+    cases = []
+    for rec in records[:SAMPLE_RECORDS]:
+        for field in KEY_FIELDS:
+            if rec.get(field):
+                cases.append({"query": f"¿Qué es {rec[field]}?", "forbidden": forbidden})
+                break
+    if not cases:
+        cases.append({"query": "test query", "forbidden": forbidden})
+    return cases

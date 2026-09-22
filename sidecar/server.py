@@ -1,37 +1,49 @@
 """
-DASA-UI sidecar — thin FastAPI server launched by the Tauri shell.
+KAMVEX sidecar — thin FastAPI server launched by the Tauri shell.
 
 Reuses DASA (pipeline, embeddings) and SHARD (storage, IVF-PQ builder) without
-rewriting any logic. Exposes dataset build + grounded chat over localhost.
+rewriting any logic. Exposes dataset build + grounded chat over localhost and
+an OpenAI-compatible API so other apps can use KAMVEX as a backend.
 
-Run:  python server.py --port 8765 [--data <dir>]
+Run:  python server.py --port 8765 [--data <dir>] [--models <dir>]
+Env:  see paths.py (KAMVEX_DATA_DIR, KAMVEX_MODELS_DIR, KAMVEX_BINARIES_DIR, ...)
+      KAMVEX_CORS_ORIGINS   comma-separated allowed browser origins
+      KAMVEX_EMBED_BACKEND  auto | st | gguf   (embedding engine selection)
+      KAMVEX_EMBED_MODEL    path to an embedding GGUF (default: models/embeddings/...)
 """
 
+from __future__ import annotations
+
 import argparse
+import gc
+import importlib.util
 import json
 import os
 import queue
+import re
+import shutil
 import sys
 import threading
 import time
 import uuid
 from pathlib import Path
 
-# ── Resolve sibling DASA-main / SHARD-main onto sys.path ─────────────────────
-_HERE = Path(__file__).resolve()
-_PARENT_OF_REPOS = _HERE.parents[2]   # .../2 REPOS DASA AND SHARD
-for _sib, _pkg in (("DASA-main", "dasa"), ("SHARD-main", "shard")):
-    _p = _PARENT_OF_REPOS / _sib
-    if (_p / _pkg).is_dir() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
+import paths
 
-import numpy as np
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+# ── Resolve sibling DASA-main / SHARD-main onto sys.path (dev layout) ────────
+_SIBLINGS = paths.siblings_dir()
+if _SIBLINGS is not None:
+    for _sib, _pkg in (("DASA-main", "dasa"), ("SHARD-main", "shard")):
+        _p = _SIBLINGS / _sib
+        if (_p / _pkg).is_dir() and str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
 
-# ── DASA / SHARD imports (lazy: may be unavailable in PyInstaller bundle) ──
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
+# ── DASA / SHARD imports (may be unavailable in a stripped bundle) ──────────
 _DASA_AVAILABLE = False
 try:
     from dasa.config import DASAConfig
@@ -43,44 +55,229 @@ try:
 except ImportError:
     pass
 
-from jobs import BuildJob, run_build
-from llama_connector import LlamaCppConnector
-from oregano import run_oregano_test
+from downloads import DownloadManager, is_valid_filename, is_valid_hf_repo  # noqa: E402
+from embedding_gguf import LlamaEmbeddingEngine  # noqa: E402
+from embedding_gguf import DEFAULT_FILE as EMBED_FILE, DEFAULT_REPO as EMBED_REPO  # noqa: E402
+from jobs import BuildJob, run_build  # noqa: E402
+from llama_connector import LlamaCppConnector  # noqa: E402
+from oregano import run_oregano_test  # noqa: E402
+from textsource import records_from_pdf, records_from_text  # noqa: E402
 
+VERSION = "0.2.0"
 NUM_SHARDS = 64
-DATA_DIR = Path(os.environ.get("DASA_UI_DATA", _HERE.parent / "appdata" / "datasets"))
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+PROFILES = ("low-ram", "medium", "fast")
+MODES = ("statistical", "grounded", "free")
+# Mirrors DASA's SynthesisEngine._RELEVANCE_THRESHOLD: below it the corpus does
+# not cover the question. Grounded mode must then say so instead of inventing.
+GROUNDED_MIN_SCORE = 0.40
+NO_INFO = "No se encontró información relevante en el corpus para esta consulta."
+NOT_COVERED = "La información disponible no cubre este tema."
+DEFAULT_FREE_SYSTEM_PROMPT = "Eres KAMVEX, un asistente local. Responde de forma natural, útil y concisa."
+SOURCE_FILES = ("json", "jsonl", "csv")
 
-app = FastAPI(title="DASA-UI sidecar")
+DATA_DIR: Path = paths.data_dir()
+MODELS_DIR: Path = paths.models_dir()
+
+DEFAULT_CORS_ORIGINS = [
+    "tauri://localhost", "http://tauri.localhost", "https://tauri.localhost",
+    "http://localhost:1420", "http://127.0.0.1:1420",
+]
+
+
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("KAMVEX_CORS_ORIGINS", "").strip()
+    if not raw:
+        return DEFAULT_CORS_ORIGINS
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+app = FastAPI(title="KAMVEX sidecar", version=VERSION)
+# Browser origins only: the Tauri webview and the Vite dev server. Server-to-server
+# clients of the OpenAI-compatible API (Jan, Open WebUI, curl) are not subject to CORS.
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware, allow_origins=_cors_origins(), allow_methods=["*"], allow_headers=["*"],
 )
 
-_JOBS: "dict[str, BuildJob]" = {}
+_JOBS: dict[str, BuildJob] = {}
 _PIPELINES: dict = {}
+_PIPE_LOCK = threading.Lock()      # pipelines share Agent B state (mode + callable)
+_EMBED_LOCK = threading.Lock()
 _embedding_engine = None
 _LLAMA_CONNECTOR: LlamaCppConnector | None = None
+_DOWNLOADS = DownloadManager()
+
+_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
 
 
-def _get_embedding_engine():
-    """Lazily create the embedding engine (heavy: loads sentence-transformers)."""
-    global _embedding_engine
-    if _embedding_engine is None and _DASA_AVAILABLE:
-        _embedding_engine = EmbeddingEngine(DASAConfig())
-    return _embedding_engine
+# ── Validation helpers ──────────────────────────────────────────────────────
+
+def safe_name(name: str) -> str:
+    """A dataset name must be a single, sane path component."""
+    name = (name or "").strip()
+    if not _NAME_RE.match(name) or ".." in name or name.endswith("."):
+        raise HTTPException(
+            400, "nombre inválido: usa letras, números, espacios, '.', '_' o '-' (máx. 64)")
+    return name
 
 
-def _require_dasa():
-    """Raise HTTPException if DASA/SHARD are not available."""
+def _dataset_dir(name: str) -> Path:
+    return DATA_DIR / safe_name(name)
+
+
+def _require_dataset(name: str) -> tuple[Path, dict]:
+    db = _dataset_dir(name)
+    meta_path = db / "meta.json"
+    if not meta_path.exists():
+        raise HTTPException(404, f"dataset desconocido: {name}")
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise HTTPException(500, f"meta.json corrupto en {name}: {e}") from e
+    return db, meta
+
+
+def _require_dasa() -> None:
     if not _DASA_AVAILABLE:
         raise HTTPException(
             503,
-            "DASA/SHARD no disponibles. En el instalador, usa datasets pre-construidos. "
-            "Para construir nuevos datasets, ejecuta KAMVEX en modo desarrollo (Python + deps).",
+            "DASA/SHARD no disponibles en este sidecar. Ejecuta KAMVEX en modo desarrollo "
+            "(Python + repos hermanos) o reinstala la aplicación.",
         )
 
 
-# ── Models ──────────────────────────────────────────────────────────────────
+def _require_profile(profile: str) -> str:
+    if profile not in PROFILES:
+        raise HTTPException(400, f"perfil inválido: {profile} (usa {', '.join(PROFILES)})")
+    return profile
+
+
+def _require_connector() -> LlamaCppConnector:
+    if _LLAMA_CONNECTOR is None:
+        raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Modelos.")
+    return _LLAMA_CONNECTOR
+
+
+# ── Embedding engine (sentence-transformers or llama-server GGUF) ───────────
+
+def _st_available() -> bool:
+    return importlib.util.find_spec("sentence_transformers") is not None
+
+
+def _embed_backend_pref() -> str:
+    return os.environ.get("KAMVEX_EMBED_BACKEND", "auto").strip().lower() or "auto"
+
+
+def _embed_model_path() -> Path:
+    explicit = os.environ.get("KAMVEX_EMBED_MODEL", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    return MODELS_DIR / "embeddings" / EMBED_FILE
+
+
+def _get_embedding_engine():
+    """Lazily create the shared embedding engine (heavy: loads the model once)."""
+    global _embedding_engine
+    with _EMBED_LOCK:
+        if _embedding_engine is not None:
+            return _embedding_engine
+        pref = _embed_backend_pref()
+        if pref in ("auto", "st") and _DASA_AVAILABLE and _st_available():
+            _embedding_engine = EmbeddingEngine(DASAConfig())
+            return _embedding_engine
+        if pref in ("auto", "gguf"):
+            server_bin = paths.llama_server_binary()
+            model = _embed_model_path()
+            if server_bin is not None and model.is_file():
+                _embedding_engine = LlamaEmbeddingEngine(server_bin, model)
+                return _embedding_engine
+            missing = []
+            if server_bin is None:
+                missing.append("el motor llama-server (descárgalo en Modelos)")
+            if not model.is_file():
+                missing.append("el modelo de embeddings (Conocimiento → Preparar embeddings)")
+            raise HTTPException(503, "Motor de embeddings no disponible: falta " + " y ".join(missing) + ".")
+        raise HTTPException(503, "sentence-transformers no está instalado y KAMVEX_EMBED_BACKEND=st.")
+
+
+def _embeddings_status() -> dict:
+    engine = _embedding_engine
+    server_bin = paths.llama_server_binary()
+    model = _embed_model_path()
+    st = _DASA_AVAILABLE and _st_available()
+    pref = _embed_backend_pref()
+    if engine is not None:
+        backend = "llama-gguf" if isinstance(engine, LlamaEmbeddingEngine) else "sentence-transformers"
+    elif pref in ("auto", "st") and st:
+        backend = "sentence-transformers"
+    elif pref in ("auto", "gguf") and server_bin is not None and model.is_file():
+        backend = "llama-gguf"
+    else:
+        backend = "none"
+    info = {
+        "backend": backend,
+        "ready": backend != "none",
+        "st_installed": bool(st),
+        "server_bin": str(server_bin) if server_bin else None,
+        "model_path": str(model),
+        "model_present": model.is_file(),
+        "model_repo": EMBED_REPO,
+        "model_file": EMBED_FILE,
+        "running": False,
+        "port": None,
+    }
+    if isinstance(engine, LlamaEmbeddingEngine):
+        info.update({"running": engine.running, "port": engine.port, "dim": engine.dim})
+    return info
+
+
+# ── Pipelines ───────────────────────────────────────────────────────────────
+
+def _new_pipeline(db: Path, meta: dict):
+    cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
+                     shard_num_shards=int(meta.get("num_shards", NUM_SHARDS)))
+    pipe = DASAPipeline(cfg)
+    # One shared engine for every dataset (ST loads MiniLM once; GGUF = one process).
+    pipe.agent_a.embedding_engine = _get_embedding_engine()
+    pipe.load(str(db))
+    return pipe
+
+
+def _load_pipeline(dataset_name: str):
+    """Load and cache a pipeline for a dataset."""
+    _require_dasa()
+    db, meta = _require_dataset(dataset_name)
+    pipe = _PIPELINES.get(db.name)
+    if pipe is None:
+        pipe = _new_pipeline(db, meta)
+        _PIPELINES[db.name] = pipe
+    return pipe
+
+
+def _close_pipeline(name: str) -> None:
+    pipe = _PIPELINES.pop(name, None)
+    if pipe is None:
+        return
+    for attr in ("_shard_reader", "_ivf", "_shard_index"):
+        obj = getattr(pipe.agent_a, attr, None)
+        close = getattr(obj, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:  # noqa: BLE001 — best effort
+                pass
+    gc.collect()
+
+
+# ── Request models ──────────────────────────────────────────────────────────
+
+class SamplerFields(BaseModel):
+    temperature: float = Field(0.1, ge=0.0, le=2.0)
+    top_p: float = Field(0.95, ge=0.0, le=1.0)
+    top_k: int = Field(40, ge=1, le=1000)
+    repeat_penalty: float = Field(1.0, ge=0.5, le=3.0)
+    max_tokens: int = Field(512, ge=16, le=8192)
+
+
 class BuildReq(BaseModel):
     name: str
     json_path: str
@@ -91,44 +288,148 @@ class BuildTextReq(BaseModel):
     name: str
     text: str = ""
     pdf_path: str = ""
-    chunk_size: int = 500
+    chunk_size: int = Field(500, ge=100, le=5000)
     profile: str = "low-ram"
 
 
-class ChatReq(BaseModel):
+class ChatReq(SamplerFields):
     dataset: str
-    query: str
+    query: str = Field(..., min_length=1, max_length=20000)
     agent_b_mode: str = "statistical"
-    temperature: float = 0.1
-    top_p: float = 0.95
-    top_k: int = 40
-    repeat_penalty: float = 1.0
 
 
-class FreeChatReq(BaseModel):
-    query: str
-    temperature: float = 0.1
-    top_p: float = 0.95
-    top_k: int = 40
-    repeat_penalty: float = 1.0
+class FederatedReq(SamplerFields):
+    query: str = Field(..., min_length=1, max_length=20000)
+    agent_b_mode: str = "statistical"
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class FreeChatReq(SamplerFields):
+    query: str = Field(..., min_length=1, max_length=20000)
+    system_prompt: str = Field("", max_length=8000)
+    history: list[ChatMessage] = Field(default_factory=list)
+
+
+class CompareReq(SamplerFields):
+    dataset: str
+    query: str = Field(..., min_length=1, max_length=20000)
+    mode_a: str = "statistical"
+    mode_b: str = "grounded"
 
 
 class InferenceConnectReq(BaseModel):
     host: str = "127.0.0.1"
-    port: int
+    port: int = Field(..., ge=1, le=65535)
     model: str = "local"
 
 
-# ── Endpoints ───────────────────────────────────────────────────────────────
+class HubDownloadReq(BaseModel):
+    repo: str
+    file: str
+
+
+# ── Synthesis (single place where Agent B modes are applied) ────────────────
+
+def _fragments_json(fragments) -> list[dict]:
+    return [{"text": f.text, "score": float(f.score), "source_id": f.source_id} for f in fragments]
+
+
+def _synthesize(pipe, mode: str, query: str, fragments, s: SamplerFields,
+                free_system_prompt: str | None = None) -> str:
+    """Run Agent B in the requested mode.
+
+    statistical — StatisticalRewriter only, no LLM (0 hallucination).
+    grounded    — LLM formats relevant fragments under DASA's strict prompt; if the
+                  corpus does not cover the question it says so (never free-talks).
+    free        — LLM answers from the corpus when relevant, freely otherwise.
+    """
+    if mode not in MODES:
+        raise HTTPException(400, f"modo agent_b inválido: {mode}")
+
+    with _PIPE_LOCK:
+        agent_b = pipe.agent_b
+        if mode == "statistical":
+            agent_b._llm_callable = None
+            return (agent_b.synthesize(query, fragments) or "").strip() or NO_INFO
+
+        connector = _require_connector()
+        connector.set_samplers(s.temperature, s.top_p, s.top_k, s.repeat_penalty, s.max_tokens)
+        agent_b._llm_callable = connector
+
+        if mode == "grounded":
+            relevant = [f for f in fragments if f.score >= GROUNDED_MIN_SCORE]
+            if not relevant:
+                return NOT_COVERED
+            guided = getattr(agent_b, "_llm_guided_synthesis", None)
+            if guided is None:
+                return (agent_b.synthesize(query, relevant) or "").strip() or NOT_COVERED
+            return (guided(query, relevant) or "").strip() or NOT_COVERED
+
+        original_prompt = getattr(agent_b, "_free_system_prompt", None)
+        try:
+            if free_system_prompt and original_prompt is not None:
+                agent_b._free_system_prompt = free_system_prompt
+            return (agent_b.synthesize(query, fragments) or "").strip() or NO_INFO
+        finally:
+            if original_prompt is not None:
+                agent_b._free_system_prompt = original_prompt
+
+
+# ── Health / status ─────────────────────────────────────────────────────────
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "version": VERSION,
+        "dasa": _DASA_AVAILABLE,
+        "embeddings": _embeddings_status()["backend"],
+        "data_dir": str(DATA_DIR),
+        "models_dir": str(MODELS_DIR),
+    }
 
+
+@app.get("/embeddings/status")
+def embeddings_status():
+    return _embeddings_status()
+
+
+@app.post("/embeddings/setup")
+def embeddings_setup():
+    """Download the embedding GGUF (only needed when sentence-transformers is absent)."""
+    dest = _embed_model_path()
+    if dest.is_file():
+        return {"status": "already", "path": str(dest)}
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    state = _DOWNLOADS.start(EMBED_REPO, EMBED_FILE, dest)
+    return {"status": "started", "download_id": state.id}
+
+
+@app.post("/embeddings/stop")
+def embeddings_stop():
+    global _embedding_engine
+    with _EMBED_LOCK:
+        engine, _embedding_engine = _embedding_engine, None
+    if isinstance(engine, LlamaEmbeddingEngine):
+        engine.stop()
+    with _PIPE_LOCK:
+        for name in list(_PIPELINES):
+            _close_pipeline(name)
+    return {"status": "stopped"}
+
+
+# ── Datasets ────────────────────────────────────────────────────────────────
 
 @app.get("/datasets")
 def list_datasets():
     out = []
-    for d in sorted(DATA_DIR.iterdir()) if DATA_DIR.exists() else []:
+    if not DATA_DIR.exists():
+        return out
+    for d in sorted(DATA_DIR.iterdir()):
         meta = d / "meta.json"
         if d.is_dir() and meta.exists():
             try:
@@ -138,247 +439,62 @@ def list_datasets():
     return out
 
 
-def _load_pipeline(dataset_name: str) -> DASAPipeline:
-    """Load and cache a pipeline for a dataset."""
-    db = DATA_DIR / dataset_name
-    meta = json.loads((db / "meta.json").read_text(encoding="utf-8"))
-    pipe = _PIPELINES.get(dataset_name)
-    if pipe is None:
-        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
-                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
-        pipe = DASAPipeline(cfg)
-        pipe.load(str(db))
-        _PIPELINES[dataset_name] = pipe
-    return pipe
-
-
-@app.post("/federated")
-def federated_query(req: ChatReq):
-    _require_dasa()
-    """
-    MoE semantic router: query ALL datasets, pick the one with the best
-    top-fragment score, and answer from that dataset. This enables
-    multi-dataset federation — the user doesn't need to pick a dataset.
-    """
-    datasets = list_datasets()
-    if not datasets:
-        raise HTTPException(404, "No hay datasets disponibles.")
-
-    best_dataset = None
-    best_score = -1.0
-    best_fragments = []
-    best_pipe = None
-
-    for ds in datasets:
-        name = ds["name"]
-        try:
-            pipe = _load_pipeline(name)
-            fragments = pipe.agent_a.search(req.query)
-            if fragments:
-                top_score = max(f.score for f in fragments)
-                if top_score > best_score:
-                    best_score = top_score
-                    best_dataset = name
-                    best_fragments = fragments
-                    best_pipe = pipe
-        except Exception:
-            continue
-
-    if best_pipe is None or best_score < 0.2:
-        return {
-            "answer": "No se encontró información relevante en ningún corpus.",
-            "fragments": [],
-            "mode": req.agent_b_mode,
-            "dataset": None,
-            "score": 0.0,
-        }
-
-    mode = req.agent_b_mode
-    if mode == "statistical":
-        best_pipe.agent_b._llm_callable = None
-    elif mode in ("grounded", "free"):
-        if _LLAMA_CONNECTOR is None:
-            raise HTTPException(400, "No hay motor de inferencia activo.")
-        _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
-        best_pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
-
-    answer = best_pipe.agent_b.synthesize(req.query, best_fragments) or \
-        "No se encontró información relevante."
-
-    return {
-        "answer": answer,
-        "fragments": [
-            {"text": f.text, "score": float(f.score), "source_id": f.source_id}
-            for f in best_fragments
-        ],
-        "mode": mode,
-        "dataset": best_dataset,
-        "score": best_score,
-    }
+def _start_build(name: str, json_path: Path, profile: str, extra_meta: dict | None = None) -> str:
+    job = BuildJob()
+    jid = uuid.uuid4().hex
+    _JOBS[jid] = job
+    with _PIPE_LOCK:
+        _close_pipeline(name)   # invalidate any cached pipeline for this name
+    engine = _get_embedding_engine()
+    threading.Thread(
+        target=run_build, args=(job,),
+        kwargs=dict(name=name, json_path=str(json_path), profile=profile,
+                    data_dir=DATA_DIR, num_shards=None,
+                    embedding_engine=engine,
+                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq,
+                    extra_meta=extra_meta),
+        daemon=True, name=f"build-{name}",
+    ).start()
+    return jid
 
 
 @app.post("/datasets/build")
 def build_dataset(req: BuildReq):
     _require_dasa()
-    if not Path(req.json_path).exists():
+    name = safe_name(req.name)
+    _require_profile(req.profile)
+    src = Path(req.json_path)
+    if not src.is_file():
         raise HTTPException(404, f"Archivo no encontrado: {req.json_path}")
-    if req.profile not in ("low-ram", "medium", "fast"):
-        raise HTTPException(400, f"perfil inválido: {req.profile}")
-    job = BuildJob()
-    jid = uuid.uuid4().hex
-    _JOBS[jid] = job
-    _PIPELINES.pop(req.name, None)   # invalidate any cached pipeline for this name
-    threading.Thread(
-        target=run_build, args=(job,),
-        kwargs=dict(name=req.name, json_path=req.json_path, profile=req.profile,
-                    data_dir=DATA_DIR, num_shards=None,
-                    embedding_engine=_get_embedding_engine(),
-                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq),
-        daemon=True,
-    ).start()
-    return {"job_id": jid}
-
-
-def _extract_pdf_pages(pdf_path: str) -> list[tuple[int, str]]:
-    """Extract text from a PDF as (page_number, text) pairs, 1-indexed.
-
-    Tries pypdf first, falls back to raw stream parsing (one "page" per
-    content stream — an approximation, but keeps page citations working
-    even without pypdf installed).
-    """
-    if not Path(pdf_path).exists():
-        raise HTTPException(404, f"PDF no encontrado: {pdf_path}")
-
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(pdf_path)
-        return [(i + 1, page.extract_text() or "") for i, page in enumerate(reader.pages)]
-    except ImportError:
-        pass
-
-    import re
-    import zlib
-    raw = Path(pdf_path).read_bytes()
-    pages = []
-    for i, match in enumerate(re.finditer(b'stream\r?\n(.*?)\r?\nendstream', raw, re.DOTALL)):
-        data = match.group(1)
-        try:
-            decompressed = zlib.decompress(data)
-            text_matches = re.findall(rb'\((.*?)\)', decompressed)
-            if text_matches:
-                pages.append((i + 1, " ".join(t.decode('latin-1') for t in text_matches)))
-        except Exception:
-            continue
-    return pages
-
-
-def _chunk_text(text: str, chunk_size: int) -> list[str]:
-    """Split text into chunks at paragraph boundaries, capped at chunk_size."""
-    chunks = []
-    current = ""
-    for para in text.split("\n"):
-        para = para.strip()
-        if not para:
-            continue
-        if len(current) + len(para) > chunk_size and current:
-            chunks.append(current)
-            current = para
-        else:
-            current = f"{current} {para}".strip() if current else para
-    if current:
-        chunks.append(current)
-    return chunks
+    if src.suffix.lower().lstrip(".") not in SOURCE_FILES:
+        raise HTTPException(400, "formato no soportado: usa .json, .jsonl o .csv")
+    return {"job_id": _start_build(name, src, req.profile)}
 
 
 @app.post("/datasets/build-text")
 def build_from_text(req: BuildTextReq):
+    """Build a dataset from raw text or a PDF by chunking it into records."""
     _require_dasa()
-    """Build a dataset from raw text or PDF by chunking it into records.
+    name = safe_name(req.name)
+    _require_profile(req.profile)
 
-    PDF chunks never span a page boundary, so each chunk keeps an exact
-    page number — this is what powers the "p.N" citation in chat answers.
-    """
-    if req.profile not in ("low-ram", "medium", "fast"):
-        raise HTTPException(400, f"perfil inválido: {req.profile}")
-
-    source_doc: str | None = None
-    full_text = ""
-    # (page_number_or_None, chunk_text)
-    paged_chunks: list[tuple[int | None, str]] = []
-
-    if req.pdf_path:
-        source_doc = Path(req.pdf_path).name
-        pages = _extract_pdf_pages(req.pdf_path)
-        full_text = "\n".join(p[1] for p in pages)
-        for page_no, page_text in pages:
-            paged_chunks.extend((page_no, c) for c in _chunk_text(page_text, req.chunk_size))
-    else:
-        full_text = req.text.strip()
-        paged_chunks = [(None, c) for c in _chunk_text(full_text, req.chunk_size)]
-
-    if not full_text or not paged_chunks:
+    try:
+        if req.pdf_path:
+            full_text, records, extra_meta = records_from_pdf(req.pdf_path, req.chunk_size)
+        else:
+            full_text, records, extra_meta = records_from_text(req.text, req.chunk_size)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    if not full_text or not records:
         raise HTTPException(400, "texto vacío o PDF sin texto extraíble")
 
-    def _title(i: int, page: int | None) -> str:
-        if page is not None and source_doc:
-            return f"{source_doc} · p.{page}"
-        return f"Fragmento {i + 1}"
-
-    records = [
-        {"id": f"chunk_{i}", "title": _title(i, page), "content": c}
-        for i, (page, c) in enumerate(paged_chunks)
-    ]
-
-    # Write to temp JSON and run build
-    import tempfile
-    tmp = Path(tempfile.mktemp(suffix=".json"))
-    tmp.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
-
-    db = DATA_DIR / req.name
+    db = DATA_DIR / name
     db.mkdir(parents=True, exist_ok=True)
     (db / "fulltext.txt").write_text(full_text, encoding="utf-8")
+    source = db / "records.json"
+    source.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
 
-    n_pages = max((p[0] for p in paged_chunks if p[0] is not None), default=None)
-    extra_meta = {"source_doc": source_doc, "n_pages": n_pages} if source_doc else None
-
-    job = BuildJob()
-    jid = uuid.uuid4().hex
-    _JOBS[jid] = job
-    _PIPELINES.pop(req.name, None)
-    threading.Thread(
-        target=run_build, args=(job,),
-        kwargs=dict(name=req.name, json_path=str(tmp), profile=req.profile,
-                    data_dir=DATA_DIR, num_shards=None,
-                    embedding_engine=_get_embedding_engine(),
-                    shard_writer_cls=ShardWriter, build_ivfpq_fn=build_ivfpq,
-                    extra_meta=extra_meta),
-        daemon=True,
-    ).start()
-    return {"job_id": jid, "n_chunks": len(paged_chunks)}
-
-
-@app.post("/datasets/{name}/summary")
-def dataset_summary(name: str):
-    """Summarize a dataset's source document using the active inference engine.
-
-    Grounded by construction: the prompt only contains the dataset's own
-    extracted text, so the model cannot introduce facts from elsewhere.
-    """
-    if _LLAMA_CONNECTOR is None:
-        raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
-    db = DATA_DIR / name
-    fulltext_path = db / "fulltext.txt"
-    if not fulltext_path.exists():
-        raise HTTPException(404, "Este dataset no tiene texto fuente disponible para resumir.")
-
-    text = fulltext_path.read_text(encoding="utf-8")[:8000]
-    prompt = (
-        "Resume el siguiente documento de forma fiel y concisa, en español. "
-        "No inventes información que no esté presente en el texto.\n\n"
-        f"{text}\n\nResumen:"
-    )
-    summary = _LLAMA_CONNECTOR(prompt)
-    return {"summary": summary}
+    return {"job_id": _start_build(name, source, req.profile, extra_meta), "n_chunks": len(records)}
 
 
 @app.get("/datasets/build/{job_id}/events")
@@ -402,83 +518,209 @@ def build_events(job_id: str):
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+@app.delete("/datasets/{name}")
+def delete_dataset(name: str):
+    db, _ = _require_dataset(name)
+    with _PIPE_LOCK:
+        _close_pipeline(db.name)
+    try:
+        shutil.rmtree(db)
+    except PermissionError as e:
+        raise HTTPException(409, "dataset en uso; reinicia KAMVEX y vuelve a intentarlo") from e
+    return {"status": "deleted", "name": db.name}
+
+
+@app.post("/datasets/{name}/summary")
+def dataset_summary(name: str):
+    """Summarize a dataset's source document using the active inference engine.
+
+    Grounded by construction: the prompt only contains the dataset's own
+    extracted text, so the model cannot introduce facts from elsewhere.
+    """
+    connector = _require_connector()
+    db, _ = _require_dataset(name)
+    fulltext_path = db / "fulltext.txt"
+    if not fulltext_path.exists():
+        raise HTTPException(404, "Este dataset no tiene texto fuente disponible para resumir.")
+
+    text = fulltext_path.read_text(encoding="utf-8")[:8000]
+    messages = [
+        {"role": "system", "content": (
+            "Resume el documento del usuario de forma fiel y concisa, en español. "
+            "No inventes información que no esté presente en el texto.")},
+        {"role": "user", "content": text},
+    ]
+    with _PIPE_LOCK:
+        summary = connector(messages)
+    return {"summary": summary}
+
+
+@app.get("/datasets/{name}/export")
+def export_dataset(name: str):
+    """Export a dataset as a .kamvex file (portable zip of shards + index + meta)."""
+    import io
+    import zipfile
+    db, _ = _require_dataset(name)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in db.rglob("*"):
+            if f.is_file():
+                zf.write(f, f.relative_to(db).as_posix())
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{db.name}.kamvex"'},
+    )
+
+
+# ── Chat ────────────────────────────────────────────────────────────────────
+
 @app.post("/chat")
 def chat(req: ChatReq):
-    _require_dasa()
-    db = DATA_DIR / req.dataset
-    meta_path = db / "meta.json"
-    if not meta_path.exists():
-        raise HTTPException(404, f"dataset desconocido: {req.dataset}")
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-
-    pipe = _PIPELINES.get(req.dataset)
-    if pipe is None:
-        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
-                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
-        pipe = DASAPipeline(cfg)
-        pipe.load(str(db))
-        _PIPELINES[req.dataset] = pipe
-
+    pipe = _load_pipeline(req.dataset)
     fragments = pipe.agent_a.search(req.query)
-
-    mode = req.agent_b_mode
-    if mode == "statistical":
-        pipe.agent_b._llm_callable = None
-    elif mode == "grounded":
-        if _LLAMA_CONNECTOR is None:
-            raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
-        _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
-        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
-    elif mode == "free":
-        if _LLAMA_CONNECTOR is None:
-            raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Models.")
-        _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
-        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
-    else:
-        raise HTTPException(400, f"modo agent_b inválido: {mode}")
-
-    answer = pipe.agent_b.synthesize(req.query, fragments) or \
-        "No se encontró información relevante en el corpus para esta consulta."
+    answer = _synthesize(pipe, req.agent_b_mode, req.query, fragments, req)
     return {
         "answer": answer,
-        "fragments": [
-            {"text": f.text, "score": float(f.score), "source_id": f.source_id}
-            for f in fragments
-        ],
-        "mode": mode,
+        "fragments": _fragments_json(fragments),
+        "mode": req.agent_b_mode,
+        "dataset": safe_name(req.dataset),
     }
 
 
 @app.post("/chat/free")
 def chat_free(req: FreeChatReq):
-    """Direct LLM chat — no dataset or DASA pipeline required."""
-    if _LLAMA_CONNECTOR is None:
-        raise HTTPException(400, "No hay motor de inferencia activo.")
-    _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
-    answer = _LLAMA_CONNECTOR(req.query)
-    return {"answer": answer, "fragments": [], "mode": "free"}
+    """Direct LLM chat — no dataset or DASA pipeline required. Keeps the conversation."""
+    connector = _require_connector()
+    connector.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty, req.max_tokens)
+    messages = [{"role": "system", "content": req.system_prompt.strip() or DEFAULT_FREE_SYSTEM_PROMPT}]
+    for m in req.history[-20:]:
+        if m.role in ("user", "assistant") and m.content:
+            messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": req.query})
+    with _PIPE_LOCK:
+        answer = connector(messages)
+    return {"answer": answer or NO_INFO, "fragments": [], "mode": "free"}
 
+
+@app.post("/federated")
+def federated_query(req: FederatedReq):
+    """
+    MoE semantic router: query ALL datasets, pick the one with the best
+    top-fragment score, and answer from that dataset. The user doesn't need
+    to pick a dataset.
+    """
+    _require_dasa()
+    datasets = list_datasets()
+    if not datasets:
+        raise HTTPException(404, "No hay datasets disponibles.")
+
+    best_dataset = None
+    best_score = -1.0
+    best_fragments: list = []
+    best_pipe = None
+
+    for ds in datasets:
+        name = ds.get("name")
+        if not name:
+            continue
+        try:
+            pipe = _load_pipeline(name)
+            fragments = pipe.agent_a.search(req.query)
+        except HTTPException:
+            raise
+        except Exception:  # noqa: BLE001 — a broken dataset must not break the router
+            continue
+        if fragments:
+            top_score = max(f.score for f in fragments)
+            if top_score > best_score:
+                best_score, best_dataset, best_fragments, best_pipe = top_score, name, fragments, pipe
+
+    if best_pipe is None or best_score < 0.2:
+        return {"answer": "No se encontró información relevante en ningún corpus.",
+                "fragments": [], "mode": req.agent_b_mode, "dataset": None, "score": 0.0}
+
+    answer = _synthesize(best_pipe, req.agent_b_mode, req.query, best_fragments, req)
+    return {
+        "answer": answer,
+        "fragments": _fragments_json(best_fragments),
+        "mode": req.agent_b_mode,
+        "dataset": best_dataset,
+        "score": float(best_score),
+    }
+
+
+@app.post("/compare")
+def compare_models(req: CompareReq):
+    """Run the same query with two Agent B modes and return both answers for A/B comparison."""
+    pipe = _load_pipeline(req.dataset)
+    fragments = pipe.agent_a.search(req.query)
+    results = {}
+    for label, mode in (("a", req.mode_a), ("b", req.mode_b)):
+        try:
+            answer = _synthesize(pipe, mode, req.query, fragments, req)
+        except HTTPException as e:
+            if e.status_code == 400 and mode in ("grounded", "free") and _LLAMA_CONNECTOR is None:
+                answer = "(sin motor de inferencia)"
+            else:
+                raise
+        results[label] = {"answer": answer, "mode": mode, "fragments": _fragments_json(fragments)}
+    return results
+
+
+@app.post("/oregano/{dataset}")
+def oregano_test(dataset: str):
+    """Run the anti-hallucination quality audit on a dataset."""
+    pipe = _load_pipeline(dataset)
+    with _PIPE_LOCK:
+        return run_oregano_test(pipe, safe_name(dataset))
+
+
+# ── Local GGUF models ───────────────────────────────────────────────────────
 
 @app.get("/models/local")
 def list_local_models():
-    """List downloaded GGUF model files in the models/ directory."""
-    models_dir = _HERE.parent / "models"
-    if not models_dir.exists():
+    """List GGUF model files in the models directory (top level only)."""
+    if not MODELS_DIR.exists():
         return []
     result = []
-    for f in sorted(models_dir.iterdir()):
-        if f.is_file() and f.suffix == ".gguf":
-            size_mb = round(f.stat().st_size / (1024 * 1024))
-            result.append({"name": f.stem, "file": f.name, "path": str(f), "size_mb": size_mb})
+    for f in sorted(MODELS_DIR.iterdir()):
+        if f.is_file() and f.suffix.lower() == ".gguf":
+            st = f.stat()
+            result.append({"name": f.stem, "file": f.name, "path": str(f),
+                           "size_mb": round(st.st_size / (1024 * 1024)),
+                           "mtime": int(st.st_mtime)})
     return result
 
 
+@app.delete("/models/local/{file}")
+def delete_local_model(file: str):
+    if not is_valid_filename(file) or not file.lower().endswith(".gguf"):
+        raise HTTPException(400, "nombre de archivo inválido")
+    target = MODELS_DIR / file
+    if not target.is_file():
+        raise HTTPException(404, "modelo no encontrado")
+    try:
+        target.unlink()
+    except PermissionError as e:
+        raise HTTPException(409, "el modelo está en uso; detén la inferencia primero") from e
+    Path(str(target) + ".part").unlink(missing_ok=True)
+    return {"status": "deleted", "file": file}
+
+
+# ── Inference engine hook (llama-server managed by the Rust shell) ─────────
+
 @app.post("/inference/connect")
 def inference_connect(req: InferenceConnectReq):
-    """Register the llama-server endpoint so Agent B can use it."""
+    """Register the llama-server endpoint so Agent B can use it (loopback only)."""
     global _LLAMA_CONNECTOR
+    if req.host not in ("127.0.0.1", "localhost", "::1"):
+        raise HTTPException(400, "solo se permite un motor local (127.0.0.1)")
     _LLAMA_CONNECTOR = LlamaCppConnector(req.host, req.port, req.model)
-    return {"status": "connected", "alive": _LLAMA_CONNECTOR.is_alive()}
+    return {"status": "connected", "alive": _LLAMA_CONNECTOR.is_alive(), "port": req.port}
 
 
 @app.post("/inference/disconnect")
@@ -495,8 +737,8 @@ def inference_status():
     return {"connected": True, "alive": _LLAMA_CONNECTOR.is_alive()}
 
 
-def _get_vram_usage():
-    """Try to get VRAM usage via nvidia-smi. Returns (used_mb, total_mb) or None."""
+def _get_vram_usage() -> tuple[int, int] | None:
+    """VRAM (used_mb, total_mb) via nvidia-smi. AMD/Intel report nothing here."""
     import subprocess
     try:
         r = subprocess.run(
@@ -504,17 +746,17 @@ def _get_vram_usage():
             capture_output=True, text=True, timeout=3,
         )
         if r.returncode == 0 and r.stdout.strip():
-            parts = r.stdout.strip().split(", ")
+            parts = r.stdout.strip().splitlines()[0].split(", ")
             if len(parts) >= 2:
-                return (int(parts[0]), int(parts[1]))
-    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+                return int(parts[0]), int(parts[1])
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError, OSError):
         pass
     return None
 
 
 @app.get("/inference/metrics")
 def inference_metrics():
-    """Fetch live metrics from llama-server: tokens/s, TTFT, context, RAM, VRAM."""
+    """Live metrics from llama-server: tokens/s, TTFT, context, RAM, VRAM."""
     if _LLAMA_CONNECTOR is None:
         return {
             "connected": False, "active_slots": 0, "total_decoded": 0,
@@ -523,7 +765,6 @@ def inference_metrics():
             "slots": [],
         }
     m = _LLAMA_CONNECTOR.get_metrics()
-
     try:
         import psutil
         vm = psutil.virtual_memory()
@@ -531,234 +772,49 @@ def inference_metrics():
         m["ram_total_gb"] = round(vm.total / 1e9, 1)
     except ImportError:
         pass
-
     vram = _get_vram_usage()
     if vram:
-        m["vram_used_mb"] = vram[0]
-        m["vram_total_mb"] = vram[1]
-
+        m["vram_used_mb"], m["vram_total_mb"] = vram
     return {"connected": True, **m}
 
 
-# ── HuggingFace model hub (curated GGUF list) ──────────────────────────────
-
-_HF_CURATED = [
-    # ── Ultraligeros (< 1 GB) — CPU / poca RAM ──
-    {"repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 0.5B Q4", "size_mb": 491, "category": "ultralight",
-     "desc": "Ultraligero, ideal para CPU o 4 GB RAM"},
-    {"repo": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF", "file": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-     "name": "TinyLlama 1.1B Q4", "size_mb": 700, "category": "ultralight",
-     "desc": "Mínimo, para pruebas rápidas"},
-    {"repo": "bartowski/Llama-3.2-1B-Instruct-GGUF", "file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-     "name": "Llama 3.2 1B Q4", "size_mb": 808, "category": "ultralight",
-     "desc": "Meta, ultraligero, multilingüe"},
-
-    # ── Ligeros (1-3 GB) — CPU / RAM media ──
-    {"repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 1.5B Q4", "size_mb": 1120, "category": "light",
-     "desc": "Pequeño, rápido, buena calidad"},
-    {"repo": "bartowski/SmolLM2-1.7B-Instruct-GGUF", "file": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
-     "name": "SmolLM2 1.7B Q4", "size_mb": 1060, "category": "light",
-     "desc": "HuggingFace, compacto y eficiente"},
-    {"repo": "bartowski/gemma-2-2b-it-GGUF", "file": "gemma-2-2b-it-Q4_K_M.gguf",
-     "name": "Gemma 2 2B Q4", "size_mb": 1710, "category": "light",
-     "desc": "Google, multilingüe, compacto"},
-    {"repo": "unsloth/Llama-3.2-3B-Instruct-GGUF", "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-     "name": "Llama 3.2 3B Q4", "size_mb": 2020, "category": "light",
-     "desc": "Meta, equilibrio calidad/tamaño"},
-    {"repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 3B Q4", "size_mb": 2100, "category": "light",
-     "desc": "Equilibrio calidad/velocidad"},
-    {"repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF", "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 Coder 3B Q4", "size_mb": 2100, "category": "light",
-     "desc": "Especializado en código, compacto"},
-    {"repo": "bartowski/Phi-3.5-mini-instruct-GGUF", "file": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-     "name": "Phi-3.5 Mini Q4", "size_mb": 2390, "category": "light",
-     "desc": "Microsoft, multilingüe, código"},
-
-    # ── Medios (3-6 GB) — GPU recomendada ──
-    {"repo": "Qwen/Qwen2.5-7B-Instruct-GGUF", "file": "qwen2.5-7b-instruct-q3_k_m.gguf",
-     "name": "Qwen2.5 7B Q3", "size_mb": 3810, "category": "medium",
-     "desc": "Alta calidad, necesita GPU o 16 GB RAM"},
-    {"repo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF", "file": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
-     "name": "Mistral 7B v0.3 Q4", "size_mb": 4370, "category": "medium",
-     "desc": "Europeo, buen multilingüe"},
-    {"repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
-     "name": "Qwen2.5 Coder 7B Q4", "size_mb": 4680, "category": "medium",
-     "desc": "Especializado en código y programación"},
-    {"repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF", "file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
-     "name": "DeepSeek-R1 Distill 7B Q4", "size_mb": 4680, "category": "medium",
-     "desc": "Razonamiento avanzado, estilo R1"},
-    {"repo": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-     "name": "Llama 3.1 8B Q4", "size_mb": 4920, "category": "medium",
-     "desc": "Meta, equilibrio calidad/tamaño"},
-
-    # ── Grandes (6-10 GB) — GPU / mucha RAM ──
-    {"repo": "bartowski/Mistral-Nemo-Instruct-2407-GGUF", "file": "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
-     "name": "Mistral Nemo 12B Q4", "size_mb": 7480, "category": "large",
-     "desc": "12B, 128k contexto, multilingüe"},
-    {"repo": "bartowski/Qwen2.5-14B-Instruct-GGUF", "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-     "name": "Qwen2.5 14B Q4", "size_mb": 8990, "category": "large",
-     "desc": "Alta calidad, necesita 12 GB VRAM"},
-
-    # ── XL (> 10 GB) — VRAM alta ──
-    {"repo": "Qwen/Qwen3-MoE-30B-A3B-GGUF", "file": "qwen3-moe-30b-a3b-q4_k_m.gguf",
-     "name": "Qwen3-MoE 30B Q4", "size_mb": 18000, "category": "xl",
-     "desc": "MoE, necesita 24 GB VRAM"},
-]
-
-
-@app.get("/models/hub")
-def list_hub_models():
-    """List curated GGUF models available for download."""
-    return _HF_CURATED
-
-
-class HubDownloadReq(BaseModel):
-    repo: str
-    file: str
-
-
-class _DownloadState:
-    """Tracks a single model download with pause/cancel support."""
-    __slots__ = ("id", "repo", "file", "dest", "url", "total", "downloaded",
-                 "speed", "status", "error", "cancel_ev", "pause_ev", "q")
-
-    def __init__(self, dl_id: str, repo: str, file: str, dest: Path, url: str):
-        self.id = dl_id
-        self.repo = repo
-        self.file = file
-        self.dest = dest
-        self.url = url
-        self.total: int = 0
-        self.downloaded: int = 0
-        self.speed: float = 0.0
-        self.status: str = "downloading"  # downloading | paused | done | error | cancelled
-        self.error: str = ""
-        self.cancel_ev = threading.Event()
-        self.pause_ev = threading.Event()  # SET = running, CLEAR = paused
-        self.pause_ev.set()
-        self.q: queue.Queue = queue.Queue()
-
-    def progress_pct(self) -> float:
-        if self.total <= 0:
-            return 0.0
-        return round(self.downloaded / self.total * 100, 1)
-
-    def emit(self):
-        self.q.put({
-            "status": self.status,
-            "downloaded": self.downloaded,
-            "total": self.total,
-            "pct": self.progress_pct(),
-            "speed_mbps": round(self.speed, 2),
-            "error": self.error,
-        })
-
-
-_DOWNLOADS: dict[str, _DownloadState] = {}
-
-
-def _run_download(state: _DownloadState):
-    """Chunked download in background thread with pause/cancel/resume."""
-    import urllib.request
-
-    part = Path(str(state.dest) + ".part")
-    headers = {}
-    if part.exists():
-        state.downloaded = part.stat().st_size
-        headers["Range"] = f"bytes={state.downloaded}-"
-
-    try:
-        req = urllib.request.Request(state.url, headers=headers)
-        resp = urllib.request.urlopen(req, timeout=30)
-
-        content_length = resp.headers.get("Content-Length")
-        if state.downloaded > 0 and resp.status == 206:
-            cr = resp.headers.get("Content-Range", "")
-            if "/" in cr:
-                state.total = int(cr.split("/")[-1])
-            elif content_length:
-                state.total = state.downloaded + int(content_length)
-        elif content_length:
-            state.total = int(content_length)
-            state.downloaded = 0
-
-        state.emit()
-
-        chunk_size = 256 * 1024  # 256 KB
-        mode = "ab" if resp.status == 206 else "wb"
-        last_time = time.time()
-        last_bytes = state.downloaded
-
-        with open(part, mode) as f:
-            while True:
-                if state.cancel_ev.is_set():
-                    state.status = "cancelled"
-                    state.emit()
-                    try:
-                        part.unlink(missing_ok=True)
-                    except OSError:
-                        pass
-                    return
-
-                state.pause_ev.wait()
-
-                data = resp.read(chunk_size)
-                if not data:
-                    break
-
-                f.write(data)
-                state.downloaded += len(data)
-
-                now = time.time()
-                elapsed = now - last_time
-                if elapsed >= 0.5:
-                    state.speed = (state.downloaded - last_bytes) / elapsed / 1_000_000
-                    last_time = now
-                    last_bytes = state.downloaded
-                    state.emit()
-
-        part.rename(state.dest)
-        state.status = "done"
-        state.emit()
-
-    except Exception as e:
-        state.status = "error"
-        state.error = str(e)
-        state.emit()
-
+# ── HuggingFace downloads (GGUF) ────────────────────────────────────────────
 
 @app.post("/models/hub/download")
 def hub_download(req: HubDownloadReq):
-    """Start a GGUF model download from HuggingFace. Returns download_id for tracking."""
-    models_dir = _HERE.parent / "models"
-    models_dir.mkdir(parents=True, exist_ok=True)
-    dest = models_dir / req.file
-
+    """Start a GGUF download from HuggingFace. Returns download_id for tracking."""
+    if not is_valid_hf_repo(req.repo):
+        raise HTTPException(400, "repositorio inválido (formato: usuario/repo)")
+    if not is_valid_filename(req.file) or not req.file.lower().endswith(".gguf"):
+        raise HTTPException(400, "nombre de archivo inválido (debe ser un .gguf sin rutas)")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = MODELS_DIR / req.file
     if dest.exists():
         return {"status": "already", "path": str(dest)}
+    running = _DOWNLOADS.active_for(dest)
+    if running is not None:
+        return {"status": "in_progress", "download_id": running.id}
+    state = _DOWNLOADS.start(req.repo, req.file, dest)
+    return {"status": "started", "download_id": state.id}
 
-    for dl in _DOWNLOADS.values():
-        if dl.file == req.file and dl.status in ("downloading", "paused"):
-            return {"status": "in_progress", "download_id": dl.id}
 
-    url = f"https://huggingface.co/{req.repo}/resolve/main/{req.file}"
-    dl_id = uuid.uuid4().hex[:12]
-    state = _DownloadState(dl_id, req.repo, req.file, dest, url)
-    _DOWNLOADS[dl_id] = state
+@app.get("/models/hub/downloads")
+def hub_downloads():
+    """Every download the sidecar knows about (lets the UI re-attach after a remount)."""
+    return _DOWNLOADS.snapshot()
 
-    threading.Thread(target=_run_download, args=(state,), daemon=True).start()
-    return {"status": "started", "download_id": dl_id}
+
+def _download_or_404(dl_id: str):
+    state = _DOWNLOADS.get(dl_id)
+    if state is None:
+        raise HTTPException(404, "download desconocido")
+    return state
 
 
 @app.get("/models/hub/download/{dl_id}/events")
 def hub_download_events(dl_id: str):
     """SSE stream of download progress."""
-    state = _DOWNLOADS.get(dl_id)
-    if state is None:
-        raise HTTPException(404, "download desconocido")
+    state = _download_or_404(dl_id)
 
     def gen():
         state.emit()
@@ -766,7 +822,7 @@ def hub_download_events(dl_id: str):
             try:
                 ev = state.q.get(timeout=30)
             except queue.Empty:
-                if state.status in ("done", "error", "cancelled"):
+                if not state.active:
                     break
                 continue
             yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
@@ -778,126 +834,25 @@ def hub_download_events(dl_id: str):
 
 @app.post("/models/hub/download/{dl_id}/cancel")
 def hub_download_cancel(dl_id: str):
-    state = _DOWNLOADS.get(dl_id)
-    if state is None:
-        raise HTTPException(404, "download desconocido")
-    state.cancel_ev.set()
-    state.pause_ev.set()
+    _download_or_404(dl_id).cancel()
     return {"status": "cancelling"}
 
 
 @app.post("/models/hub/download/{dl_id}/pause")
 def hub_download_pause(dl_id: str):
-    state = _DOWNLOADS.get(dl_id)
-    if state is None:
-        raise HTTPException(404, "download desconocido")
-    if state.status == "downloading":
-        state.pause_ev.clear()
-        state.status = "paused"
-        state.emit()
+    state = _download_or_404(dl_id)
+    state.pause()
     return {"status": state.status}
 
 
 @app.post("/models/hub/download/{dl_id}/resume")
 def hub_download_resume(dl_id: str):
-    state = _DOWNLOADS.get(dl_id)
-    if state is None:
-        raise HTTPException(404, "download desconocido")
-    if state.status == "paused":
-        state.status = "downloading"
-        state.pause_ev.set()
-        state.emit()
+    state = _download_or_404(dl_id)
+    state.resume()
     return {"status": state.status}
 
 
-@app.post("/oregano/{dataset}")
-def oregano_test(dataset: str):
-    _require_dasa()
-    """Run the anti-hallucination quality audit on a dataset."""
-    db = DATA_DIR / dataset
-    meta_path = db / "meta.json"
-    if not meta_path.exists():
-        raise HTTPException(404, f"dataset desconocido: {dataset}")
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
-
-    pipe = _PIPELINES.get(dataset)
-    if pipe is None:
-        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
-                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
-        pipe = DASAPipeline(cfg)
-        pipe.load(str(db))
-        _PIPELINES[dataset] = pipe
-
-    return run_oregano_test(pipe, dataset)
-
-
-@app.get("/datasets/{dataset}/export")
-def export_dataset(dataset: str):
-    """Export a dataset as a .kamvex file (portable zip of shards + index + meta)."""
-    import io
-    import zipfile
-    db = DATA_DIR / dataset
-    if not (db / "meta.json").exists():
-        raise HTTPException(404, f"dataset desconocido: {dataset}")
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in db.rglob("*"):
-            if f.is_file():
-                zf.write(f, f.relative_to(db))
-    buf.seek(0)
-
-    return StreamingResponse(
-        buf,
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={dataset}.kamvex"},
-    )
-
-
-# ── OpenAI-compatible API out (Kamvex as backend for other apps) ────────────
-
-class CompareReq(BaseModel):
-    dataset: str
-    query: str
-    mode_a: str = "statistical"
-    mode_b: str = "grounded"
-    temperature: float = 0.1
-    top_p: float = 0.95
-    top_k: int = 40
-    repeat_penalty: float = 1.0
-
-
-@app.post("/compare")
-def compare_models(req: CompareReq):
-    _require_dasa()
-    """Run the same query with two Agent B modes and return both answers for A/B comparison."""
-    results = {}
-    for label, mode in [("a", req.mode_a), ("b", req.mode_b)]:
-        pipe = _load_pipeline(req.dataset)
-
-        if mode == "statistical":
-            pipe.agent_b._llm_callable = None
-        elif mode in ("grounded", "free"):
-            if _LLAMA_CONNECTOR is None:
-                results[label] = {"answer": "(sin motor de inferencia)", "mode": mode, "fragments": []}
-                continue
-            _LLAMA_CONNECTOR.set_samplers(req.temperature, req.top_p, req.top_k, req.repeat_penalty)
-            pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
-
-        fragments = pipe.agent_a.search(req.query)
-        answer = pipe.agent_b.synthesize(req.query, fragments) or "(sin respuesta)"
-        results[label] = {
-            "answer": answer,
-            "mode": mode,
-            "fragments": [
-                {"text": f.text, "score": float(f.score), "source_id": f.source_id}
-                for f in fragments
-            ],
-        }
-    return results
-
-
-# ── OpenAI-compatible API out (Kamvex as backend for other apps) ────────────
+# ── OpenAI-compatible API out (KAMVEX as backend for other apps) ────────────
 
 class OAIMessage(BaseModel):
     role: str
@@ -906,28 +861,24 @@ class OAIMessage(BaseModel):
 
 class OAIRequest(BaseModel):
     model: str = "kamvex"
-    messages: list[OAIMessage] = []
+    messages: list[OAIMessage] = Field(default_factory=list)
     stream: bool = False
-    temperature: float = 0.1
+    temperature: float = Field(0.1, ge=0.0, le=2.0)
+    max_tokens: int = Field(512, ge=16, le=8192)
+
+
+def _first_dataset_name() -> str | None:
+    for d in list_datasets():
+        if d.get("name"):
+            return d["name"]
+    return None
 
 
 @app.get("/v1/models", tags=["openai-compatible"])
 def v1_models():
     """List available 'models' — each dataset is a model in OpenAI terms."""
-    out = []
-    for d in sorted(DATA_DIR.iterdir()) if DATA_DIR.exists() else []:
-        meta = d / "meta.json"
-        if d.is_dir() and meta.exists():
-            try:
-                m = json.loads(meta.read_text(encoding="utf-8"))
-                out.append({
-                    "id": m["name"],
-                    "object": "model",
-                    "created": 0,
-                    "owned_by": "kamvex",
-                })
-            except (json.JSONDecodeError, KeyError):
-                continue
+    out = [{"id": d["name"], "object": "model", "created": int(d.get("built_at", 0)), "owned_by": "kamvex"}
+           for d in list_datasets() if d.get("name")]
     if not out:
         out.append({"id": "kamvex", "object": "model", "created": 0, "owned_by": "kamvex"})
     return {"object": "list", "data": out}
@@ -935,13 +886,12 @@ def v1_models():
 
 @app.post("/v1/chat/completions", tags=["openai-compatible"])
 def v1_chat_completions(req: OAIRequest):
-    _require_dasa()
     """
     OpenAI-compatible endpoint. Other apps (Jan, Open WebUI, etc.) can use
-    Kamvex as a backend. The `model` field maps to a dataset name.
-    Supports stream=true (SSE) and stream=false (JSON).
+    KAMVEX as a backend. The `model` field maps to a dataset name.
+    Supports stream=true (SSE, word-chunked) and stream=false (JSON).
     """
-    # Extract user message and system prompt
+    _require_dasa()
     user_content = ""
     system_content = ""
     for msg in reversed(req.messages):
@@ -949,47 +899,23 @@ def v1_chat_completions(req: OAIRequest):
             user_content = msg.content.strip()
         elif msg.role == "system" and not system_content:
             system_content = msg.content.strip()
-
     if not user_content:
         raise HTTPException(400, "No se encontró mensaje con role='user'.")
 
-    # Map model → dataset; default to first available
     dataset_name = req.model
-    if dataset_name == "kamvex" or not (DATA_DIR / dataset_name / "meta.json").exists():
-        # Fall back to first available dataset
-        for d in sorted(DATA_DIR.iterdir()) if DATA_DIR.exists() else []:
-            if d.is_dir() and (d / "meta.json").exists():
-                dataset_name = d.name
-                break
+    if dataset_name == "kamvex" or not _NAME_RE.match(dataset_name) \
+            or not (DATA_DIR / dataset_name / "meta.json").exists():
+        dataset_name = _first_dataset_name()
+    if not dataset_name:
+        raise HTTPException(404, "No hay datasets disponibles. Construye uno en Conocimiento.")
 
-    if not (DATA_DIR / dataset_name / "meta.json").exists():
-        raise HTTPException(404, f"No hay datasets disponibles. Construye uno en Knowledge.")
-
-    db = DATA_DIR / dataset_name
-    meta = json.loads((db / "meta.json").read_text(encoding="utf-8"))
-
-    pipe = _PIPELINES.get(dataset_name)
-    if pipe is None:
-        cfg = DASAConfig(use_shard_backend=True, shard_db_path=str(db),
-                         shard_num_shards=meta.get("num_shards", NUM_SHARDS))
-        pipe = DASAPipeline(cfg)
-        pipe.load(str(db))
-        _PIPELINES[dataset_name] = pipe
-
-    # Apply client's system prompt to free mode
-    if system_content and hasattr(pipe.agent_b, "_free_system_prompt"):
-        pipe.agent_b._free_system_prompt = system_content
-
-    # Use statistical mode by default; grounded/free if LLM is connected
-    if _LLAMA_CONNECTOR is not None and _LLAMA_CONNECTOR.is_alive():
-        _LLAMA_CONNECTOR.set_samplers(req.temperature, 0.95, 40, 1.0)
-        pipe.agent_b._llm_callable = _LLAMA_CONNECTOR
-    else:
-        pipe.agent_b._llm_callable = None
-
+    pipe = _load_pipeline(dataset_name)
     fragments = pipe.agent_a.search(user_content)
-    response_text = pipe.agent_b.synthesize(user_content, fragments) or \
-        "No se encontró información relevante en el corpus para esta consulta."
+    llm_ready = _LLAMA_CONNECTOR is not None and _LLAMA_CONNECTOR.is_alive()
+    samplers = SamplerFields(temperature=req.temperature, max_tokens=req.max_tokens)
+    mode = "free" if llm_ready else "statistical"
+    response_text = _synthesize(pipe, mode, user_content, fragments, samplers,
+                                free_system_prompt=system_content or None)
 
     req_id = f"chatcmpl-kamvex-{int(time.time() * 1000)}"
     created = int(time.time())
@@ -999,71 +925,58 @@ def v1_chat_completions(req: OAIRequest):
             words = response_text.split(" ")
             for i, word in enumerate(words):
                 chunk_content = word + (" " if i < len(words) - 1 else "")
-                chunk = {
-                    "id": req_id,
-                    "object": "chat.completion.chunk",
-                    "created": created,
-                    "model": req.model,
-                    "choices": [{
-                        "index": 0,
-                        "delta": {"content": chunk_content},
-                        "finish_reason": None,
-                    }],
-                }
+                chunk = {"id": req_id, "object": "chat.completion.chunk", "created": created,
+                         "model": req.model,
+                         "choices": [{"index": 0, "delta": {"content": chunk_content},
+                                      "finish_reason": None}]}
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
-            final_chunk = {
-                "id": req_id,
-                "object": "chat.completion.chunk",
-                "created": created,
-                "model": req.model,
-                "choices": [{
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop",
-                }],
-            }
+            final_chunk = {"id": req_id, "object": "chat.completion.chunk", "created": created,
+                           "model": req.model,
+                           "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
             yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(
-            _stream(),
-            media_type="text/event-stream",
+            _stream(), media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    prompt_tokens = len(user_content.split())
+    completion_tokens = len(response_text.split())
     return {
         "id": req_id,
         "object": "chat.completion",
         "created": created,
         "model": req.model,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": response_text},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": len(user_content.split()),
-            "completion_tokens": len(response_text.split()),
-            "total_tokens": len(user_content.split()) + len(response_text.split()),
-        },
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": response_text},
+                     "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                  "total_tokens": prompt_tokens + completion_tokens},
         "system_fingerprint": "kamvex-local",
     }
 
 
+# ── Entrypoint ──────────────────────────────────────────────────────────────
+
 def main():
+    global DATA_DIR, MODELS_DIR
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--data", default=None, help="datasets dir (overrides DASA_UI_DATA)")
+    ap.add_argument("--data", default=None, help="datasets dir (overrides KAMVEX_DATA_DIR)")
+    ap.add_argument("--models", default=None, help="models dir (overrides KAMVEX_MODELS_DIR)")
     args = ap.parse_args()
     if args.data:
-        global DATA_DIR
         DATA_DIR = Path(args.data)
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if args.models:
+        MODELS_DIR = Path(args.models)
+    paths.ensure_dir(DATA_DIR)
+    paths.ensure_dir(MODELS_DIR)
+    print(f"[kamvex-sidecar] v{VERSION} data={DATA_DIR} models={MODELS_DIR} "
+          f"dasa={_DASA_AVAILABLE} embeddings={_embeddings_status()['backend']}", flush=True)
     import uvicorn
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    uvicorn.run(app, host=args.host, port=args.port,
+                log_level=os.environ.get("KAMVEX_LOG_LEVEL", "info"))
 
 
 if __name__ == "__main__":

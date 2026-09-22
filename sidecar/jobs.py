@@ -6,9 +6,12 @@ layer can stream Server-Sent Events. All heavy lifting reuses DASA + SHARD;
 this file only orchestrates and reports progress.
 """
 
+from __future__ import annotations
+
 import csv
 import json
 import queue
+import time
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +19,9 @@ import numpy as np
 # Fields DASA's RetrievalAgent._record_to_text recognizes, in order.
 _TEXT_FIELDS = ("lemma", "term", "title", "name", "content", "text", "definition")
 _KEY_FIELDS = ("lemma", "term", "title", "name", "id")
+
+EMBED_CHUNK = 256          # records embedded per progress tick
+KEYS_FILE = "keys.json"    # ordered record keys — used by the Oregano test runner
 
 
 def record_to_text(record: dict) -> str:
@@ -73,6 +79,8 @@ def read_records(file_path: str) -> list[dict]:
     records = json.loads(p.read_text(encoding="utf-8"))
     if not isinstance(records, list) or not records:
         raise ValueError("El JSON debe ser un array no vacío de objetos.")
+    if not all(isinstance(r, dict) for r in records):
+        raise ValueError("Cada elemento del JSON debe ser un objeto.")
     return records
 
 
@@ -80,6 +88,17 @@ def compute_num_shards(n_records: int) -> int:
     """Auto-compute num_shards using SHARD's ShardRouter.recommended_shards."""
     from shard.core.sharding import ShardRouter
     return ShardRouter.recommended_shards(n_records)
+
+
+def describe_engine(engine) -> dict:
+    """Best-effort description of the embedding engine for meta.json."""
+    describe = getattr(engine, "describe", None)
+    if callable(describe):
+        d = describe()
+        return {"embedding_backend": d.get("backend"), "embedding_model": d.get("model")}
+    cfg = getattr(engine, "config", None)
+    model = getattr(cfg, "embedding_model", None)
+    return {"embedding_backend": "sentence-transformers", "embedding_model": model}
 
 
 class BuildJob:
@@ -90,6 +109,19 @@ class BuildJob:
 
     def emit(self, stage, pct, msg=""):
         self.q.put({"stage": stage, "pct": pct, "msg": msg})
+
+
+def _embed_all(engine, texts: list[str], job: BuildJob) -> np.ndarray:
+    """Embed in chunks so the progress bar moves on big corpora (10% -> 50%)."""
+    n = len(texts)
+    parts = []
+    for start in range(0, n, EMBED_CHUNK):
+        chunk = texts[start:start + EMBED_CHUNK]
+        parts.append(np.asarray(engine.encode_batch(chunk), dtype=np.float32))
+        done = min(n, start + len(chunk))
+        pct = 10 + int(40 * done / n)
+        job.emit("embed", pct, f"Embeddings {done}/{n}")
+    return np.vstack(parts) if parts else np.zeros((0, 0), dtype=np.float32)
 
 
 def run_build(job: BuildJob, *, name, json_path, profile, data_dir, num_shards,
@@ -111,18 +143,21 @@ def run_build(job: BuildJob, *, name, json_path, profile, data_dir, num_shards,
         job.emit("embed", 10, f"Calculando embeddings de {n} registros")
         texts = [record_to_text(r) for r in records]
         keys = _unique_keys([_record_key(r, i) for i, r in enumerate(records)])
-        emb = np.asarray(embedding_engine.encode_batch(texts), dtype=np.float32)
+        emb = _embed_all(embedding_engine, texts, job)
 
         job.emit("shard", 50, "Escribiendo shards binarios")
         with shard_writer_cls(str(db), num_shards=num_shards, estimated_total_records=n) as w:
             for k, r in zip(keys, records):
                 w.write(k, json.dumps(r, ensure_ascii=False))
+        (db / KEYS_FILE).write_text(json.dumps(keys, ensure_ascii=False), encoding="utf-8")
 
         job.emit("index", 70, f"Construyendo índice IVF-PQ (perfil {profile})")
         build_ivfpq_fn(emb, keys, str(db / "ivf"), profile=profile)
 
         meta = {"name": name, "n_records": n, "profile": profile,
-                "num_shards": num_shards, "dim": int(emb.shape[1])}
+                "num_shards": num_shards, "dim": int(emb.shape[1]),
+                "built_at": int(time.time())}
+        meta.update(describe_engine(embedding_engine))
         if extra_meta:
             meta.update({k: v for k, v in extra_meta.items() if v is not None})
         (db / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2),

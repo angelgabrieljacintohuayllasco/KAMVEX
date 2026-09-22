@@ -1,97 +1,146 @@
 """
-Sidecar test: build a real SHARD+IVF index from the DASA demo dataset and chat
-over it, end to end, through the FastAPI app. Embeddings are monkeypatched to a
-deterministic fake so the test is offline and fast (no MiniLM download).
+End-to-end sidecar tests: build a real SHARD + IVF-PQ index from the DASA demo
+dataset and exercise the HTTP API (datasets, chat, federated, compare, export,
+OpenAI-compatible endpoint). Embeddings are a deterministic fake (see conftest).
 
-Run:  python -m pytest test_sidecar.py   (from DASA-UI/sidecar/)
-      or:  python test_sidecar.py
+Run:  python -m pytest sidecar -q   (from the KAMVEX repo root)
 """
 
-import hashlib
-import json
-import tempfile
-from pathlib import Path
+from __future__ import annotations
 
-import numpy as np
-from fastapi.testclient import TestClient
+import io
+import json
+import zipfile
 
 import server
+from conftest import build_dataset, demo_records, sse_stages
 from jobs import record_to_text
-from dasa.agent_a.embeddings import EmbeddingEngine
-
-DIM = 384
-DEMO = server._PARENT_OF_REPOS / "DASA-main" / "data" / "demo_dataset.json"
 
 
-def _vec(text, dim=DIM):
-    seed = int(hashlib.sha1(text.encode("utf-8")).hexdigest(), 16) % (2**32)
-    v = np.random.default_rng(seed).standard_normal(dim).astype(np.float32)
-    return v / np.linalg.norm(v)
+def test_health_reports_capabilities(sidecar):
+    h = sidecar.get("/health").json()
+    assert h["status"] == "ok"
+    assert h["version"] == server.VERSION
+    assert "dasa" in h and "embeddings" in h
 
 
-def _install_fake_embeddings():
-    EmbeddingEngine.encode = lambda self, text: _vec(text)
-    EmbeddingEngine.encode_batch = lambda self, texts: np.stack([_vec(t) for t in texts])
+def test_build_list_and_statistical_chat(sidecar):
+    build_dataset(sidecar, "demo")
+    listed = sidecar.get("/datasets").json()
+    demo = next(d for d in listed if d["name"] == "demo")
+    assert demo["n_records"] == len(demo_records())
+    assert demo["dim"] == 384
+    assert demo["embedding_backend"] == "fake"
+    assert (server.DATA_DIR / "demo" / "keys.json").exists()
+
+    # query == record text -> fake vector matches the stored vector exactly
+    target = demo_records()[0]
+    q = record_to_text(target)
+    resp = sidecar.post("/chat", json={"dataset": "demo", "query": q}).json()
+    assert resp["mode"] == "statistical"
+    assert resp["fragments"], "no fragments returned"
+    top_text = resp["fragments"][0]["text"]
+    assert str(target.get("definition", ""))[:20] in top_text or str(target.get("lemma", "")) in top_text
+    assert resp["answer"]
+
+    # grounded / free without an inference engine -> 400, never a silent fallback
+    for mode in ("grounded", "free"):
+        r = sidecar.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": mode})
+        assert r.status_code == 400, r.text
+    assert sidecar.get("/inference/status").json()["connected"] is False
 
 
-def _sse_done(text: str) -> bool:
-    stages = [json.loads(l[6:])["stage"] for l in text.splitlines() if l.startswith("data: ")]
-    assert "error" not in stages, f"build emitted error: {text}"
-    return "done" in stages
+def test_chat_unknown_dataset_is_404(sidecar):
+    r = sidecar.post("/chat", json={"dataset": "nope", "query": "hola"})
+    assert r.status_code == 404
 
 
-def test_build_and_chat():
-    _install_fake_embeddings()
-    assert DEMO.exists(), f"demo dataset missing: {DEMO}"
-    records = json.loads(DEMO.read_text(encoding="utf-8"))
+def test_build_from_text_and_export(sidecar):
+    text = "\n".join(f"Párrafo número {i} sobre el tema {i}. " * 8 for i in range(6))
+    r = sidecar.post("/datasets/build-text", json={"name": "texto", "text": text, "chunk_size": 300})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["n_chunks"] >= 2
+    stages = sse_stages(sidecar.get(f"/datasets/build/{body['job_id']}/events").text)
+    assert "done" in stages and "error" not in stages
 
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
-        server.DATA_DIR = Path(td)
-        client = TestClient(server.app)
+    meta = next(d for d in sidecar.get("/datasets").json() if d["name"] == "texto")
+    assert meta["n_records"] == body["n_chunks"]
+    assert (server.DATA_DIR / "texto" / "records.json").exists()
 
-        assert client.get("/health").json()["status"] == "ok"
-
-        r = client.post("/datasets/build",
-                        json={"name": "demo", "json_path": str(DEMO), "profile": "low-ram"})
-        assert r.status_code == 200, r.text
-        jid = r.json()["job_id"]
-        assert _sse_done(client.get(f"/datasets/build/{jid}/events").text)
-
-        assert any(d["name"] == "demo" for d in client.get("/datasets").json())
-
-        # query == record text -> fake vector matches the stored vector exactly
-        target = records[0]
-        q = record_to_text(target)
-        resp = client.post("/chat", json={"dataset": "demo", "query": q}).json()
-        assert resp["fragments"], "no fragments returned"
-        top_text = resp["fragments"][0]["text"]
-        # the top fragment should be the record we queried
-        assert str(target.get("definition", "")) [:20] in top_text or \
-               str(target.get("lemma", "")) in top_text, f"unexpected top: {top_text!r}"
-        print(f"OK — answer={resp['answer'][:60]!r}  frags={len(resp['fragments'])}")
-
-        # Agent B mode: statistical should work without inference engine
-        resp2 = client.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "statistical"}).json()
-        assert resp2["mode"] == "statistical"
-        assert "answer" in resp2
-
-        # Agent B mode: grounded without inference engine → 400
-        r400 = client.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "grounded"})
-        assert r400.status_code == 400
-
-        # Inference status: disconnected by default
-        assert client.get("/inference/status").json()["connected"] is False
+    r = sidecar.get("/datasets/texto/export")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/zip")
+    names = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    assert "meta.json" in names and "fulltext.txt" in names
 
 
-def test_llama_connector_protocol():
-    """LlamaCppConnector follows the (messages) -> str callable protocol."""
-    from llama_connector import LlamaCppConnector
-    c = LlamaCppConnector("127.0.0.1", 9999)
-    assert callable(c)
-    assert c.is_alive() is False  # no server on port 9999
+def test_build_rejects_bad_inputs(sidecar):
+    r = sidecar.post("/datasets/build", json={"name": "x", "json_path": "C:/no/such/file.json"})
+    assert r.status_code == 404
+    r = sidecar.post("/datasets/build", json={"name": "x", "json_path": str(server._SIBLINGS / "DASA-main" / "README.md")})
+    assert r.status_code == 400
+    r = sidecar.post("/datasets/build-text", json={"name": "x", "text": "   "})
+    assert r.status_code == 400
 
 
-if __name__ == "__main__":
-    test_build_and_chat()
-    test_llama_connector_protocol()
-    print("OK")
+def test_delete_dataset(sidecar):
+    build_dataset(sidecar, "borrar")
+    assert (server.DATA_DIR / "borrar" / "meta.json").exists()
+    r = sidecar.delete("/datasets/borrar")
+    assert r.status_code == 200, r.text
+    assert not (server.DATA_DIR / "borrar").exists()
+    assert all(d["name"] != "borrar" for d in sidecar.get("/datasets").json())
+    assert sidecar.delete("/datasets/borrar").status_code == 404
+
+
+def test_federated_routes_to_best_dataset(sidecar):
+    build_dataset(sidecar, "demo")
+    q = record_to_text(demo_records()[1])
+    resp = sidecar.post("/federated", json={"query": q}).json()
+    assert resp["dataset"] == "demo"
+    assert resp["score"] > 0.5
+    assert resp["fragments"]
+
+
+def test_compare_without_engine_marks_llm_side(sidecar):
+    build_dataset(sidecar, "demo")
+    q = record_to_text(demo_records()[0])
+    resp = sidecar.post("/compare", json={"dataset": "demo", "query": q}).json()
+    assert resp["a"]["mode"] == "statistical" and resp["a"]["answer"]
+    assert resp["b"]["mode"] == "grounded" and resp["b"]["answer"] == "(sin motor de inferencia)"
+
+
+def test_openai_compatible_endpoint(sidecar):
+    build_dataset(sidecar, "demo")
+    models = sidecar.get("/v1/models").json()
+    assert any(m["id"] == "demo" for m in models["data"])
+
+    q = record_to_text(demo_records()[0])
+    r = sidecar.post("/v1/chat/completions", json={"model": "demo", "messages": [{"role": "user", "content": q}]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["object"] == "chat.completion"
+    assert body["choices"][0]["message"]["content"]
+
+    r = sidecar.post("/v1/chat/completions",
+                     json={"model": "kamvex", "stream": True, "messages": [{"role": "user", "content": q}]})
+    assert r.status_code == 200
+    assert "data: [DONE]" in r.text
+    chunks = [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith("data: ") and l != "data: [DONE]"]
+    assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+
+    r = sidecar.post("/v1/chat/completions", json={"model": "demo", "messages": [{"role": "system", "content": "x"}]})
+    assert r.status_code == 400
+
+
+def test_local_models_listing_and_delete(sidecar):
+    (server.MODELS_DIR / "tiny.gguf").write_bytes(b"GGUF" + b"\0" * 64)
+    (server.MODELS_DIR / "partial.gguf.part").write_bytes(b"\0" * 8)
+    listed = sidecar.get("/models/local").json()
+    assert [m["file"] for m in listed] == ["tiny.gguf"]
+    assert listed[0]["path"].endswith("tiny.gguf")
+
+    assert sidecar.delete("/models/local/tiny.gguf").status_code == 200
+    assert sidecar.get("/models/local").json() == []
+    assert sidecar.delete("/models/local/tiny.gguf").status_code == 404
