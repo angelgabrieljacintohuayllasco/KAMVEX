@@ -325,6 +325,40 @@ const dict: Dict = {
   // Smart flow additions
   "flow.engineDied": { es: "El motor de inferencia se detuvo. Se reiniciará con el siguiente mensaje.", en: "The inference engine stopped. It will restart with the next message." },
   "app.deleteConvo": { es: "Eliminar conversación", en: "Delete conversation" },
+
+  // Dataset catalog (pre-built bundles)
+  "catalogds.title": { es: "Conocimiento listo para usar", en: "Ready-made knowledge" },
+  "catalogds.desc": { es: "Datasets ya convertidos en shards + índice: se descargan, se verifican y quedan listos sin procesar nada en tu equipo.", en: "Datasets already converted into shards + index: downloaded, verified and ready without any processing on your machine." },
+  "catalogds.install": { es: "Descargar e instalar", en: "Download & install" },
+  "catalogds.reinstall": { es: "Reinstalar", en: "Reinstall" },
+  "catalogds.installed": { es: "Instalado", en: "Installed" },
+  "catalogds.import": { es: "Importar .kamvex", en: "Import .kamvex" },
+  "catalogds.refresh": { es: "Actualizar catálogo", en: "Refresh catalog" },
+  "catalogds.loading": { es: "Cargando catálogo…", en: "Loading catalog…" },
+  "catalogds.empty": { es: "No hay datasets en el catálogo (sin conexión o catálogo vacío).", en: "No datasets in the catalog (offline or empty catalog)." },
+  "catalogds.source": { es: "fuente", en: "source" },
+  "catalogds.embedHint": { es: "Para consultar el dataset necesitas el motor de embeddings (Preparar embeddings).", en: "Querying the dataset needs the embedding engine (Set up embeddings)." },
+  "catalogds.status.downloading": { es: "Descargando", en: "Downloading" },
+  "catalogds.status.paused": { es: "Pausado", en: "Paused" },
+  "catalogds.status.verifying": { es: "Verificando integridad…", en: "Verifying integrity…" },
+  "catalogds.status.installing": { es: "Instalando…", en: "Installing…" },
+  "knowledge.rebuild": { es: "Reconstruir índice", en: "Rebuild index" },
+  "knowledge.rebuildTip": { es: "Volver a calcular embeddings e índice con el motor local (usa records.json del dataset)", en: "Recompute embeddings and index with the local engine (uses the dataset's records.json)" },
+  "knowledge.rebuilding": { es: "Reconstruyendo…", en: "Rebuilding…" },
+
+  // Engine — advanced flags editor
+  "engine.advanced": { es: "Ajustes avanzados", en: "Advanced settings" },
+  "engine.advancedHint": { es: "Sobrescribe la receta automática. Se aplica al iniciar el motor.", en: "Overrides the automatic prescription. Applied when the engine starts." },
+  "engine.reset": { es: "Restablecer auto", en: "Reset to auto" },
+  "engine.field.ngl": { es: "Capas en GPU (ngl)", en: "GPU layers (ngl)" },
+  "engine.field.threads": { es: "Hilos", en: "Threads" },
+  "engine.field.ctx": { es: "Contexto (tokens)", en: "Context (tokens)" },
+  "engine.field.batch": { es: "Batch", en: "Batch" },
+  "engine.field.kv": { es: "KV cache", en: "KV cache" },
+  "engine.field.flash": { es: "Flash attention", en: "Flash attention" },
+  "engine.field.mlock": { es: "mlock (fijar en RAM)", en: "mlock (pin in RAM)" },
+  "engine.field.backend": { es: "Backend", en: "Backend" },
+  "engine.modified": { es: "modificado", en: "modified" },
 };
 
 type I18nContextType = {

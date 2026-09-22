@@ -1,0 +1,8 @@
+{
+  "name": "kamvex-qa",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "puppeteer-core": "^24"
+  }
+}

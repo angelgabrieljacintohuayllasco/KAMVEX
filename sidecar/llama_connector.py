@@ -37,25 +37,32 @@ class LlamaCppConnector:
         self._top_k = 40
         self._repeat_penalty = 1.0
         self._max_tokens = max_tokens
+        self._seed: int | None = None
 
     @property
     def endpoint(self) -> str:
         return f"http://{self._host}:{self._port}"
 
     def set_samplers(self, temperature: float, top_p: float, top_k: int,
-                     repeat_penalty: float, max_tokens: int | None = None):
+                     repeat_penalty: float, max_tokens: int | None = None,
+                     seed: int | None = None):
         self._temperature = float(temperature)
         self._top_p = float(top_p)
         self._top_k = int(top_k)
         self._repeat_penalty = float(repeat_penalty)
         if max_tokens is not None and max_tokens > 0:
             self._max_tokens = int(max_tokens)
+        self._seed = seed
+
+    def set_deterministic(self, seed: int = 42, max_tokens: int | None = None):
+        """Greedy decoding with a fixed seed: same prompt → same answer."""
+        self.set_samplers(0.0, 1.0, 1, 1.0, max_tokens, seed=seed)
 
     def request_body(self, messages) -> dict:
         """Build the request payload (exposed for tests)."""
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
-        return {
+        body = {
             "model": self._model,
             "messages": messages,
             "stream": False,
@@ -66,6 +73,9 @@ class LlamaCppConnector:
             "max_tokens": self._max_tokens,
             "stop": DEFAULT_STOP,
         }
+        if self._seed is not None:
+            body["seed"] = int(self._seed)
+        return body
 
     def __call__(self, messages) -> str:
         body = json.dumps(self.request_body(messages)).encode("utf-8")

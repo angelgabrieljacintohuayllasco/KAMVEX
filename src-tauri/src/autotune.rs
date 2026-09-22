@@ -69,11 +69,19 @@ pub fn autotune(hw: &HwInfo, model: &ModelHints, preset: Preset) -> Prescription
     let threads = (hw.physical_cores as u32).max(1);
     let mut warnings = Vec::new();
 
+    // Usable adapters only ("none" = old driver / unsupported). CUDA first, then the
+    // Vulkan adapter with the most memory (a 4 GB APU beats a 2 GB unusable card).
     let gpu = hw
         .gpus
         .iter()
-        .find(|g| g.backend == "cuda")
-        .or_else(|| hw.gpus.iter().find(|g| g.backend == "vulkan"));
+        .filter(|g| g.backend == "cuda")
+        .max_by_key(|g| g.vram_mb)
+        .or_else(|| hw.gpus.iter().filter(|g| g.backend == "vulkan").max_by_key(|g| g.vram_mb));
+    for g in hw.gpus.iter().filter(|g| g.backend == "none") {
+        if let Some(n) = &g.note {
+            warnings.push(format!("{}: {n}", g.name));
+        }
+    }
     let (backend, vram_mb, integrated) = match gpu {
         Some(g) => (g.backend.clone(), g.vram_mb, g.integrated),
         None => ("cpu".to_string(), 0u64, false),
@@ -183,7 +191,35 @@ mod tests {
     use crate::hardware::GpuInfo;
 
     fn gpu(vendor: &str, name: &str, vram_mb: u64, backend: &str, integrated: bool) -> GpuInfo {
-        GpuInfo { vendor: vendor.into(), name: name.into(), vram_mb, backend: backend.into(), integrated }
+        GpuInfo {
+            vendor: vendor.into(), name: name.into(), vram_mb, backend: backend.into(), integrated,
+            driver_version: String::new(), note: None,
+        }
+    }
+
+    #[test]
+    fn unusable_nvidia_is_skipped_in_favor_of_the_apu() {
+        // Ryzen 5600GT box: Radeon APU (Vulkan, 4 GB UMA) + GT 610 (driver 391, backend none).
+        let mut old = gpu("NVIDIA", "NVIDIA GeForce GT 610", 2048, "none", false);
+        old.note = Some("Driver NVIDIA 391.35 (GPU antigua): sin CUDA 12 ni Vulkan".into());
+        let mut hw = mock_hw(28.0, 6, vec![gpu("AMD", "AMD Radeon(TM) Graphics", 4096, "vulkan", true), old]);
+        hw.has_cuda = true; // nvcuda.dll exists, but the adapter is unusable
+        let p = autotune(&hw, &hints(1100, Some(28)), Preset::Balanced);
+        assert_eq!(p.backend, "vulkan");
+        assert!(p.ngl > 0);
+        assert!(p.warnings.iter().any(|w| w.contains("GT 610")));
+    }
+
+    #[test]
+    fn biggest_vulkan_adapter_wins() {
+        let hw = mock_hw(32.0, 8, vec![
+            gpu("Intel", "Intel(R) UHD Graphics 630", 1024, "vulkan", true),
+            gpu("AMD", "AMD Radeon RX 6700 XT", 12288, "vulkan", false),
+        ]);
+        let p = autotune(&hw, &hints(4000, Some(32)), Preset::Balanced);
+        assert_eq!(p.backend, "vulkan");
+        assert_eq!(p.ngl, FULL_OFFLOAD);
+        assert_eq!(p.ctx, 4096, "the discrete card must not inherit the iGPU ctx cap");
     }
 
     fn mock_hw(ram_gb: f64, cores: usize, gpus: Vec<GpuInfo>) -> HwInfo {

@@ -36,16 +36,24 @@ export default function HardwarePanel() {
           <div className="mt-3 mb-1 text-xs uppercase tracking-wider text-white/30">{t("settings.gpu")}</div>
           {hw.gpus.length === 0 && <p className="text-sm text-white/40">{t("settings.noGpu")}</p>}
           {hw.gpus.map((g, i) => (
-            <div key={i} className="flex items-center justify-between border-b border-white/5 py-2 text-sm gap-3">
-              <span className="text-white/70 truncate">{g.name}</span>
-              <span className="flex items-center gap-1.5 shrink-0">
-                <Badge>{g.vendor}</Badge>
-                <Badge tone="accent">{g.backend}</Badge>
-                <Badge tone={g.integrated ? "warning" : "success"}>
-                  {g.integrated ? t("settings.integrated") : t("settings.discrete")}
-                </Badge>
-                {g.vram_mb > 0 && <Badge>{t("settings.vram")} {gb(g.vram_mb)}</Badge>}
-              </span>
+            <div key={i} className="border-b border-white/5 py-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-white/70 truncate">{g.name}</span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <Badge>{g.vendor}</Badge>
+                  <Badge tone={g.backend === "none" ? "danger" : "accent"}>{g.backend}</Badge>
+                  <Badge tone={g.integrated ? "warning" : "success"}>
+                    {g.integrated ? t("settings.integrated") : t("settings.discrete")}
+                  </Badge>
+                  {g.vram_mb > 0 && <Badge>{t("settings.vram")} {gb(g.vram_mb)}</Badge>}
+                </span>
+              </div>
+              {(g.driver_version || g.note) && (
+                <p className="mt-1 text-[11px] text-white/40">
+                  {g.driver_version && <span>driver {g.driver_version}</span>}
+                  {g.note && <span className="text-amber-300/80"> · {g.note}</span>}
+                </p>
+              )}
             </div>
           ))}
         </>

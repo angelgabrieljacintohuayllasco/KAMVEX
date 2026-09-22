@@ -51,10 +51,10 @@ def test_grounded_without_relevant_fragments_does_not_invent(monkeypatch):
 
 
 def test_grounded_formats_relevant_fragments_under_strict_prompt(monkeypatch):
-    conn = FakeConnector(reply="  respuesta anclada  ")
+    conn = FakeConnector(reply="  El dato número 0 del corpus.  ")
     monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn)
     answer = server._synthesize(_pipe(), "grounded", "¿qué dato hay?", _fragments(0.95, 0.1), _samplers(max_tokens=64))
-    assert answer == "respuesta anclada"
+    assert answer == "El dato número 0 del corpus."
     assert len(conn.calls) == 1
     messages = conn.calls[0]
     assert isinstance(messages, list)
@@ -62,6 +62,13 @@ def test_grounded_formats_relevant_fragments_under_strict_prompt(monkeypatch):
     assert "CONTEXTO" in joined
     assert "dato número 0" in joined and "dato número 1" not in joined  # low-score fragment excluded
     assert conn.samplers[0][4] == 64  # max_tokens forwarded
+    assert conn.samplers[1].get("seed") == 42  # deterministic by default
+
+    # a reply with words the corpus does not contain is replaced by the deterministic answer
+    conn2 = FakeConnector(reply="Información inventada sobre volcanes y dinosaurios.")
+    monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn2)
+    answer, meta = server._synthesize_ex(_pipe(), "grounded", "¿qué dato hay?", _fragments(0.95), _samplers())
+    assert meta["fallback"] is True and "dinosaurios" not in answer
 
 
 def test_free_mode_answers_freely_without_corpus(monkeypatch):
@@ -87,9 +94,10 @@ def test_chat_api_grounded_uses_connector(sidecar, monkeypatch):
     conn = FakeConnector(reply="anclado por el LLM")
     monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn)
     q = record_to_text(demo_records()[0])
-    resp = sidecar.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "grounded"}).json()
+    resp = sidecar.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "grounded", "guardrail": False}).json()
     assert resp["answer"] == "anclado por el LLM"
     assert resp["mode"] == "grounded"
+    assert resp["meta"]["engine"] == "llm"
     assert len(conn.calls) == 1
 
 

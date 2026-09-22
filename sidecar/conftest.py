@@ -59,6 +59,9 @@ class FakeConnector:
     def set_samplers(self, *args, **kwargs):
         self.samplers = (args, kwargs)
 
+    def set_deterministic(self, seed: int = 42, max_tokens=None):
+        self.set_samplers(0.0, 1.0, 1, 1.0, max_tokens, seed=seed)
+
     def __call__(self, messages):
         self.calls.append(messages)
         return self.reply

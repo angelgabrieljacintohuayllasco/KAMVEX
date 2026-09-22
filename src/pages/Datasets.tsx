@@ -21,6 +21,8 @@ import {
   type EmbeddingsStatus,
 } from "../api/client";
 import { Badge, Button, Card, Field, Modal, Select, inputClass } from "../components/ui";
+import DatasetCatalog from "../components/DatasetCatalog";
+import { rebuildDataset } from "../api/client";
 import { useI18n } from "../i18n";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
@@ -55,6 +57,23 @@ export default function Knowledge({
   const [embed, setEmbed] = useState<EmbeddingsStatus | null>(null);
   const [embedBusy, setEmbedBusy] = useState(false);
   const [embedPct, setEmbedPct] = useState<number | null>(null);
+  const [rebuilding, setRebuilding] = useState<string | null>(null);
+  const [rebuildProgress, setRebuildProgress] = useState<BuildEvent | null>(null);
+
+  async function rebuild(datasetName: string) {
+    setRebuilding(datasetName);
+    setError(null);
+    try {
+      const { job_id } = await rebuildDataset(datasetName, profile);
+      await streamBuild(job_id, (e) => setRebuildProgress(e));
+      onChanged();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRebuilding(null);
+      setRebuildProgress(null);
+    }
+  }
 
   const refreshEmbed = useCallback(() => {
     embeddingsStatus().then(setEmbed).catch(() => setEmbed(null));
@@ -222,6 +241,8 @@ export default function Knowledge({
           </div>
         </Card>
       )}
+
+      <DatasetCatalog onChanged={onChanged} embedReady={embedReady} />
 
       <Card className="mb-6">
         <div className="flex items-center gap-2 mb-3">
@@ -440,6 +461,22 @@ export default function Knowledge({
                 <Row k={t("knowledge.builtWith")} v={`${d.embedding_backend}${d.embedding_model ? ` · ${d.embedding_model}` : ""}`} />
               )}
               <Row k={t("knowledge.path")} v={d.path} />
+              {d.has_records && (
+                <div className="pt-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={rebuilding === d.name}
+                    onClick={() => rebuild(d.name)}
+                    title={t("knowledge.rebuildTip")}
+                  >
+                    {rebuilding === d.name ? t("knowledge.rebuilding") : t("knowledge.rebuild")}
+                  </Button>
+                  {rebuilding === d.name && rebuildProgress && (
+                    <p className="text-xs text-white/50 mt-1">{rebuildProgress.stage} — {rebuildProgress.msg} ({rebuildProgress.pct}%)</p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 pt-3">
                 {confirmDelete ? (
                   <>

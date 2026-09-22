@@ -16,7 +16,7 @@ import {
   type LocalModel,
   type Prescription,
 } from "../api/client";
-import { Badge, Button, Card, Field, Select } from "./ui";
+import { Badge, Button, Card, Field, Select, inputClass } from "./ui";
 import { useI18n } from "../i18n";
 
 const PRESETS = ["eco", "balanced", "max"] as const;
@@ -52,6 +52,10 @@ export default function EngineCard({
   const [infoLoading, setInfoLoading] = useState(false);
   const [preset, setPreset] = useState<string>("balanced");
   const [prescription, setPrescription] = useState<Prescription | null>(null);
+  // Manual overrides on top of the automatic prescription (README promise: every flag editable).
+  const [overrides, setOverrides] = useState<Partial<Prescription>>({});
+  const effective: Prescription | null = prescription ? { ...prescription, ...overrides } : null;
+  const modified = Object.keys(overrides).length > 0;
   const [draftModelPath, setDraftModelPath] = useState<string | null>(null);
   const [binaryReady, setBinaryReady] = useState<boolean | null>(null);
   const [status, setStatus] = useState<LlamaStatus | null>(null);
@@ -99,10 +103,19 @@ export default function EngineCard({
     return () => { cancelled = true; };
   }, [selectedModel, preset]);
 
+  const effectiveBackend = effective?.backend ?? null;
   useEffect(() => {
-    if (!prescription) { setBinaryReady(null); return; }
-    llamaBinaryPresent(prescription.backend).then(setBinaryReady).catch(() => setBinaryReady(false));
-  }, [prescription]);
+    if (!effectiveBackend) { setBinaryReady(null); return; }
+    llamaBinaryPresent(effectiveBackend).then(setBinaryReady).catch(() => setBinaryReady(false));
+  }, [effectiveBackend]);
+
+  useEffect(() => {
+    setOverrides({});
+  }, [selectedModel, preset]);
+
+  function setField<K extends keyof Prescription>(key: K, value: Prescription[K]) {
+    setOverrides((o) => ({ ...o, [key]: value }));
+  }
 
   async function importGguf() {
     const path = await pickFile("GGUF", ["gguf"]);
@@ -128,16 +141,16 @@ export default function EngineCard({
   }
 
   async function start() {
-    if (!selectedModel || !prescription) return;
+    if (!selectedModel || !effective) return;
     setBusy(true);
     setError(null);
     try {
       const res = await startEngine(selectedModel, preset, {
-        prescription,
+        prescription: { ...effective },
         draftModel: draftModelPath,
         onStage: (s) => setStage(s),
       });
-      setPrescription(res.prescription);
+      setPrescription({ ...res.prescription, ...overrides });
       setBinaryReady(true);
       setStatus(await llamaStatus());
     } catch (e) {
@@ -259,29 +272,77 @@ export default function EngineCard({
             )}
           </div>
 
-          {/* Prescription */}
-          {prescription && (
+          {/* Prescription (auto + overrides) */}
+          {effective && (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-white/60">
-                <span>backend <b className="text-white/90">{prescription.backend}</b></span>
+                <span>backend <b className="text-white/90">{effective.backend}</b></span>
                 <span>
-                  ngl <b className="text-white/90">{prescription.ngl}</b>
-                  {prescription.total_layers != null && (
-                    <span className="text-white/40"> ({prescription.offloaded_layers ?? 0}/{prescription.total_layers} {t("engine.offload")})</span>
+                  ngl <b className="text-white/90">{effective.ngl}</b>
+                  {effective.total_layers != null && !("ngl" in overrides) && (
+                    <span className="text-white/40"> ({effective.offloaded_layers ?? 0}/{effective.total_layers} {t("engine.offload")})</span>
                   )}
                 </span>
-                <span>threads <b className="text-white/90">{prescription.threads}</b></span>
-                <span>ctx <b className="text-white/90">{prescription.ctx}</b></span>
-                <span>KV <b className="text-white/90">{prescription.ctk}/{prescription.ctv}</b></span>
-                <span>{t("models.flashAttn")} <b className="text-white/90">{prescription.flash_attn ? t("models.on") : t("models.off")}</b></span>
-                <span>{t("models.mlock")} <b className="text-white/90">{prescription.mlock ? t("models.on") : t("models.off")}</b></span>
-                <span>{t("models.specDecode")} <b className="text-white/90">{draftModelPath ? t("models.on") : t("models.off")}</b></span>
+                <span>threads <b className="text-white/90">{effective.threads}</b></span>
+                <span>ctx <b className="text-white/90">{effective.ctx}</b></span>
+                <span>KV <b className="text-white/90">{effective.ctk}/{effective.ctv}</b></span>
+                <span>{t("models.flashAttn")} <b className="text-white/90">{effective.flash_attn ? t("models.on") : t("models.off")}</b></span>
+                <span>{t("models.mlock")} <b className="text-white/90">{effective.mlock ? t("models.on") : t("models.off")}</b></span>
+                <span>{t("models.specDecode")} <b className="text-white/90">{draftModelPath ? t("models.on") : t("models.off")}</b>{modified && <Badge tone="warning" className="ml-2">{t("engine.modified")}</Badge>}</span>
               </div>
-              {prescription.warnings.length > 0 && (
+              {effective.warnings.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-0.5 text-[11px] text-amber-300/90">
-                  {prescription.warnings.map((w, i) => <li key={i}>⚠ {w}</li>)}
+                  {effective.warnings.map((w, i) => <li key={i}>⚠ {w}</li>)}
                 </ul>
               )}
+
+              {/* Advanced flags editor */}
+              <details className="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5" data-testid="advanced-flags">
+                <summary className="cursor-pointer text-xs text-white/50 hover:text-white/70">
+                  {t("engine.advanced")} <span className="text-white/30">— {t("engine.advancedHint")}</span>
+                </summary>
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <Field label={t("engine.field.backend")}>
+                    <Select
+                      value={effective.backend}
+                      options={["cpu", "vulkan", "cuda"].map((b) => ({ value: b, label: b }))}
+                      onChange={(v) => setField("backend", v)}
+                    />
+                  </Field>
+                  <Field label={t("engine.field.ngl")}>
+                    <input type="number" min={0} max={999} value={effective.ngl} onChange={(e) => setField("ngl", Math.max(0, Math.min(999, Number(e.target.value) || 0)))} className={inputClass} />
+                  </Field>
+                  <Field label={t("engine.field.threads")}>
+                    <input type="number" min={1} max={128} value={effective.threads} onChange={(e) => setField("threads", Math.max(1, Number(e.target.value) || 1))} className={inputClass} />
+                  </Field>
+                  <Field label={t("engine.field.ctx")}>
+                    <input type="number" min={256} step={256} value={effective.ctx} onChange={(e) => setField("ctx", Math.max(256, Number(e.target.value) || 256))} className={inputClass} />
+                  </Field>
+                  <Field label={t("engine.field.batch")}>
+                    <input type="number" min={32} step={32} value={effective.batch} onChange={(e) => setField("batch", Math.max(32, Number(e.target.value) || 32))} className={inputClass} />
+                  </Field>
+                  <Field label={t("engine.field.kv")}>
+                    <Select
+                      value={effective.ctk}
+                      options={["q4_0", "q8_0", "f16"].map((k) => ({ value: k, label: k }))}
+                      onChange={(v) => { setField("ctk", v); setField("ctv", v); }}
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-white/70 mt-5">
+                    <input type="checkbox" checked={effective.flash_attn} onChange={(e) => setField("flash_attn", e.target.checked)} className="accent-accent" />
+                    {t("engine.field.flash")}
+                  </label>
+                  <label className="flex items-center gap-2 text-white/70 mt-5">
+                    <input type="checkbox" checked={effective.mlock} onChange={(e) => setField("mlock", e.target.checked)} className="accent-accent" />
+                    {t("engine.field.mlock")}
+                  </label>
+                </div>
+                {modified && (
+                  <Button variant="ghost" size="sm" className="mt-2" onClick={() => setOverrides({})}>
+                    {t("engine.reset")}
+                  </Button>
+                )}
+              </details>
               <div className="mt-2 flex items-center gap-2 flex-wrap">
                 <Button onClick={pickDraft} variant="ghost" size="sm">
                   {draftModelPath ? t("models.changeDraft") : t("models.addDraft")}
@@ -298,11 +359,11 @@ export default function EngineCard({
 
           {/* Actions */}
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            {prescription && binaryReady === false && (
-              <Badge tone="warning">{t("models.downloadBinary")} · {prescription.backend}</Badge>
+            {effective && binaryReady === false && (
+              <Badge tone="warning">{t("models.downloadBinary")} · {effective.backend}</Badge>
             )}
             {!runningThisModel ? (
-              <Button onClick={start} disabled={!prescription} loading={busy} variant="success" size="sm">
+              <Button onClick={start} disabled={!effective} loading={busy} variant="success" size="sm">
                 {busy ? t("models.starting") : t("models.start")}
               </Button>
             ) : (

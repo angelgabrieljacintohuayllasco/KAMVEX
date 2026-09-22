@@ -17,10 +17,22 @@ pub struct GpuInfo {
     pub vendor: String,
     pub name: String,
     pub vram_mb: u64,
+    /// Backend KAMVEX can actually use on this adapter: "cuda", "vulkan" or "none".
     pub backend: String,
     /// Integrated GPU sharing system RAM (APU / iGPU) — auto-tune is conservative.
     pub integrated: bool,
+    /// Driver version as reported by the OS (WMI) or nvidia-smi.
+    #[serde(default)]
+    pub driver_version: String,
+    /// Why the adapter is limited or unusable (old driver, unsupported architecture…).
+    #[serde(default)]
+    pub note: Option<String>,
 }
+
+/// Minimum NVIDIA driver for the CUDA 12.4 llama.cpp build.
+const NVIDIA_MIN_CUDA12_DRIVER: f32 = 525.0;
+/// Below this NVIDIA driver there is no usable Vulkan either (Fermi era, 39x.xx).
+const NVIDIA_MIN_VULKAN_DRIVER: f32 = 470.0;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct HwInfo {
@@ -108,15 +120,54 @@ fn cuda_driver_present() -> bool {
 /// PowerShell: one CSV row per adapter with WMI + registry memory figures.
 const GPU_QUERY_PS: &str = r#"
 $ErrorActionPreference = 'SilentlyContinue'
-$cim = Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM
+$cim = Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion
 $reg = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*' | Select-Object DriverDesc, 'HardwareInformation.qwMemorySize'
 $cim | ForEach-Object {
   $n = $_.Name
   $r = $reg | Where-Object { $_.DriverDesc -eq $n } | Select-Object -First 1
   $qw = if ($r) { $r.'HardwareInformation.qwMemorySize' } else { 0 }
-  [pscustomobject]@{ Name = $n; AdapterRAM = $_.AdapterRAM; QwMemorySize = $qw }
+  [pscustomobject]@{ Name = $n; AdapterRAM = $_.AdapterRAM; QwMemorySize = $qw; DriverVersion = $_.DriverVersion }
 } | ConvertTo-Csv -NoTypeInformation
 "#;
+
+/// NVIDIA's WMI driver string ("23.21.13.9135") hides the marketing version in the
+/// last five digits of the last two groups ("13" + "9135" → 39135 → 391.35).
+pub fn nvidia_driver_number(wmi_version: &str) -> Option<f32> {
+    let parts: Vec<&str> = wmi_version.trim().split('.').collect();
+    if parts.len() < 4 {
+        return None;
+    }
+    let digits: String = format!("{}{}", parts[2], parts[3]).chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() < 5 {
+        return None;
+    }
+    let tail = &digits[digits.len() - 5..];
+    let major: f32 = tail[..3].parse().ok()?;
+    let minor: f32 = tail[3..].parse().ok()?;
+    Some(major + minor / 100.0)
+}
+
+/// Downgrade NVIDIA adapters whose driver cannot run the CUDA 12 build (or Vulkan at all).
+pub fn apply_nvidia_driver_policy(gpu: &mut GpuInfo, driver: Option<f32>) {
+    if gpu.vendor != "NVIDIA" {
+        return;
+    }
+    let Some(v) = driver else { return };
+    if v >= NVIDIA_MIN_CUDA12_DRIVER {
+        return;
+    }
+    if v >= NVIDIA_MIN_VULKAN_DRIVER {
+        gpu.backend = "vulkan".into();
+        gpu.note = Some(format!(
+            "Driver NVIDIA {v:.2}: CUDA 12 necesita ≥ {NVIDIA_MIN_CUDA12_DRIVER:.0}; se usa Vulkan."
+        ));
+    } else {
+        gpu.backend = "none".into();
+        gpu.note = Some(format!(
+            "Driver NVIDIA {v:.2} (GPU antigua): sin CUDA 12 ni Vulkan; no se usa para inferencia."
+        ));
+    }
+}
 
 /// Detect GPUs. Windows: WMI + registry (+ nvidia-smi). Elsewhere: nvidia-smi only.
 fn detect_gpus() -> Vec<GpuInfo> {
@@ -144,7 +195,7 @@ fn run_powershell(script: &str) -> Option<String> {
 
 fn run_nvidia_smi() -> Option<String> {
     let mut cmd = Command::new("nvidia-smi");
-    cmd.args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]);
+    cmd.args(["--query-gpu=name,memory.total,driver_version", "--format=csv,noheader,nounits"]);
     hide_console(&mut cmd);
     let output = cmd.output().ok()?;
     if !output.status.success() {
@@ -170,6 +221,7 @@ pub fn parse_gpu_csv(csv: &str) -> Vec<GpuInfo> {
     let idx = |name: &str| cols.iter().position(|c| c.trim().eq_ignore_ascii_case(name));
     let (Some(i_name), Some(i_ram)) = (idx("Name"), idx("AdapterRAM")) else { return vec![] };
     let i_qw = idx("QwMemorySize");
+    let i_drv = idx("DriverVersion");
 
     lines
         .filter_map(|line| {
@@ -183,39 +235,67 @@ pub fn parse_gpu_csv(csv: &str) -> Vec<GpuInfo> {
                 .and_then(|i| fields.get(i))
                 .and_then(|v| v.trim().parse().ok())
                 .unwrap_or(0);
+            let driver_version = i_drv.and_then(|i| fields.get(i)).map(|v| v.trim().to_string()).unwrap_or_default();
             let vram_mb = adapter_ram.max(qw) / MIB;
             let (vendor, backend, integrated) = classify_gpu(&name);
-            Some(GpuInfo { vendor: vendor.into(), name, vram_mb, backend: backend.into(), integrated })
+            let mut gpu = GpuInfo {
+                vendor: vendor.into(), name, vram_mb, backend: backend.into(), integrated,
+                driver_version: driver_version.clone(), note: None,
+            };
+            apply_nvidia_driver_policy(&mut gpu, nvidia_driver_number(&driver_version));
+            Some(gpu)
         })
         .collect()
 }
 
-/// Parse `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits`.
-pub fn parse_nvidia_smi(out: &str) -> Vec<(String, u64)> {
+/// One nvidia-smi row: name, memory.total (MiB), driver version (may be missing).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SmiGpu {
+    pub name: String,
+    pub vram_mb: u64,
+    pub driver: Option<f32>,
+}
+
+/// Parse `nvidia-smi --query-gpu=name,memory.total[,driver_version] --format=csv,noheader,nounits`.
+pub fn parse_nvidia_smi(out: &str) -> Vec<SmiGpu> {
     out.lines()
         .filter_map(|l| {
-            let (name, mem) = l.rsplit_once(',')?;
-            let mem: u64 = mem.trim().parse().ok()?;
-            Some((name.trim().to_string(), mem))
+            let fields: Vec<&str> = l.split(',').map(str::trim).collect();
+            if fields.len() < 2 {
+                return None;
+            }
+            let vram_mb: u64 = fields[1].parse().ok()?;
+            let driver = fields.get(2).and_then(|d| d.parse::<f32>().ok());
+            Some(SmiGpu { name: fields[0].to_string(), vram_mb, driver })
         })
         .collect()
 }
 
-/// Prefer nvidia-smi's memory.total for NVIDIA adapters (exact, 64-bit).
-pub fn merge_nvidia_smi(gpus: &mut Vec<GpuInfo>, smi: &[(String, u64)]) {
-    for (name, mem_mb) in smi {
+/// Prefer nvidia-smi's figures for NVIDIA adapters (exact 64-bit memory, real driver number).
+pub fn merge_nvidia_smi(gpus: &mut Vec<GpuInfo>, smi: &[SmiGpu]) {
+    for s in smi {
         if let Some(g) = gpus.iter_mut().find(|g| {
-            g.vendor == "NVIDIA" && (g.name == *name || g.name.contains(name.as_str()) || name.contains(g.name.as_str()))
+            g.vendor == "NVIDIA" && (g.name == s.name || g.name.contains(s.name.as_str()) || s.name.contains(g.name.as_str()))
         }) {
-            g.vram_mb = *mem_mb;
+            g.vram_mb = s.vram_mb;
+            if let Some(d) = s.driver {
+                g.driver_version = format!("{d:.2}");
+                g.backend = "cuda".into();
+                g.note = None;
+                apply_nvidia_driver_policy(g, Some(d));
+            }
         } else {
-            gpus.push(GpuInfo {
+            let mut g = GpuInfo {
                 vendor: "NVIDIA".into(),
-                name: name.clone(),
-                vram_mb: *mem_mb,
+                name: s.name.clone(),
+                vram_mb: s.vram_mb,
                 backend: "cuda".into(),
                 integrated: false,
-            });
+                driver_version: s.driver.map(|d| format!("{d:.2}")).unwrap_or_default(),
+                note: None,
+            };
+            apply_nvidia_driver_policy(&mut g, s.driver);
+            gpus.push(g);
         }
     }
 }
@@ -274,6 +354,52 @@ mod tests {
     }
 
     #[test]
+    fn nvidia_driver_number_from_wmi() {
+        assert_eq!(nvidia_driver_number("23.21.13.9135"), Some(391.35));
+        assert_eq!(nvidia_driver_number("31.0.15.4601"), Some(546.01));
+        assert_eq!(nvidia_driver_number("30.0.13020.1000"), None.or(nvidia_driver_number("30.0.13020.1000"))); // any parse is fine, must not panic
+        assert_eq!(nvidia_driver_number("garbage"), None);
+    }
+
+    #[test]
+    fn nvidia_driver_policy_gates_backends() {
+        let mk = |drv: &str| GpuInfo {
+            vendor: "NVIDIA".into(), name: "NVIDIA GeForce GT 610".into(), vram_mb: 2048,
+            backend: "cuda".into(), integrated: false, driver_version: drv.into(), note: None,
+        };
+        let mut fermi = mk("23.21.13.9135");
+        let drv = nvidia_driver_number(&fermi.driver_version);
+        apply_nvidia_driver_policy(&mut fermi, drv);
+        assert_eq!(fermi.backend, "none");
+        assert!(fermi.note.as_deref().unwrap_or("").contains("391.35"));
+
+        let mut kepler = mk("30.0.14.7168"); // 471.68
+        let drv = nvidia_driver_number(&kepler.driver_version);
+        apply_nvidia_driver_policy(&mut kepler, drv);
+        assert_eq!(kepler.backend, "vulkan");
+
+        let mut modern = mk("31.0.15.4601"); // 546.01
+        let drv = nvidia_driver_number(&modern.driver_version);
+        apply_nvidia_driver_policy(&mut modern, drv);
+        assert_eq!(modern.backend, "cuda");
+        assert!(modern.note.is_none());
+    }
+
+    #[test]
+    fn parse_gpu_csv_applies_driver_policy() {
+        let csv = "\"Name\",\"AdapterRAM\",\"QwMemorySize\",\"DriverVersion\"\r\n\
+                   \"AMD Radeon(TM) Graphics\",\"4293918720\",\"4294967296\",\"31.0.21916.2\"\r\n\
+                   \"NVIDIA GeForce GT 610\",\"2147483648\",\"2147483648\",\"23.21.13.9135\"\r\n";
+        let gpus = parse_gpu_csv(csv);
+        assert_eq!(gpus.len(), 2);
+        assert_eq!(gpus[0].backend, "vulkan");
+        assert!(gpus[0].integrated);
+        assert_eq!(gpus[0].vram_mb, 4096);
+        assert_eq!(gpus[1].backend, "none");
+        assert_eq!(gpus[1].driver_version, "23.21.13.9135");
+    }
+
+    #[test]
     fn gpu_info_serializes() {
         let gpu = GpuInfo {
             vendor: "AMD".to_string(),
@@ -281,6 +407,8 @@ mod tests {
             vram_mb: 512,
             backend: "vulkan".to_string(),
             integrated: true,
+            driver_version: String::new(),
+            note: None,
         };
         let json = serde_json::to_string(&gpu).unwrap();
         assert!(json.contains("AMD"));
@@ -332,15 +460,19 @@ mod tests {
 
     #[test]
     fn nvidia_smi_merge_overrides_and_adds() {
-        let smi = parse_nvidia_smi("NVIDIA GeForce RTX 3060, 12288\nNVIDIA T400, 2048\n");
+        let smi = parse_nvidia_smi("NVIDIA GeForce RTX 3060, 12288, 546.01\nNVIDIA T400, 2048\n");
         assert_eq!(smi.len(), 2);
+        assert_eq!(smi[0].driver, Some(546.01));
+        assert_eq!(smi[1].driver, None);
         let mut gpus = vec![GpuInfo {
             vendor: "NVIDIA".into(), name: "NVIDIA GeForce RTX 3060".into(), vram_mb: 4095,
-            backend: "cuda".into(), integrated: false,
+            backend: "cuda".into(), integrated: false, driver_version: String::new(), note: None,
         }];
         merge_nvidia_smi(&mut gpus, &smi);
         assert_eq!(gpus[0].vram_mb, 12288);
+        assert_eq!(gpus[0].driver_version, "546.01");
         assert_eq!(gpus.len(), 2);
         assert_eq!(gpus[1].name, "NVIDIA T400");
+        assert_eq!(gpus[1].backend, "cuda");
     }
 }

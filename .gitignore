@@ -55,3 +55,8 @@ sidecar/models/
 
 # Maratón / session state (local)
 MISSION.md
+MISSION-*.md
+
+# Dataset sources and built .kamvex bundles (published as release assets, not committed)
+datasets-src/
+datasets-out/

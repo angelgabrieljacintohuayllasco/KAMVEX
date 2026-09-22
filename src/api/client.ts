@@ -14,6 +14,10 @@ export type Dataset = {
   built_at?: number;
   embedding_backend?: string;
   embedding_model?: string;
+  has_records?: boolean;
+  display_name?: string;
+  description?: string;
+  license?: string;
 };
 
 export type Fragment = { text: string; score: number; source_id: string | null };
@@ -26,6 +30,8 @@ export type GpuInfo = {
   vram_mb: number;
   backend: string;
   integrated: boolean;
+  driver_version?: string;
+  note?: string | null;
 };
 
 export type HwInfo = {
@@ -347,6 +353,43 @@ export function streamBuild(jobId: string, onEvent: (e: BuildEvent) => void): Pr
 
 export const deleteDataset = (name: string) => del<{ status: string }>(`/datasets/${encodeURIComponent(name)}`);
 
+// ── Dataset catalog (pre-built .kamvex bundles) ─────────────────────────────
+
+export type CatalogDataset = {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  license: string;
+  source_url: string;
+  records: number;
+  profile?: string;
+  dim?: number;
+  embedding_model?: string | null;
+  file: string;
+  url?: string;
+  size_bytes: number;
+  sha256?: string;
+  source_file?: string;
+  source_url_file?: string;
+  source_size_bytes?: number;
+  built_at?: number;
+  installed: boolean;
+};
+
+export const datasetsCatalog = () =>
+  getJson<{ version: number; release_base: string; datasets: CatalogDataset[] }>("/datasets/catalog");
+
+export function installDataset(opts: { id?: string; url?: string; name?: string; sha256?: string }) {
+  return postJson<{ status: "started" | "in_progress"; download_id: string; name: string }>("/datasets/install", opts);
+}
+
+export const importDataset = (path: string, name?: string) =>
+  postJson<{ status: string; name: string; n_records: number; dim: number }>("/datasets/import", { path, name: name ?? "" });
+
+export const rebuildDataset = (name: string, profile = "low-ram") =>
+  postJson<{ job_id: string }>(`/datasets/${encodeURIComponent(name)}/rebuild`, { profile });
+
 export async function exportDatasetUrl(dataset: string): Promise<string> {
   return `${await base()}/datasets/${encodeURIComponent(dataset)}/export`;
 }
@@ -409,13 +452,15 @@ export const listLocalModels = () => getJson<LocalModel[]>("/models/local", []);
 export const deleteLocalModel = (file: string) => del<{ status: string }>(`/models/local/${encodeURIComponent(file)}`);
 
 export type DownloadProgress = {
-  status: "downloading" | "paused" | "done" | "error" | "cancelled";
+  status: "downloading" | "paused" | "verifying" | "installing" | "done" | "error" | "cancelled";
   downloaded: number;
   total: number;
   pct: number;
   speed_mbps: number;
   error: string;
   file?: string;
+  kind?: "model" | "dataset";
+  result?: Record<string, unknown> | null;
 };
 
 export type DownloadEntry = DownloadProgress & { download_id: string };
@@ -427,17 +472,30 @@ export function downloadHubModel(repo: string, file: string) {
   );
 }
 
-export const listDownloads = () => getJson<DownloadEntry[]>("/models/hub/downloads", []);
+export const listDownloads = () => getJson<DownloadEntry[]>("/downloads", []);
 
 const isFinalDownload = (p: DownloadProgress) => p.status === "done" || p.status === "error" || p.status === "cancelled";
 
+/** Subscribe to any download (model GGUF or dataset bundle). */
 export function subscribeHubDownload(downloadId: string, onProgress: (p: DownloadProgress) => void): () => void {
-  return subscribeSse<DownloadProgress>(`/models/hub/download/${downloadId}/events`, onProgress, isFinalDownload);
+  return subscribeSse<DownloadProgress>(`/downloads/${downloadId}/events`, onProgress, isFinalDownload);
 }
 
-export const cancelHubDownload = (id: string) => postJson(`/models/hub/download/${id}/cancel`).then(() => {});
-export const pauseHubDownload = (id: string) => postJson(`/models/hub/download/${id}/pause`).then(() => {});
-export const resumeHubDownload = (id: string) => postJson(`/models/hub/download/${id}/resume`).then(() => {});
+/** Promise form: resolves on "done", rejects on error/cancel. */
+export function waitDownload(downloadId: string, onProgress?: (p: DownloadProgress) => void): Promise<DownloadProgress> {
+  return new Promise((resolve, reject) => {
+    subscribeHubDownload(downloadId, (p) => {
+      onProgress?.(p);
+      if (p.status === "done") resolve(p);
+      else if (p.status === "error") reject(new Error(p.error || "download error"));
+      else if (p.status === "cancelled") reject(new Error("cancelled"));
+    });
+  });
+}
+
+export const cancelHubDownload = (id: string) => postJson(`/downloads/${id}/cancel`).then(() => {});
+export const pauseHubDownload = (id: string) => postJson(`/downloads/${id}/pause`).then(() => {});
+export const resumeHubDownload = (id: string) => postJson(`/downloads/${id}/resume`).then(() => {});
 
 // ── Inference hook (sidecar ↔ llama-server) ─────────────────────────────────
 

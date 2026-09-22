@@ -16,19 +16,25 @@ Design:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import queue
 import re
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
+from typing import Callable
 
 CHUNK_SIZE = 256 * 1024
 EMIT_EVERY_S = 0.5
 FINAL_STATES = ("done", "error", "cancelled")
+# Hosts KAMVEX downloads from (models: HuggingFace; datasets: GitHub Releases / HF).
+ALLOWED_HOSTS = ("huggingface.co", "github.com", "objects.githubusercontent.com",
+                 "release-assets.githubusercontent.com", "raw.githubusercontent.com")
 
 _HF_REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$")
@@ -36,6 +42,32 @@ _FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$")
 
 def is_valid_hf_repo(repo: str) -> bool:
     return bool(_HF_REPO_RE.match(repo or ""))
+
+
+def is_allowed_url(url: str, extra_hosts: tuple[str, ...] = ()) -> bool:
+    """https only, host on the allowlist (env KAMVEX_ALLOWED_HOSTS adds more, comma separated)."""
+    try:
+        u = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    if not u.hostname:
+        return False
+    env_hosts = tuple(h.strip().lower() for h in os.environ.get("KAMVEX_ALLOWED_HOSTS", "").split(",") if h.strip())
+    host = u.hostname.lower()
+    if u.scheme == "http":
+        # Plain http only for an explicitly whitelisted loopback mirror (tests, local dev).
+        return host in ("127.0.0.1", "localhost") and host in env_hosts
+    if u.scheme != "https":
+        return False
+    return host in ALLOWED_HOSTS or host in extra_hosts or host in env_hosts
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def is_valid_filename(name: str) -> bool:
@@ -53,9 +85,12 @@ class DownloadState:
     """Tracks a single download with pause/cancel support."""
 
     __slots__ = ("id", "repo", "file", "dest", "url", "total", "downloaded",
-                 "speed", "status", "error", "cancel_ev", "pause_ev", "q", "thread")
+                 "speed", "status", "error", "cancel_ev", "pause_ev", "q", "thread",
+                 "kind", "expected_sha256", "post_process", "result")
 
-    def __init__(self, dl_id: str, repo: str, file: str, dest: Path, url: str):
+    def __init__(self, dl_id: str, repo: str, file: str, dest: Path, url: str, *,
+                 kind: str = "model", expected_sha256: str | None = None,
+                 post_process: "Callable[[DownloadState], dict | None] | None" = None):
         self.id = dl_id
         self.repo = repo
         self.file = file
@@ -64,17 +99,22 @@ class DownloadState:
         self.total: int = 0
         self.downloaded: int = 0
         self.speed: float = 0.0
-        self.status: str = "downloading"  # downloading | paused | done | error | cancelled
+        # downloading | paused | verifying | installing | done | error | cancelled
+        self.status: str = "downloading"
         self.error: str = ""
         self.cancel_ev = threading.Event()
         self.pause_ev = threading.Event()  # SET = running, CLEAR = paused
         self.pause_ev.set()
         self.q: queue.Queue = queue.Queue()
         self.thread: threading.Thread | None = None
+        self.kind = kind
+        self.expected_sha256 = (expected_sha256 or "").lower().strip() or None
+        self.post_process = post_process
+        self.result: dict | None = None
 
     @property
     def active(self) -> bool:
-        return self.status in ("downloading", "paused")
+        return self.status in ("downloading", "paused", "verifying", "installing")
 
     def progress_pct(self) -> float:
         if self.total <= 0:
@@ -90,6 +130,8 @@ class DownloadState:
             "speed_mbps": round(self.speed, 2),
             "error": self.error,
             "file": self.file,
+            "kind": self.kind,
+            "result": self.result,
         }
 
     def emit(self) -> None:
@@ -187,8 +229,22 @@ def run_download(state: DownloadState) -> None:
 
         state.dest.parent.mkdir(parents=True, exist_ok=True)
         os.replace(part, state.dest)
-        state.status = "done"
         state.speed = 0.0
+
+        if state.expected_sha256:
+            state.status = "verifying"
+            state.emit()
+            actual = sha256_file(state.dest)
+            if actual != state.expected_sha256:
+                state.dest.unlink(missing_ok=True)
+                raise IOError(f"sha256 no coincide (esperado {state.expected_sha256[:12]}…, obtenido {actual[:12]}…)")
+
+        if state.post_process is not None:
+            state.status = "installing"
+            state.emit()
+            state.result = state.post_process(state)
+
+        state.status = "done"
         state.emit()
 
     except urllib.error.HTTPError as e:
@@ -220,13 +276,21 @@ class DownloadManager:
                     return dl
         return None
 
-    def start(self, repo: str, file: str, dest: Path) -> DownloadState:
-        """Start (or return the already running) download of repo/file into dest."""
+    def start(self, repo: str, file: str, dest: Path, *, url: str | None = None,
+              kind: str = "model", sha256: str | None = None,
+              post_process: "Callable[[DownloadState], dict | None] | None" = None) -> DownloadState:
+        """Start (or return the already running) download into dest.
+
+        `url` defaults to the HuggingFace resolve URL for repo/file. `sha256` is
+        verified after the download; `post_process` runs before the final "done"
+        (used to unpack dataset bundles) and its return value lands in `result`.
+        """
         existing = self.active_for(dest)
         if existing is not None:
             return existing
         dl_id = uuid.uuid4().hex[:12]
-        state = DownloadState(dl_id, repo, file, dest, hf_resolve_url(repo, file))
+        state = DownloadState(dl_id, repo, file, dest, url or hf_resolve_url(repo, file),
+                              kind=kind, expected_sha256=sha256, post_process=post_process)
         with self._lock:
             self._items[dl_id] = state
         t = threading.Thread(target=run_download, args=(state,), daemon=True,
