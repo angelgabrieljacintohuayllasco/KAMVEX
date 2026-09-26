@@ -59,7 +59,7 @@ def test_grounded_formats_relevant_fragments_under_strict_prompt(monkeypatch):
     messages = conn.calls[0]
     assert isinstance(messages, list)
     joined = " ".join(m["content"] for m in messages)
-    assert "CONTEXTO" in joined
+    assert "CANDIDATOS" in joined          # prompt de Agente B
     assert "dato número 0" in joined and "dato número 1" not in joined  # low-score fragment excluded
     assert conn.samplers[0][4] == 64  # max_tokens forwarded
     assert conn.samplers[1].get("seed") == 42  # deterministic by default

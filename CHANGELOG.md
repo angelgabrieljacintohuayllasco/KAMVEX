@@ -2,6 +2,57 @@
 
 All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] — 2026-09-26
+
+### Added
+- **Agent A is an ensemble**. Predictors propose candidates and vote: semantic (MiniLM +
+  IVF-PQ), exact key index, **BM25 over the record text** (new) and lexical overlap. Their
+  lists merge with weighted Reciprocal Rank Fusion plus an agreement bonus. A record whose
+  key the question names in full is *authoritative*: it ranks first regardless.
+- **Your own predictors over HTTP**: `KAMVEX_PREDICTORS=name=url,name=url`. One POST with
+  `{query, top_k, dataset}`, one reply with `{candidates:[{key,text,score}]}`. A predictor
+  that is down or answers nonsense is recorded in the diagnostics and the rest keep voting.
+- **Agent B (the LLM) now runs on the corpus experts.** It resolves follow-ups against the
+  conversation before retrieving, picks the candidate that answers, and writes the reply.
+  `POST /chat` accepts `history`, and the UI sends it.
+- **Gemma models**: Gemma 3 1B/4B/12B in the model catalog next to Gemma 2 2B/9B, and as
+  options for the Lengua, Leyes, Salud, Perú and General experts. Measured on the real
+  stack: Gemma 2 2B answers 4 of 8 turns in its own words with 7 of 8 candidates correctly
+  picked, ahead of Qwen2.5 1.5B and Gemma 3 1B.
+- `scripts/qa/prove_agent_b.py` replays the conversations that failed against the real
+  stack, asking each turn twice (Exact and Grounded); `scripts/qa/app.ps1` builds and
+  launches the app with the debug port open.
+- `docs/agente-a-y-agente-b.md` describes the two-agent contract end to end.
+
+### Fixed
+- **The corpus experts never called the LLM.** Lengua and Leyes defaulted to `statistical`,
+  which has no model in the loop, so the answer was the raw record. They now default to
+  grounded; Exact stays available as an explicit choice.
+- **"explicame que es Pene" answered with *pendiente***: two weak predictors agreeing
+  outvoted the exact key hit. Fusion is now weighted and exact hits are authoritative.
+- **"dame más explicación" searched for the word *explicación***: follow-ups are rewritten
+  against the last topic before retrieval.
+- **A small model repeated its previous answer** when the topic changed. The conversation
+  only enters the prompt when the question actually needs it.
+- **`Además,` injected into legal citations**: DASA's statistical rewriter chains sentences
+  with its own connectors. KAMVEX strips them when the sentence without the connector is
+  verbatim in the sources, and cites an authoritative record without rewriting it at all.
+- **Guardrail fallback dumped a 9 000-character article**; it is now focused on the question,
+  and when the user asked for more detail it says the sources record nothing further.
+- **BM25 buried the long article that answers the question** ("explícame mis derechos" →
+  Artículo 2). The length penalty is capped at twice the average.
+- **Stopword keys hijacked retrieval**: "y el artículo 35?" matched the dictionary entry for
+  *y* with a perfect score.
+- **"Failed to fetch" right after switching model**: llama-server answers 503 while loading
+  the GGUF; the connector now waits instead of failing.
+- **The app showed "Motor inactivo" with a model loaded and answering**: recent llama.cpp
+  builds wrap `next_token` in a list, which crashed `/inference/metrics`.
+- **`cargo build --release` produced an app that asked for the dev server**: the
+  `custom-protocol` feature was missing from `Cargo.toml`.
+- A corpus expert without its corpus fell through to the bare LLM in grounded mode, which is
+  exactly the invention the app exists to prevent. It now fails with a clear message; only
+  Free mode, chosen by hand, answers without sources.
+
 ## [0.3.0] — 2026-09-22
 
 ### Added

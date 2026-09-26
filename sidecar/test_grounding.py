@@ -7,6 +7,7 @@ from __future__ import annotations
 import pytest
 
 import server
+from jobs import record_to_text
 from conftest import FakeConnector, build_dataset, demo_records
 from grounding import (content_terms, coverage, exact_definition_answer, extract_term,
                        focus_text, grounded_messages, trim_fragments)
@@ -102,21 +103,40 @@ def test_grounded_messages_language_and_example():
 
 @pytest.mark.skipif(not server._DASA_AVAILABLE, reason="DASA/SHARD not importable")
 def test_key_hits_are_ranked_so_only_the_best_reaches_the_context(sidecar, monkeypatch):
-    """Ambiguous names must not put contradictory records in the grounded context."""
+    """Ambiguous names must not put contradictory records in the grounded context.
+
+    "Departamento de Amazonas" nombra tres registros que se contradicen. El predictor de
+    claves los devuelve con score decreciente para que solo el mejor sea autoritativo.
+    """
+    from agent_a import KeyPredictor
     from keyindex import KEY_HIT_SCORE
     build_dataset(sidecar, "demo")
     pipe = server._load_pipeline("demo")
 
     class FakeIndex:
-        def match(self, q, limit=3):
-            return [r["lemma"] for r in demo_records()[:3]]
+        keys = [r["lemma"] for r in demo_records()]
 
-    monkeypatch.setitem(server._KEY_INDEXES, "demo", FakeIndex())
-    hits = server._key_hits(pipe, "cualquier cosa")
+        def match(self, q, limit=3):
+            return self.keys[:3]
+
+    predictor = KeyPredictor(FakeIndex(), pipe.agent_a._shard_reader, record_to_text)
+    hits = predictor.predict("cualquier cosa", 3)
     assert len(hits) == 3
-    assert [round(h.score, 2) for h in hits] == [1.0, 0.98, 0.96]
-    top = [h for h in hits if h.score >= KEY_HIT_SCORE]
-    assert len(top) == 1, "only the best key hit is authoritative"
+    scores = [round(h.sources["key"], 2) for h in hits]
+    assert scores == [1.0, 0.95, 0.9], "el orden del índice se traduce en score decreciente"
+    assert len([s for s in scores if s >= KEY_HIT_SCORE]) == 1, "only the best key hit is authoritative"
+
+
+@pytest.mark.skipif(not server._DASA_AVAILABLE, reason="DASA/SHARD not importable")
+def test_el_ensemble_expone_que_predictor_propuso_cada_candidato(sidecar):
+    """La respuesta debe poder auditarse: qué modelo propuso qué."""
+    build_dataset(sidecar, "demo")
+    pipe = server._load_pipeline("demo")
+    target = demo_records()[0]
+    frags, info = server._search_ex(pipe, target["lemma"], 3)
+    assert frags, "el ensemble no propuso nada"
+    assert set(info["predictors"]) >= {"semantic", "key", "lexical"}
+    assert frags[0].to_json()["predictors"], "el candidato no dice de dónde viene"
 
 
 def test_search_query_normalization():
@@ -165,3 +185,50 @@ def test_grounded_guardrail_falls_back_on_hallucination(sidecar, monkeypatch):
     resp = sidecar.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": "grounded", "guardrail": False}).json()
     assert resp["answer"].startswith("Se prepara con orégano")
     assert "coverage" not in resp["meta"]
+
+
+# ── Modo Exacto: ni una palabra que no esté en el corpus ────────────────────
+
+class _Frag:
+    def __init__(self, text, source_id="k", score=1.0, authority=False):
+        self.text, self.source_id, self.score, self.authority = text, source_id, score, authority
+
+
+ART2 = ("Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad "
+        "moral, psíquica y física y a su libre desarrollo y bienestar.")
+
+
+def test_quita_los_conectores_que_el_reescritor_inyecta():
+    """DASA encadena con "Además,"; en una cita legal eso falsea el texto."""
+    from grounding import strip_injected_connectors
+    frags = [_Frag(ART2, "Artículo 2")]
+    sucio = ("Artículo 2: Toda persona tiene derecho: 1. Además, a la vida, a su identidad, a su "
+             "integridad moral, psíquica y física y a su libre desarrollo y bienestar.")
+    limpio = strip_injected_connectors(sucio, frags)
+    assert "Además" not in limpio
+    assert "A la vida, a su identidad" in limpio
+
+
+def test_no_toca_un_conector_que_esta_en_el_corpus():
+    from grounding import strip_injected_connectors
+    frags = [_Frag("La ley se aplica. Además, se publica en el diario oficial.")]
+    texto = "Además, se publica en el diario oficial."
+    assert strip_injected_connectors(texto, frags) == texto
+
+
+def test_sin_fuentes_o_sin_texto_no_cambia_nada():
+    from grounding import strip_injected_connectors
+    assert strip_injected_connectors("Además, algo.", []) == "Además, algo."
+    assert strip_injected_connectors("", [_Frag(ART2)]) == ""
+
+
+@pytest.mark.skipif(not server._DASA_AVAILABLE, reason="DASA/SHARD not importable")
+def test_un_candidato_autoritativo_se_cita_literal(sidecar):
+    """Si la pregunta nombró el registro, se devuelve su texto sin reescribir."""
+    build_dataset(sidecar, "demo")
+    pipe = server._load_pipeline("demo")
+    frags = [_Frag(ART2, "Artículo 2", authority=True),
+             _Frag("Artículo 55: Los tratados forman parte del derecho nacional.", "Artículo 55")]
+    answer, meta = server._statistical_answer(pipe.agent_b, "dame más explicación", frags)
+    assert answer == ART2
+    assert meta["engine"] == "exact"

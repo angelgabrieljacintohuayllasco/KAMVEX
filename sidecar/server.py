@@ -77,8 +77,12 @@ def _require_builder():
 from downloads import DownloadManager, DownloadState, is_allowed_url, is_valid_filename, is_valid_hf_repo  # noqa: E402
 from embedding_gguf import LlamaEmbeddingEngine  # noqa: E402
 from embedding_gguf import DEFAULT_FILE as EMBED_FILE, DEFAULT_REPO as EMBED_REPO  # noqa: E402
-from grounding import (DETERMINISTIC_SEED, MIN_COVERAGE, coverage as lexical_coverage,  # noqa: E402
-                       exact_definition_answer, grounded_messages, trim_fragments)
+from grounding import (DETERMINISTIC_SEED, GROUNDED_MAX_CHARS, MIN_COVERAGE,  # noqa: E402
+                       coverage as lexical_coverage,
+                       NO_MORE_DETAIL, exact_definition_answer, focus_text,
+                       grounded_messages, strip_injected_connectors, trim_fragments)
+import agent_a as agent_a_mod  # noqa: E402
+import agent_b as agent_b_mod  # noqa: E402
 import experts as experts_mod  # noqa: E402
 from jobs import BuildJob, run_build  # noqa: E402
 from keyindex import KEY_HIT_SCORE, KeyIndex  # noqa: E402
@@ -130,6 +134,7 @@ app.add_middleware(
 _JOBS: dict[str, BuildJob] = {}
 _PIPELINES: dict = {}
 _KEY_INDEXES: dict[str, KeyIndex | None] = {}
+_PREDICTORS: dict[str, list] = {}   # dataset → ensemble del Agente A
 _PIPE_LOCK = threading.Lock()      # pipelines share Agent B state (mode + callable)
 _EMBED_LOCK = threading.Lock()
 _embedding_engine = None
@@ -288,6 +293,7 @@ def _load_pipeline(dataset_name: str):
 
 def _close_pipeline(name: str) -> None:
     _KEY_INDEXES.pop(name, None)
+    _PREDICTORS.pop(name, None)
     pipe = _PIPELINES.pop(name, None)
     if pipe is None:
         return
@@ -403,6 +409,8 @@ class ChatReq(SamplerFields):
     dataset: str
     query: str = Field(..., min_length=1, max_length=20000)
     agent_b_mode: str = "statistical"
+    # La conversación previa: sin ella "dame más explicación" se busca literalmente.
+    history: list["ChatMessage"] = Field(default_factory=list)
 
 
 class FederatedReq(SamplerFields):
@@ -469,16 +477,33 @@ class RebuildReq(BaseModel):
 # ── Synthesis (single place where Agent B modes are applied) ────────────────
 
 def _fragments_json(fragments) -> list[dict]:
-    return [{"text": f.text, "score": float(f.score), "source_id": f.source_id} for f in fragments]
+    """Candidatos para la UI. Los del ensemble traen además qué predictor los propuso."""
+    out = []
+    for f in fragments:
+        to_json = getattr(f, "to_json", None)
+        out.append(to_json() if callable(to_json)
+                   else {"text": f.text, "score": float(f.score), "source_id": f.source_id})
+    return out
 
 
 def _statistical_answer(agent_b, query: str, fragments) -> tuple[str, dict]:
-    """Deterministic answer: exact record text for definition questions, else DASA's rewriter."""
+    """Deterministic answer: exact record text for definition questions, else DASA's rewriter.
+
+    El reescritor de DASA encadena oraciones con conectores propios ("Además,"), que en un
+    texto legal falsean la cita. Si el ensemble marcó un candidato como autoritativo —la
+    pregunta nombró ese registro— se devuelve su texto tal cual y no se reescribe nada.
+    """
+    for f in fragments:
+        if getattr(f, "authority", False):
+            return getattr(f, "text", ""), {"engine": "exact"}
     exact = exact_definition_answer(query, fragments)
     if exact:
         return exact, {"engine": "exact"}
     agent_b._llm_callable = None
-    return (agent_b.synthesize(query, fragments) or "").strip() or NO_INFO, {"engine": "rewriter"}
+    text = (agent_b.synthesize(query, fragments) or "").strip()
+    # Sin conectores inventados: en modo Exacto lo que se lee es el corpus, palabra por palabra.
+    text = strip_injected_connectors(text, fragments)
+    return text or NO_INFO, {"engine": "rewriter"}
 
 
 def _synthesize(pipe, mode: str, query: str, fragments, s: SamplerFields,
@@ -487,22 +512,29 @@ def _synthesize(pipe, mode: str, query: str, fragments, s: SamplerFields,
 
 
 def _synthesize_ex(pipe, mode: str, query: str, fragments, s: SamplerFields,
-                   free_system_prompt: str | None = None) -> tuple[str, dict]:
-    """Run Agent B in the requested mode. Returns (answer, meta).
+                   free_system_prompt: str | None = None,
+                   history: list[dict] | None = None,
+                   resolved_query: str | None = None) -> tuple[str, dict]:
+    """Agente B sobre los candidatos del Agente A. Devuelve (respuesta, meta).
 
-    statistical — no LLM: exact record text for "¿qué es X?" or DASA's rewriter (0 hallucination).
-    grounded    — LLM formats relevant fragments under a strict prompt, greedy + fixed seed;
-                  a lexical guardrail rejects answers that use words the corpus does not
-                  contain and falls back to the statistical answer. Never free-talks.
-    free        — LLM answers from the corpus when relevant, freely otherwise.
+    `resolved_query` es la pregunta reescrita contra la conversación ("dame más explicación"
+    → "¿Qué dice el Artículo 2?"). La respuesta determinista la necesita: la pregunta suelta
+    no nombra ningún registro. El LLM, en cambio, ve las palabras reales del usuario.
+
+    statistical — sin LLM: el texto del registro tal cual (0 alucinación, 0 redacción).
+    grounded    — el LLM lee los candidatos, elige el que responde y redacta, con la
+                  conversación a la vista; guardarraíl léxico con vuelta a la respuesta
+                  determinista si usa palabras que el corpus no tiene.
+    free        — el LLM responde desde el corpus si viene al caso, o por su cuenta.
     """
     if mode not in MODES:
         raise HTTPException(400, f"modo agent_b inválido: {mode}")
 
+    resolved = resolved_query or query
     with _PIPE_LOCK:
         agent_b = pipe.agent_b
         if mode == "statistical":
-            return _statistical_answer(agent_b, query, fragments)
+            return _statistical_answer(agent_b, resolved, fragments)
 
         connector = _require_connector()
 
@@ -510,24 +542,37 @@ def _synthesize_ex(pipe, mode: str, query: str, fragments, s: SamplerFields,
             relevant = [f for f in fragments if f.score >= GROUNDED_MIN_SCORE]
             if not relevant:
                 return NOT_COVERED, {"engine": "none", "reason": "no_relevant_fragments"}
-            # An exact key hit is authoritative: keep the context to those records.
-            exact_hits = [f for f in relevant if f.score >= KEY_HIT_SCORE]
-            context = trim_fragments(exact_hits or relevant, query)
             if s.deterministic:
                 connector.set_deterministic(DETERMINISTIC_SEED, s.max_tokens)
             else:
                 connector.set_samplers(s.temperature, s.top_p, s.top_k, s.repeat_penalty, s.max_tokens)
             agent_b._llm_callable = connector
-            answer = (connector(grounded_messages(query, context)) or "").strip()
+            msgs = agent_b_mod.messages(query, relevant, history=history,
+                                        system_extra=free_system_prompt or "")
+            answer = (connector(msgs) or "").strip()
             if not answer:
                 return NOT_COVERED, {"engine": "llm", "reason": "empty"}
-            meta: dict = {"engine": "llm", "deterministic": s.deterministic}
-            if s.guardrail:
-                cov, missing = lexical_coverage(answer, context)
+            meta: dict = {"engine": "llm", "deterministic": s.deterministic,
+                          "candidates": len(relevant),
+                          "detail": agent_b_mod.wants_more_detail(query)}
+            picked = agent_b_mod.picked_candidate(answer, relevant)
+            if picked is not None:
+                meta["picked"] = getattr(relevant[picked], "source_id", None) or picked
+            if s.guardrail and not agent_b_mod.looks_like_refusal(answer):
+                cov, missing = lexical_coverage(answer, relevant)
                 meta.update({"coverage": cov, "unsupported": missing[:12]})
-                if cov < MIN_COVERAGE and normalize_answer(answer) != normalize_answer(NOT_COVERED):
-                    fallback, fb_meta = _statistical_answer(agent_b, query, relevant)
-                    meta.update({"fallback": True, "llm_answer": answer, "fallback_engine": fb_meta["engine"]})
+                if cov < MIN_COVERAGE:
+                    # El LLM se salió del corpus: devolvemos la fuente, pero recortada a lo
+                    # que responde la pregunta. Volcar un artículo de 9 000 caracteres no es
+                    # una respuesta, es un pantallazo del corpus.
+                    fallback, fb_meta = _statistical_answer(agent_b, resolved, relevant)
+                    if len(fallback) > GROUNDED_MAX_CHARS:
+                        fallback = focus_text(resolved, fallback, GROUNDED_MAX_CHARS)
+                    if meta["detail"]:
+                        # Pidió más y el corpus no da más: decirlo es la respuesta honesta.
+                        fallback = f"{NO_MORE_DETAIL}\n\n{fallback}"
+                    meta.update({"fallback": True, "llm_answer": answer,
+                                 "fallback_engine": fb_meta["engine"]})
                     return fallback, meta
             return answer, meta
 
@@ -554,39 +599,45 @@ def search_query(query: str) -> str:
     return q or query
 
 
-def _key_hits(pipe, query: str):
-    """Records whose key is named in the question, fetched straight from the SHARD store."""
-    index = _KEY_INDEXES.get(getattr(pipe, "_kamvex_name", ""))
+def _build_predictors(pipe) -> list:
+    """El ensemble del Agente A para este dataset (semántico + clave + léxico + externos)."""
+    name = getattr(pipe, "_kamvex_name", "")
+    index = _KEY_INDEXES.get(name)
     reader = getattr(pipe.agent_a, "_shard_reader", None)
-    if not index or reader is None:
-        return []
-    from dasa.agent_a.retrieval_agent import Fragment
-    hits = []
-    for rank, key in enumerate(index.match(query)):
-        raw = reader.find(key)
-        if not raw:
-            continue
-        try:
-            record = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            record = {"text": str(raw)}
-        # Decreasing scores: "Departamento de Amazonas" matches Perú, Colombia and the
-        # Confederación. All three are worth showing, but only the best one goes into the
-        # grounded context — three records with three different capitals confuse a 1.5B model.
-        hits.append(Fragment(text=pipe.agent_a._record_to_text(record),
-                             score=KEY_HIT_SCORE - 0.02 * rank, source_id=key))
-    return hits
+    record_to_text = pipe.agent_a._record_to_text
+    predictors: list = [agent_a_mod.SemanticPredictor(pipe)]
+    if index is not None and reader is not None:
+        predictors.append(agent_a_mod.KeyPredictor(index, reader, record_to_text))
+        predictors.append(agent_a_mod.LexicalPredictor(index, reader, record_to_text))
+    # BM25 sobre el texto de los registros: encuentra lo que no se nombra por su clave
+    # ("explícame mis derechos"). Se construye una vez por dataset (~1 s para 64 mil).
+    text_pred = agent_a_mod.TextPredictor.from_dataset(DATA_DIR / name, record_to_text)
+    if text_pred is not None and len(text_pred):
+        predictors.append(text_pred)
+    # Predictores propios (Laya, Kev, Von, SemIf, NanoJev, jevlike…) vía KAMVEX_PREDICTORS
+    predictors.extend(agent_a_mod.predictors_from_env(reader, record_to_text, dataset=name))
+    return predictors
 
 
-def _search(pipe, query: str):
-    """Semantic search (DASA) with lexical key hits merged in front."""
-    semantic = pipe.agent_a.search(search_query(query))
-    hits = _key_hits(pipe, query)
-    if not hits:
-        return semantic
-    seen = {h.source_id for h in hits}
-    merged = hits + [f for f in semantic if f.source_id not in seen]
-    return merged[: max(len(hits), pipe.config.top_k_fragments)]
+def _predictors(pipe) -> list:
+    name = getattr(pipe, "_kamvex_name", "")
+    ens = _PREDICTORS.get(name)
+    if ens is None:
+        ens = _PREDICTORS[name] = _build_predictors(pipe)
+    return ens
+
+
+def _search(pipe, query: str, top_k: int | None = None) -> list:
+    """Agente A: todos los predictores votan y se funden sus listas."""
+    k = top_k or pipe.config.top_k_fragments
+    candidates, _info = agent_a_mod.run_ensemble(_predictors(pipe), search_query(query), k)
+    return candidates
+
+
+def _search_ex(pipe, query: str, top_k: int | None = None) -> tuple[list, dict]:
+    """Igual que `_search` pero devolviendo también qué propuso cada predictor."""
+    k = top_k or pipe.config.top_k_fragments
+    return agent_a_mod.run_ensemble(_predictors(pipe), search_query(query), k)
 
 
 # ── Health / status ─────────────────────────────────────────────────────────
@@ -785,7 +836,9 @@ def expert_chat(expert_id: str, req: ExpertChatReq):
     datasets = [req.dataset] if req.dataset else expert.datasets
     available = [d for d in datasets if (DATA_DIR / d / "meta.json").exists()]
     if not available:
-        if mode == "statistical":
+        # Un experto de corpus sin su corpus no debe responder de memoria: eso es justo la
+        # invención que evitamos. Solo el modo Libre (elegido a mano) habla sin fuentes.
+        if expert.datasets and mode != "free":
             raise HTTPException(400, f"el experto «{expert.name}» necesita su corpus: {', '.join(expert.datasets)}")
         connector = _require_connector()
         connector.set_samplers(samplers.temperature, samplers.top_p, samplers.top_k,
@@ -800,22 +853,27 @@ def expert_chat(expert_id: str, req: ExpertChatReq):
         return {"answer": answer or NO_INFO, "fragments": [], "mode": mode, "dataset": None,
                 "expert": expert.id, "meta": {"engine": "llm", "corpus": False}}
 
-    # With corpus: search every dataset of the expert and keep the best fragments.
+    # Con corpus: cada dataset del experto propone y se queda lo mejor de todos.
     t0 = time.perf_counter()
+    history = [m.model_dump() for m in req.history]
+    retrieval_query, rewrite = agent_b_mod.rewrite_query(req.query, history)
     scored: list = []
     used: list[str] = []
+    ensembles: dict = {}
     for name in available:
         try:
             pipe = _load_pipeline(name)
         except HTTPException:
             continue
-        frags = _search(pipe, req.query)
+        frags, ens = _search_ex(pipe, retrieval_query, expert.top_k)
+        ensembles[name] = ens.get("predictors", {})
         if frags:
             used.append(name)
             scored.extend((f, name, pipe) for f in frags)
     if not scored:
         return {"answer": NOT_COVERED if mode != "free" else NO_INFO, "fragments": [], "mode": mode,
-                "dataset": None, "expert": expert.id, "meta": {"engine": "none", "datasets": available}}
+                "dataset": None, "expert": expert.id,
+                "meta": {"engine": "none", "datasets": available, "rewrite": rewrite}}
 
     scored.sort(key=lambda t: t[0].score, reverse=True)
     top = scored[: max(1, expert.top_k)]
@@ -825,14 +883,16 @@ def expert_chat(expert_id: str, req: ExpertChatReq):
     t_search = time.perf_counter() - t0
 
     answer, meta = _synthesize_ex(best_pipe, mode, req.query, fragments, samplers,
-                                  free_system_prompt=expert.system_prompt or None)
+                                  free_system_prompt=expert.system_prompt or None,
+                                  history=history, resolved_query=retrieval_query)
     return {
         "answer": answer,
         "fragments": _fragments_json(fragments),
         "mode": mode,
         "dataset": best_dataset,
         "expert": expert.id,
-        "meta": {**meta, "corpus": True, "datasets": used, "search_ms": round(t_search * 1000, 1),
+        "meta": {**meta, "corpus": True, "datasets": used, "predictors": ensembles,
+                 "rewrite": rewrite, "search_ms": round(t_search * 1000, 1),
                  "total_ms": round((time.perf_counter() - t0) * 1000, 1)},
     }
 
@@ -976,15 +1036,22 @@ def export_dataset(name: str):
 def chat(req: ChatReq):
     pipe = _load_pipeline(req.dataset)
     t0 = time.perf_counter()
-    fragments = _search(pipe, req.query)
+    history = [m.model_dump() for m in req.history]
+    # Agente A no entiende "dame más explicación": la pregunta se resuelve contra la
+    # conversación antes de buscar, y el LLM la responde con el turno real a la vista.
+    retrieval_query, rewrite = agent_b_mod.rewrite_query(req.query, history)
+    fragments, ens = _search_ex(pipe, retrieval_query)
     t_search = time.perf_counter() - t0
-    answer, meta = _synthesize_ex(pipe, req.agent_b_mode, req.query, fragments, req)
+    answer, meta = _synthesize_ex(pipe, req.agent_b_mode, req.query, fragments, req, history=history,
+                                  resolved_query=retrieval_query)
     return {
         "answer": answer,
         "fragments": _fragments_json(fragments),
         "mode": req.agent_b_mode,
         "dataset": safe_name(req.dataset),
-        "meta": {**meta, "search_ms": round(t_search * 1000, 1), "total_ms": round((time.perf_counter() - t0) * 1000, 1)},
+        "meta": {**meta, **ens, "rewrite": rewrite,
+                 "search_ms": round(t_search * 1000, 1),
+                 "total_ms": round((time.perf_counter() - t0) * 1000, 1)},
     }
 
 

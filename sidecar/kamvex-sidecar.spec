@@ -35,6 +35,10 @@ a = Analysis(
     datas=[('datasets_catalog.json', '.'), ('experts_catalog.json', '.')],
     hiddenimports=[
         # ── Sidecar modules ──
+        'agent_a',          # ensemble de predictores del Agente A
+        'agent_b',          # prompt y reescritura del Agente B (el LLM)
+        'grounding',
+        'keyindex',
         'uvicorn',
         'uvicorn.logging',
         'uvicorn.protocols',

@@ -6,15 +6,45 @@
       "name": "Programación",
       "icon": "Code",
       "description": "Python, JavaScript y la web, respondido desde la documentación oficial en español. Ideal para dudas de sintaxis, APIs y comportamiento exacto del lenguaje.",
-      "datasets": ["python-docs-es", "mdn-web-es"],
+      "datasets": [
+        "python-docs-es",
+        "mdn-web-es"
+      ],
       "models": [
-        {"id": "qwen2.5-coder-3b", "name": "Qwen2.5 Coder 3B", "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF", "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Especializado en código y con contexto largo; el mejor equilibrio en CPU."},
-        {"id": "qwen2.5-coder-7b", "name": "Qwen2.5 Coder 7B", "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf", "size_mb": 4680, "reason": "Más preciso si tienes GPU o 16 GB de RAM."},
-        {"id": "qwen2.5-coder-1.5b", "name": "Qwen2.5 Coder 1.5B", "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF", "file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Para equipos modestos."}
+        {
+          "id": "qwen2.5-coder-3b",
+          "name": "Qwen2.5 Coder 3B",
+          "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+          "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Especializado en código y con contexto largo; el mejor equilibrio en CPU."
+        },
+        {
+          "id": "qwen2.5-coder-7b",
+          "name": "Qwen2.5 Coder 7B",
+          "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+          "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+          "size_mb": 4680,
+          "reason": "Más preciso si tienes GPU o 16 GB de RAM."
+        },
+        {
+          "id": "qwen2.5-coder-1.5b",
+          "name": "Qwen2.5 Coder 1.5B",
+          "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Para equipos modestos."
+        }
       ],
       "default_mode": "grounded",
       "system_prompt": "Eres un asistente de programación. Respondes con precisión técnica y ejemplos de código mínimos y correctos. Si la documentación del contexto cubre la pregunta, cítala tal cual; nunca inventes nombres de funciones, parámetros ni módulos. Si no estás seguro, dilo.",
-      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.05, "max_tokens": 512},
+      "samplers": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "top_k": 1,
+        "repeat_penalty": 1.05,
+        "max_tokens": 512
+      },
       "top_k": 5,
       "examples": [
         "¿Qué hace functools.lru_cache?",
@@ -27,14 +57,52 @@
       "name": "Salud",
       "icon": "HeartPulse",
       "description": "Temas de salud de MedlinePlus (Biblioteca Nacional de Medicina de EE. UU.) en español. Responde qué es cada enfermedad, sus síntomas y tratamientos, sin inventar.",
-      "datasets": ["medlineplus-salud-es"],
+      "datasets": [
+        "medlineplus-salud-es"
+      ],
       "models": [
-        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Redacta bien en español y basta para reformular la fuente."},
-        {"id": "qwen2.5-3b", "name": "Qwen2.5 3B", "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Respuestas más naturales si tienes RAM de sobra."}
+        {
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Redacta bien en español y basta para reformular la fuente."
+        },
+        {
+          "id": "qwen2.5-3b",
+          "name": "Qwen2.5 3B",
+          "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+          "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Respuestas más naturales si tienes RAM de sobra."
+        },
+        {
+          "id": "gemma-2-2b",
+          "name": "Gemma 2 2B",
+          "repo": "bartowski/gemma-2-2b-it-GGUF",
+          "file": "gemma-2-2b-it-Q4_K_M.gguf",
+          "size_mb": 1710,
+          "reason": "Google; redacta español natural con poca memoria."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        }
       ],
       "default_mode": "grounded",
       "system_prompt": "Eres un divulgador de salud. Explicas con claridad y solo con información del contexto (MedlinePlus). No das diagnósticos ni dosis: recuerdas que la decisión es del profesional de salud. Si el contexto no cubre la pregunta, lo dices.",
-      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.1, "max_tokens": 400},
+      "samplers": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "top_k": 1,
+        "repeat_penalty": 1.1,
+        "max_tokens": 400
+      },
       "top_k": 4,
       "examples": [
         "¿Qué es la diabetes tipo 2?",
@@ -47,13 +115,44 @@
       "name": "Leyes del Perú",
       "icon": "Scale",
       "description": "La Constitución Política del Perú artículo por artículo. Cita el texto exacto: ideal para saber qué dice realmente la norma.",
-      "datasets": ["constitucion-peru-1993"],
-      "models": [
-        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Suficiente: el texto legal se cita, no se reinterpreta."}
+      "datasets": [
+        "constitucion-peru-1993"
       ],
-      "default_mode": "statistical",
+      "models": [
+        {
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Suficiente: el texto legal se cita, no se reinterpreta."
+        },
+        {
+          "id": "gemma-2-2b",
+          "name": "Gemma 2 2B",
+          "repo": "bartowski/gemma-2-2b-it-GGUF",
+          "file": "gemma-2-2b-it-Q4_K_M.gguf",
+          "size_mb": 1710,
+          "reason": "Google; redacta español natural con poca memoria."
+        },
+        {
+          "id": "gemma-3-1b",
+          "name": "Gemma 3 1B",
+          "repo": "unsloth/gemma-3-1b-it-GGUF",
+          "file": "gemma-3-1b-it-Q4_K_M.gguf",
+          "size_mb": 806,
+          "reason": "El más ligero que redacta español decente; arranca en cualquier equipo."
+        }
+      ],
+      "default_mode": "grounded",
       "system_prompt": "Eres un asistente jurídico. Citas el texto normativo tal como está, indicando el artículo. No interpretas ni das asesoría legal: señalas lo que dice la norma y recomiendas consultar a un abogado para un caso concreto.",
-      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.0, "max_tokens": 400},
+      "samplers": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "top_k": 1,
+        "repeat_penalty": 1.0,
+        "max_tokens": 400
+      },
       "top_k": 4,
       "examples": [
         "¿Qué dice el Artículo 2?",
@@ -66,11 +165,44 @@
       "name": "Lengua española",
       "icon": "BookA",
       "description": "Diccionario de 64 mil lemas. Significado exacto de una palabra, sin adornos ni invenciones.",
-      "datasets": ["diccionario-es"],
-      "models": [],
-      "default_mode": "statistical",
+      "datasets": [
+        "diccionario-es"
+      ],
+      "models": [
+        {
+          "id": "gemma-2-2b",
+          "name": "Gemma 2 2B",
+          "repo": "bartowski/gemma-2-2b-it-GGUF",
+          "file": "gemma-2-2b-it-Q4_K_M.gguf",
+          "size_mb": 1710,
+          "reason": "Google; redacta español natural con poca memoria."
+        },
+        {
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Más ligero; suficiente para parafrasear una definición."
+        },
+        {
+          "id": "gemma-3-1b",
+          "name": "Gemma 3 1B",
+          "repo": "unsloth/gemma-3-1b-it-GGUF",
+          "file": "gemma-3-1b-it-Q4_K_M.gguf",
+          "size_mb": 806,
+          "reason": "El más ligero que redacta español decente; arranca en cualquier equipo."
+        }
+      ],
+      "default_mode": "grounded",
       "system_prompt": "Eres un diccionario. Das la definición del corpus, literal y breve.",
-      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.0, "max_tokens": 200},
+      "samplers": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "top_k": 1,
+        "repeat_penalty": 1.0,
+        "max_tokens": 200
+      },
       "top_k": 3,
       "examples": [
         "¿Qué significa efímero?",
@@ -83,13 +215,44 @@
       "name": "Perú (cultura y geografía)",
       "icon": "Landmark",
       "description": "Wikipedia en español sobre el Perú: departamentos, historia, gastronomía, personajes e instituciones.",
-      "datasets": ["wikipedia-es-peru"],
+      "datasets": [
+        "wikipedia-es-peru"
+      ],
       "models": [
-        {"id": "qwen2.5-1.5b", "name": "Qwen2.5 1.5B", "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF", "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf", "size_mb": 1120, "reason": "Redacta resúmenes correctos en español."}
+        {
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Redacta resúmenes correctos en español."
+        },
+        {
+          "id": "gemma-2-2b",
+          "name": "Gemma 2 2B",
+          "repo": "bartowski/gemma-2-2b-it-GGUF",
+          "file": "gemma-2-2b-it-Q4_K_M.gguf",
+          "size_mb": 1710,
+          "reason": "Google; redacta español natural con poca memoria."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        }
       ],
       "default_mode": "grounded",
       "system_prompt": "Respondes sobre el Perú usando solo los artículos del contexto. Si el dato no está, lo dices en vez de suponerlo.",
-      "samplers": {"temperature": 0.0, "top_p": 1.0, "top_k": 1, "repeat_penalty": 1.1, "max_tokens": 400},
+      "samplers": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "top_k": 1,
+        "repeat_penalty": 1.1,
+        "max_tokens": 400
+      },
       "top_k": 5,
       "examples": [
         "¿Cuál es la capital del departamento de Amazonas?",
@@ -104,12 +267,48 @@
       "description": "Conversación libre con el modelo, sin base de conocimiento. Útil para redactar, traducir o razonar sobre lo que le pegues en el chat.",
       "datasets": [],
       "models": [
-        {"id": "qwen2.5-3b", "name": "Qwen2.5 3B", "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF", "file": "qwen2.5-3b-instruct-q4_k_m.gguf", "size_mb": 2100, "reason": "Buen equilibrio general en español."},
-        {"id": "llama-3.2-3b", "name": "Llama 3.2 3B", "repo": "unsloth/Llama-3.2-3B-Instruct-GGUF", "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf", "size_mb": 2020, "reason": "Alternativa de Meta, multilingüe."}
+        {
+          "id": "qwen2.5-3b",
+          "name": "Qwen2.5 3B",
+          "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+          "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Buen equilibrio general en español."
+        },
+        {
+          "id": "llama-3.2-3b",
+          "name": "Llama 3.2 3B",
+          "repo": "unsloth/Llama-3.2-3B-Instruct-GGUF",
+          "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+          "size_mb": 2020,
+          "reason": "Alternativa de Meta, multilingüe."
+        },
+        {
+          "id": "gemma-2-9b",
+          "name": "Gemma 2 9B",
+          "repo": "bartowski/gemma-2-9b-it-GGUF",
+          "file": "gemma-2-9b-it-Q4_K_M.gguf",
+          "size_mb": 5760,
+          "reason": "Google; la mejor redacción de la lista si tienes 16 GB de RAM."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        }
       ],
       "default_mode": "free",
       "system_prompt": "Eres KAMVEX, un asistente local. Respondes en el idioma del usuario, de forma directa y honesta. Si no sabes algo, lo dices.",
-      "samplers": {"temperature": 0.7, "top_p": 0.95, "top_k": 40, "repeat_penalty": 1.1, "max_tokens": 600},
+      "samplers": {
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repeat_penalty": 1.1,
+        "max_tokens": 600
+      },
       "top_k": 5,
       "examples": [
         "Resume este texto: …",

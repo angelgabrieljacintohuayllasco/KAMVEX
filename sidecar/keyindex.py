@@ -20,6 +20,18 @@ from pathlib import Path
 MAX_NGRAM = 6
 FUZZY_MIN_LEN = 5
 KEY_HIT_SCORE = 1.0
+# Un diccionario tiene entradas para "y", "de" o "una". Sin esto, "y el artículo 35?"
+# coincide con la conjunción *y* y esa entrada gana con score 1.0.
+STOPWORD_KEYS = set("""
+a al algo alguna algunas alguno algunos ante antes aqui asi aun aunque cada como con contra cual
+cuales cuando cuanto de del desde donde dos e el ella ellas ellos en entre era eran es esa esas
+ese eso esos esta estas este esto estos fue ha hay la las le les lo los mas me mi mis mucho muy
+nada ni no nos o os otra otras otro otros para pero poco por porque pues que quien se sea ser si
+sin so sobre solo son su sus tal tan tanto te ti tu tus un una unas uno unos ya yo
+""".split())
+# Solo se ignoran si la pregunta es más larga que la propia clave: preguntar literalmente
+# "¿qué significa 'de'?" sí debe encontrar la preposición.
+MIN_QUERY_WORDS_TO_IGNORE_STOPWORDS = 3
 
 
 def _normalize(text: str) -> str:
@@ -78,19 +90,30 @@ class KeyIndex:
         return len(self.keys)
 
     def match(self, query: str, limit: int = 3) -> list[str]:
-        """Record keys named in the query, best first.
+        """Record keys named in the query, best first."""
+        return [k for k, _kind in self.match_kinds(query, limit)]
+
+    def match_kinds(self, query: str, limit: int = 3) -> list[tuple[str, str]]:
+        """Como `match`, pero diciendo **cómo** coincidió cada clave.
+
+        `exact` = la pregunta contiene la clave entera ("Artículo 2"), y eso es tan fuerte
+        que manda sobre cualquier otro predictor. `prefix` = la clave empieza por el
+        término ("departamento de amazonas" → "… (Perú)"). `fuzzy` = a una letra de
+        distancia (efimero → efémero). Los dos últimos son pistas, no certezas.
 
         Longest n-gram wins; among ties, exact key equality beats prefix matches and
-        shorter keys beat longer ones. Single-word terms also match keys at edit
-        distance 1 (efimero → efémero).
+        shorter keys beat longer ones.
         """
         words = _normalize(query).split()
         if not words:
             return []
+        skip_stopwords = len(words) >= MIN_QUERY_WORDS_TO_IGNORE_STOPWORDS
         scored: dict[str, tuple[int, int, int]] = {}
         for n in range(min(MAX_NGRAM, len(words)), 0, -1):
             for i in range(0, len(words) - n + 1):
                 gram = " ".join(words[i:i + n])
+                if skip_stopwords and n == 1 and gram in STOPWORD_KEYS:
+                    continue
                 exact = self._by_norm.get(gram, [])
                 for k in exact:
                     scored.setdefault(k, (n, 0, len(gram)))
@@ -109,11 +132,12 @@ class KeyIndex:
         if not scored:
             # fuzzy single word: the extracted term may be misspelled or accented differently
             for w in words:
-                if len(w) < FUZZY_MIN_LEN:
+                if len(w) < FUZZY_MIN_LEN or (skip_stopwords and w in STOPWORD_KEYS):
                     continue
                 for norm, ks in self._single.items():
                     if _lev1(w, norm):
                         for k in ks:
                             scored.setdefault(k, (1, 2, len(norm)))
         ranked = sorted(scored.items(), key=lambda kv: (-kv[1][0], kv[1][1], kv[1][2], kv[0]))
-        return [k for k, _ in ranked[:limit]]
+        kinds = ("exact", "prefix", "fuzzy")
+        return [(k, kinds[v[1]]) for k, v in ranked[:limit]]

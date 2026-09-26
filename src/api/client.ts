@@ -460,8 +460,22 @@ export async function datasetSummary(name: string): Promise<string> {
 
 // ── Chat ────────────────────────────────────────────────────────────────────
 
-export function chat(dataset: string, query: string, agentBMode = "statistical", samplers?: SamplerOpts) {
-  return postJson<ChatResponse>("/chat", { dataset, query, agent_b_mode: agentBMode, ...(samplers ?? {}) });
+export function chat(
+  dataset: string,
+  query: string,
+  agentBMode = "statistical",
+  samplers?: SamplerOpts,
+  history: ChatTurn[] = [],
+) {
+  // El historial no es adorno: Agente B reescribe "dame mas explicacion" contra el ultimo
+  // tema antes de buscar. Sin el, el recuperador busca la palabra "explicacion".
+  return postJson<ChatResponse>("/chat", {
+    dataset,
+    query,
+    agent_b_mode: agentBMode,
+    history,
+    ...(samplers ?? {}),
+  });
 }
 
 export function freeChat(query: string, samplers?: SamplerOpts, history: ChatTurn[] = [], systemPrompt = "") {

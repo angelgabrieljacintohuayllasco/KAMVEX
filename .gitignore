@@ -60,3 +60,5 @@ MISSION-*.md
 # Dataset sources and built .kamvex bundles (published as release assets, not committed)
 datasets-src/
 datasets-out/
+# Casas de QA: corpus desempaquetados y logs de las corridas del arnés.
+qa-home*/

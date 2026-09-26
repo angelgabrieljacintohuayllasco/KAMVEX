@@ -1,6 +1,6 @@
 [package]
 name = "kamvex"
-version = "0.3.0"
+version = "0.4.0"
 description = "KAMVEX — local AI workspace: llama.cpp inference + DASA/SHARD anti-hallucination RAG"
 authors = ["Angel Gabriel Jacinto Huayllasco"]
 edition = "2021"
@@ -28,3 +28,9 @@ sysinfo = "0.33"
 reqwest = { version = "0.12", features = ["blocking"] }
 zip = "4"
 
+
+[features]
+# Sin esta feature, `cargo build --release` produce un binario que sigue pidiendo el
+# servidor de desarrollo (devUrl) en vez de servir `dist/` empotrado. La plantilla de
+# Tauri la trae; aquí faltaba y por eso la app compilada mostraba ERR_CONNECTION_REFUSED.
+custom-protocol = ["tauri/custom-protocol"]

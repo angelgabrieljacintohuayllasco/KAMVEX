@@ -81,10 +81,24 @@ def test_expert_chat_without_corpus_uses_prompt_and_samplers(sidecar, monkeypatc
     assert conn.samplers[0][0] == 0.7
 
 
-def test_expert_chat_requires_corpus_for_statistical(sidecar):
-    r = sidecar.post("/experts/lengua/chat", json={"expert": "lengua", "query": "qué es huevo"})
-    assert r.status_code == 400
-    assert "corpus" in r.json()["detail"]
+def test_expert_chat_requires_its_corpus(sidecar):
+    """Sin su corpus, un experto de corpus no responde de memoria: falla claro."""
+    for mode in (None, "statistical", "grounded"):
+        body = {"expert": "lengua", "query": "qué es huevo"}
+        if mode:
+            body["mode"] = mode
+        r = sidecar.post("/experts/lengua/chat", json=body)
+        assert r.status_code == 400, mode
+        assert "corpus" in r.json()["detail"]
+
+
+def test_expert_free_mode_works_without_corpus(sidecar, monkeypatch):
+    """El modo Libre lo elige el usuario a mano: ahí sí habla el LLM solo."""
+    monkeypatch.setattr(server, "_LLAMA_CONNECTOR", FakeConnector(reply="Un huevo es un huevo."))
+    r = sidecar.post("/experts/lengua/chat",
+                     json={"expert": "lengua", "query": "qué es huevo", "mode": "free"})
+    assert r.status_code == 200, r.text
+    assert r.json()["meta"] == {"engine": "llm", "corpus": False}
 
 
 @pytest.mark.skipif(not server._DASA_AVAILABLE, reason="DASA/SHARD not importable")

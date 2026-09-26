@@ -42,6 +42,9 @@ relacionado relacionada caracteriza caracterizan conocido conocida llamado llama
 # reduced to the sentences that actually answer the question.
 GROUNDED_MAX_FRAGMENTS = 3
 GROUNDED_MAX_CHARS = 900
+# Cuando el usuario pide más detalle y el corpus no lo tiene, decirlo es la respuesta
+# correcta. Rellenar con lo que el modelo crea recordar es exactamente lo que no queremos.
+NO_MORE_DETAIL = "No hay más detalle en las fuentes disponibles. Esto es lo que recogen:"
 SENTENCE_RE = re.compile(r"(?<=[.!?:])\s+|\n+")
 
 
@@ -151,16 +154,21 @@ def stem(tok: str) -> str:
     return tok[:STEM_LEN] if len(tok) > STEM_LEN else tok
 
 
-def content_terms(text: str) -> set[str]:
-    """Stemmed content words: no stopwords, no very short tokens (numbers are kept)."""
-    out = set()
+def content_tokens(text: str) -> list[str]:
+    """Como `content_terms`, pero conservando repeticiones: BM25 necesita las frecuencias."""
+    out = []
     for tok in tokens(text):
         if tok in _STOPWORDS:
             continue
         if len(tok) < 4 and not tok.isdigit():
             continue
-        out.add(stem(tok))
+        out.append(stem(tok))
     return out
+
+
+def content_terms(text: str) -> set[str]:
+    """Stemmed content words: no stopwords, no very short tokens (numbers are kept)."""
+    return set(content_tokens(text))
 
 
 def coverage(answer: str, fragments) -> tuple[float, list[str]]:
@@ -183,6 +191,42 @@ def extract_term(query: str) -> str:
     cleaned = _QUERY_PREFIX_RE.sub("", query.strip())
     term = re.split(r"[?¿!.,;:]", cleaned)[0].strip().strip("'\"«»")
     return term
+
+
+# El reescritor estadístico de DASA encadena oraciones con conectores propios ("Además,",
+# "Asimismo,"…). No aportan datos, pero en una cita legal falsean el texto: el Artículo 2
+# no dice "1. Además, a la vida". Se quitan cuando la oración sin el conector sí está
+# literal en las fuentes, que es la prueba de que fue inyectado.
+INJECTED_CONNECTORS = (
+    "Además,", "Asimismo,", "Por otro lado,", "En este sentido,", "Cabe destacar que",
+    "De acuerdo con la información disponible,", "Finalmente,",
+)
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def strip_injected_connectors(answer: str, fragments) -> str:
+    """Devuelve `answer` sin los conectores que el reescritor añadió a las oraciones."""
+    if not answer:
+        return answer
+    sources = _flat(" ".join(getattr(f, "text", "") for f in fragments)).lower()
+    if not sources:
+        return answer
+    out = []
+    for sentence in split_sentences(answer):
+        for conn in INJECTED_CONNECTORS:
+            if not sentence.lower().startswith(conn.lower()):
+                continue
+            if _flat(sentence).lower()[:60] in sources:
+                break                      # el conector es del corpus, no lo añadió nadie
+            rest = sentence[len(conn):].lstrip()
+            if rest and _flat(rest).lower()[:60] in sources:
+                sentence = rest[0].upper() + rest[1:]
+            break
+        out.append(sentence)
+    return " ".join(out)
 
 
 def exact_definition_answer(query: str, fragments) -> str | None:

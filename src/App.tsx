@@ -244,7 +244,7 @@ export default function App() {
       } else if (federated) {
         res = await federatedChat(query, agentBMode, samplers);
       } else {
-        res = await chat(selectedDataset!, query, agentBMode, samplers);
+        res = await chat(selectedDataset!, query, agentBMode, samplers, history);
       }
       appendMessage(convId, { role: "assistant", content: res.answer, fragments: res.fragments });
     } catch (e) {
