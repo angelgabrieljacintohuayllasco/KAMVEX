@@ -189,6 +189,7 @@ answer uses the LLM (grounded when the corpus is relevant); otherwise it is stat
 | `KAMVEX_PREDICTORS` | Your own Agent A predictors: `name=url,name=url` (loopback http or https) |
 | `KAMVEX_CHOOSER` | `logit` scores the options off llama-server (SemIf's technique); `off` by default |
 | `KAMVEX_CHOOSERS` | Your own decision models (Laya, Kev, Von, SemIf, NanoJev): `name=url,name=url` |
+| `KAMVEX_CORS_ORIGINS` | Extra browser origins; error responses carry CORS too, by design |
 | `KAMVEX_CORS_ORIGINS` | Extra browser origins allowed to call the sidecar |
 | `KAMVEX_PYTHON` | Interpreter for `sidecar/server.py` in dev (default `python`) |
 | `KAMVEX_SIDECAR_BIN` / `KAMVEX_USE_SIDECAR_BIN=1` | Force a sidecar executable |

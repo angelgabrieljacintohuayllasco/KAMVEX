@@ -43,10 +43,12 @@ def test_build_list_and_statistical_chat(sidecar):
     assert str(target.get("definition", ""))[:20] in top_text or str(target.get("lemma", "")) in top_text
     assert resp["answer"]
 
-    # grounded / free without an inference engine -> 400, never a silent fallback
+    # grounded / free without an inference engine -> 503 con un mensaje que diga qué hacer,
+    # nunca una respuesta silenciosa que parezca buena
     for mode in ("grounded", "free"):
         r = sidecar.post("/chat", json={"dataset": "demo", "query": q, "agent_b_mode": mode})
-        assert r.status_code == 400, r.text
+        assert r.status_code == 503, r.text
+        assert "modelo" in r.json()["detail"].lower()
     assert sidecar.get("/inference/status").json()["connected"] is False
 
 

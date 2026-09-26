@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Section, Button, SegmentedControl } from "../../components/ui";
 import { useI18n } from "../../i18n";
+import { errorMessage } from "../../api/errors";
 
 export default function GeneralPanel() {
   const { lang, setLang, t } = useI18n();
@@ -31,7 +32,7 @@ export default function GeneralPanel() {
               const result = await invoke<string | null>("check_updates");
               setUpdateMsg(result ? `${t("settings.updateAvailable")} ${result}` : t("settings.upToDate"));
             } catch (e) {
-              setUpdateMsg(String(e));
+              setUpdateMsg(errorMessage(e));
             } finally {
               setUpdateBusy(false);
             }

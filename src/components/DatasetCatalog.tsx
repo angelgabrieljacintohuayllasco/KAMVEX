@@ -13,6 +13,7 @@ import {
 } from "../api/client";
 import { Badge, Button, Card } from "./ui";
 import { useI18n } from "../i18n";
+import { errorMessage } from "../api/errors";
 
 type Progress = Record<string, DownloadProgress & { downloadId: string }>;
 
@@ -40,7 +41,7 @@ export default function DatasetCatalog({ onChanged, embedReady }: { onChanged: (
     setLoading(true);
     datasetsCatalog()
       .then((c) => setItems(c.datasets))
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -83,7 +84,7 @@ export default function DatasetCatalog({ onChanged, embedReady }: { onChanged: (
       const res = await installDataset({ id: d.id });
       track(d.id, res.download_id);
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     }
   }
 
@@ -97,7 +98,7 @@ export default function DatasetCatalog({ onChanged, embedReady }: { onChanged: (
       onChanged();
       reload();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setImporting(false);
     }

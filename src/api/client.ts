@@ -152,32 +152,64 @@ async function base(): Promise<string> {
   return _base;
 }
 
+/** Un fallo con mensaje para la persona y, aparte, el detalle tecnico para el registro. */
+export class KamvexError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly path: string,
+  ) {
+    super(message);
+    this.name = "KamvexError";
+  }
+}
+
+/** "TypeError: Failed to fetch" no le dice nada a nadie: significa que el sidecar no
+ *  contesto (aun arrancando, caido, o una respuesta sin CORS). Se traduce a algo accionable. */
+function networkError(path: string, e: unknown): KamvexError {
+  const causa = e instanceof Error ? e.message : String(e);
+  return new KamvexError(
+    "El motor local de KAMVEX no responde. Espera unos segundos a que termine de arrancar; " +
+      "si sigue igual, cierra y vuelve a abrir la aplicacion.",
+    0,
+    `${path} (${causa})`,
+  );
+}
+
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${await base()}${path}`, init);
+  } catch (e) {
+    throw networkError(path, e);
+  }
+}
+
 async function getJson<T>(path: string, fallback?: T): Promise<T> {
-  const r = await fetch(`${await base()}${path}`);
+  const r = await request(path);
   if (!r.ok) {
     if (fallback !== undefined) return fallback;
-    throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+    throw new KamvexError(await errorText(r), r.status, path);
   }
   return r.json();
 }
 
 async function postJson<T>(path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${await base()}${path}`, {
+  const r = await request(path, {
     method: "POST",
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+  if (!r.ok) throw new KamvexError(await errorText(r), r.status, path);
   return r.json();
 }
 
 async function del<T>(path: string): Promise<T> {
-  const r = await fetch(`${await base()}${path}`, { method: "DELETE" });
-  if (!r.ok) throw new Error(`${path} ${r.status}: ${await errorText(r)}`);
+  const r = await request(path, { method: "DELETE" });
+  if (!r.ok) throw new KamvexError(await errorText(r), r.status, path);
   return r.json();
 }
 
-/** FastAPI puts the human message in `detail`; surface it instead of raw JSON. */
+/** El mensaje para la persona viene en `detail`; el JSON crudo no se ensena nunca. */
 async function errorText(r: Response): Promise<string> {
   const text = await r.text();
   try {

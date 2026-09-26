@@ -38,6 +38,8 @@ a = Analysis(
         'agent_a',          # ensemble de predictores del Agente A
         'agent_b',          # prompt y reescritura del Agente B (el LLM)
         'chooser',          # capa de decision entre A y B (Laya/SemIf/NanoJev...)
+        'context',          # presupuesto de tokens del prompt
+        'errors',           # manejadores y mensajes accionables
         'grounding',
         'keyindex',
         'uvicorn',

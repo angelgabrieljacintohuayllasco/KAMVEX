@@ -2,6 +2,53 @@
 
 All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] — 2026-09-26
+
+The app showed a red **"TypeError: Failed to fetch"** when asked a question. Everything in
+this release comes from chasing that one line.
+
+### Fixed
+- **The context was 2048 tokens on a machine with 30 GB of RAM.** `autotune.rs` clamped it
+  whenever it saw an integrated GPU, and an integrated GPU has no memory of its own — its
+  "VRAM" is a window onto system RAM. A normal grounded prompt asks for 3692 tokens, so
+  llama-server answered 400 and the answer never arrived. The ceiling now comes from the
+  memory that actually holds the KV cache: free VRAM for a discrete card, system RAM
+  otherwise. Measured on the machine that failed: 2048 → **8192**.
+- **A 500 reached the browser with no CORS headers, so `fetch` failed as if the server did
+  not exist.** In Starlette `ServerErrorMiddleware` is the outermost layer, outside
+  `CORSMiddleware`, so an unhandled exception bypasses it. `sidecar/errors.py` now installs
+  a pure-ASGI safety net *inside* CORS — no body buffering, so SSE downloads keep
+  streaming — and every error answer carries JSON, CORS and a sentence saying what to do.
+- **`_decide` indexed `candidates[0]` before checking the list was non-empty**, so a query
+  with no results crashed with `IndexError` instead of answering.
+- **A bad dataset name was answered with 503 instead of 400** when no model was loaded:
+  `/datasets/{name}/summary` checked the engine before validating the name, which would
+  have hidden a path-traversal attempt behind an unrelated error.
+- **Five catalog entries could not be downloaded at all** (`qwen2.5-7b`, `qwq-32b`,
+  `qwen3-30b-a3b`, `moondream2`, `mxbai-embed-large`: 404 or gated) and five declared the
+  wrong size. `scripts/qa/check_models.py` now verifies every `repo`/`file` in both
+  catalogs against Hugging Face and can correct the sizes; all 42 entries pass.
+
+### Added
+- **Handlers for everything.** `classify()` maps any exception to an HTTP code and an
+  actionable Spanish sentence: context full → 413, engine down → 503, model loading → 503,
+  out of memory → 507, no disk → 507, network → 502. Internal text goes to the log, never
+  to the screen. A sweep test walks every declared route and asserts none can answer with a
+  mute 500 or a body the browser cannot read.
+- **The prompt is measured before it is sent.** `sidecar/context.py` reads the live `n_ctx`
+  from llama-server's `/props` and budgets the prompt against it. When it does not fit, the
+  conversation goes first, then the lower-ranked sources, then their text — the rules and
+  the question are never touched. If the server still says no, the reply carries the real
+  `n_ctx` and the retry uses it; only then does the user see a 413 that explains itself.
+- **Ten large models**, every URL verified: Qwen3 14B/32B, Qwen2.5 32B, Qwen2.5 Coder
+  14B/32B, Gemma 2 27B, Gemma 3 27B, Mistral Small 24B, gpt-oss 20B and Llama 3.3 70B.
+  The catalog now spans 0.5B to 70B, and the RAM-aware recommender picks what fits.
+- Context presets raised to 4096 / 8192 / 16384. KAMVEX is a RAG app: the prompt carries a
+  question, several sources and the conversation, and 2048 never fit any of it.
+- `src/api/errors.ts`: one place that turns any failure into a sentence. Twenty call sites
+  across the UI stopped printing `String(e)`, which is how "TypeError: Failed to fetch" and
+  "[object Object]" reached the screen.
+
 ## [0.5.0] — 2026-09-26
 
 ### Added

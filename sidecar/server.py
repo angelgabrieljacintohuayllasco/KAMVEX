@@ -41,7 +41,6 @@ if _SIBLINGS is not None:
             sys.path.insert(0, str(_p))
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
@@ -82,6 +81,8 @@ from grounding import (DETERMINISTIC_SEED, GROUNDED_MAX_CHARS, MIN_COVERAGE,  # 
                        NO_MORE_DETAIL, exact_definition_answer, focus_text,
                        grounded_messages, strip_injected_connectors, trim_fragments)
 import agent_a as agent_a_mod  # noqa: E402
+import context as ctx_mod  # noqa: E402
+import errors as errors_mod  # noqa: E402
 import agent_b as agent_b_mod  # noqa: E402
 import chooser as chooser_mod  # noqa: E402
 import experts as experts_mod  # noqa: E402
@@ -99,6 +100,8 @@ MODES = ("statistical", "grounded", "free")
 # not cover the question. Grounded mode must then say so instead of inventing.
 GROUNDED_MIN_SCORE = 0.40
 NO_INFO = "No se encontró información relevante en el corpus para esta consulta."
+# Tokens que se reservan para el resumen de un dataset.
+SUMMARY_MAX_TOKENS = 400
 NOT_COVERED = "La información disponible no cubre este tema."
 DEFAULT_FREE_SYSTEM_PROMPT = "Eres KAMVEX, un asistente local. Responde de forma natural, útil y concisa."
 SOURCE_FILES = ("json", "jsonl", "csv")
@@ -128,9 +131,11 @@ def _cors_origins() -> list[str]:
 app = FastAPI(title="KAMVEX sidecar", version=VERSION)
 # Browser origins only: the Tauri webview and the Vite dev server. Server-to-server
 # clients of the OpenAI-compatible API (Jan, Open WebUI, curl) are not subject to CORS.
-app.add_middleware(
-    CORSMiddleware, allow_origins=_cors_origins(), allow_methods=["*"], allow_headers=["*"],
-)
+# El orden importa: `install` registra la red de seguridad y **después** CORS, porque
+# `add_middleware` inserta al principio y el último queda más externo. Si CORS quedara por
+# dentro, un 500 saldría sin cabeceras y el navegador lo vería como «Failed to fetch».
+errors_mod.install(app, {"allow_origins": _cors_origins(),
+                         "allow_methods": ["*"], "allow_headers": ["*"]})
 
 _JOBS: dict[str, BuildJob] = {}
 _PIPELINES: dict = {}
@@ -187,9 +192,108 @@ def _require_profile(profile: str) -> str:
     return profile
 
 
+_CTX_CACHE: dict[str, int] = {}
+
+
+def _live_ctx(connector) -> int:
+    """El `n_ctx` que tiene cargado el servidor, preguntado una vez por modelo.
+
+    Se pregunta en vez de suponerlo: el usuario cambia de modelo desde la app y cada GGUF
+    trae el suyo. Si el servidor no contesta se usa el valor por defecto, que es prudente.
+    """
+    base = getattr(connector, "base_url", "") or ""
+    if not base:
+        return ctx_mod.DEFAULT_CTX
+    if base not in _CTX_CACHE:
+        _CTX_CACHE[base] = ctx_mod.probe_ctx(base) or ctx_mod.DEFAULT_CTX
+    return _CTX_CACHE[base]
+
+
+def _prompt_budget(connector, max_tokens: int) -> int:
+    """Cuántos tokens puede ocupar el prompt dejando sitio para la respuesta."""
+    return ctx_mod.prompt_budget(_live_ctx(connector), max_tokens)
+
+
+def _ask(connector, msgs: list[dict], rebuild=None) -> str:
+    """Llama al modelo y, si el prompt no cabe, recorta y vuelve a intentarlo.
+
+    `rebuild(budget)` reconstruye el prompt con menos material. La primera respuesta del
+    servidor trae el `n_ctx` real, así que el segundo intento ya va con el número bueno en
+    vez de con la estimación.
+    """
+    try:
+        return (connector(msgs) or "").strip()
+    except RuntimeError as e:
+        info = errors_mod.context_overflow(str(e))
+        if info is None or rebuild is None:
+            raise
+        cabe = info.get("disponibles") or 0
+        if cabe > 0:
+            _CTX_CACHE[getattr(connector, "base_url", "")] = cabe
+        # Dos tercios de lo que de verdad cabe: deja sitio de sobra para la respuesta.
+        segundo = max(ctx_mod.MIN_PROMPT_TOKENS, int(cabe * 0.66)) if cabe else ctx_mod.MIN_PROMPT_TOKENS
+        try:
+            return (connector(rebuild(segundo)) or "").strip()
+        except RuntimeError as e2:
+            info2 = errors_mod.context_overflow(str(e2)) or info
+            raise HTTPException(413, errors_mod.overflow_message(info2)) from e2
+
+
+def _fit_chat(messages: list[dict], budget: int) -> list[dict]:
+    """Suelta los turnos más viejos hasta que la conversación quepa.
+
+    El mensaje de sistema y la última pregunta no se tocan: son lo que hace falta para que
+    haya respuesta. Si ni con eso cabe, se recorta el final de la propia pregunta, que es
+    mejor que un 400 del servidor.
+    """
+    if not messages or ctx_mod.messages_tokens(messages) <= budget:
+        return messages
+    if len(messages) <= 2:
+        cabeza, ultimo = messages[0], messages[-1]
+        limite = max(200, int((budget - ctx_mod.messages_tokens([cabeza])) * ctx_mod.CHARS_PER_TOKEN))
+        return [cabeza, {**ultimo, "content": (ultimo.get("content") or "")[:limite]}]
+    cabeza, ultimo, medio = messages[0], messages[-1], list(messages[1:-1])
+    while medio and ctx_mod.messages_tokens([cabeza, *medio, ultimo]) > budget:
+        medio.pop(0)
+    return _fit_chat([cabeza, *medio, ultimo], budget) if medio else _fit_chat([cabeza, ultimo], budget)
+
+
+def _fit_fragments(fragments, query: str, budget: int):
+    """Menos fuentes, y más cortas, hasta que el material quepa.
+
+    El modo Libre arma su prompt dentro de DASA, que no se toca. Lo que sí se controla es
+    cuánto material se le entrega: ahí es donde se evita el desbordamiento.
+    """
+    if not fragments:
+        return fragments
+    margen = max(ctx_mod.MIN_PROMPT_TOKENS, int(budget * 0.7))
+    for n in range(len(fragments), 0, -1):
+        for chars in (GROUNDED_MAX_CHARS, 700, 450, 250):
+            recortados = [_shorten(f, query, chars) for f in fragments[:n]]
+            if sum(ctx_mod.estimate_tokens(f.text) for f in recortados) <= margen:
+                return recortados
+    return [_shorten(fragments[0], query, 250)]
+
+
+def _shorten(fragment, query: str, chars: int):
+    """Una copia del fragmento con el texto centrado en lo que se pregunta."""
+    texto = getattr(fragment, "text", "") or ""
+    if len(texto) <= chars:
+        return fragment
+    recortado = focus_text(query, texto, chars)
+    try:
+        import copy
+        clon = copy.copy(fragment)
+        clon.text = recortado
+        return clon
+    except (AttributeError, TypeError):
+        return fragment
+
+
 def _require_connector() -> LlamaCppConnector:
+    """El motor apagado es 503 (servicio no disponible), no 400 (culpa del cliente)."""
     if _LLAMA_CONNECTOR is None:
-        raise HTTPException(400, "No hay motor de inferencia activo. Inicia un modelo en Modelos.")
+        raise HTTPException(503, errors_mod.SIN_MOTOR)
     return _LLAMA_CONNECTOR
 
 
@@ -548,9 +652,15 @@ def _synthesize_ex(pipe, mode: str, query: str, fragments, s: SamplerFields,
             else:
                 connector.set_samplers(s.temperature, s.top_p, s.top_k, s.repeat_penalty, s.max_tokens)
             agent_b._llm_callable = connector
-            msgs = agent_b_mod.messages(query, relevant, history=history,
-                                        system_extra=free_system_prompt or "")
-            raw = (connector(msgs) or "").strip()
+            presupuesto = _prompt_budget(connector, s.max_tokens)
+
+            def _armar(limite: int) -> list[dict]:
+                return agent_b_mod.messages(query, relevant, history=history,
+                                            system_extra=free_system_prompt or "",
+                                            budget=limite)
+
+            msgs = _armar(presupuesto)
+            raw = _ask(connector, msgs, _armar)
             # Un modelo pequeño copia el prompt y luego añade la negativa al final. Las dos
             # cosas se limpian antes de medir: si no, el guardarraíl mide el ruido. Se le
             # pasa el prompt entero para reconocer el eco por comparación, no por olfato.
@@ -589,10 +699,29 @@ def _synthesize_ex(pipe, mode: str, query: str, fragments, s: SamplerFields,
         connector.set_samplers(s.temperature, s.top_p, s.top_k, s.repeat_penalty, s.max_tokens)
         agent_b._llm_callable = connector
         original_prompt = getattr(agent_b, "_free_system_prompt", None)
+        presupuesto = _prompt_budget(connector, s.max_tokens)
         try:
             if free_system_prompt and original_prompt is not None:
                 agent_b._free_system_prompt = free_system_prompt
-            return (agent_b.synthesize(query, fragments) or "").strip() or NO_INFO, {"engine": "llm"}
+            # El prompt del modo Libre lo arma DASA; lo que se controla aquí es cuánto
+            # material recibe. Era justo lo que desbordaba el contexto del usuario.
+            libres = _fit_fragments(fragments, query, presupuesto)
+            try:
+                texto = (agent_b.synthesize(query, libres) or "").strip()
+            except RuntimeError as e:
+                info = errors_mod.context_overflow(str(e))
+                if info is None:
+                    raise
+                cabe = info.get("disponibles") or ctx_mod.DEFAULT_CTX
+                _CTX_CACHE[getattr(connector, "base_url", "")] = cabe
+                menos = _fit_fragments(fragments, query, max(ctx_mod.MIN_PROMPT_TOKENS, int(cabe * 0.5)))
+                try:
+                    texto = (agent_b.synthesize(query, menos) or "").strip()
+                except RuntimeError as e2:
+                    raise HTTPException(
+                        413, errors_mod.overflow_message(
+                            errors_mod.context_overflow(str(e2)) or info)) from e2
+            return texto or NO_INFO, {"engine": "llm"}
         finally:
             if original_prompt is not None:
                 agent_b._free_system_prompt = original_prompt
@@ -664,14 +793,14 @@ def _decide(query: str, candidates, mode: str) -> tuple[list, dict]:
     En modo Exacto no se ejecuta: ese modo promete cero llamadas al modelo, y el elector
     por logits es una pasada del LLM aunque no genere texto.
     """
-    if mode == "statistical":
+    if mode == "statistical" or len(candidates) < 2:
         return candidates, {}
     if getattr(candidates[0], "authority", False):
         # La pregunta nombra ese registro entero. Eso es más fuerte que la corazonada de un
         # modelo: preguntando por el «Artículo 2», el elector llegó a preferir el «200».
         return candidates, {"skipped": "candidato autoritativo"}
     choosers = _choosers()
-    if len(candidates) < 2 or not choosers:
+    if not choosers:
         return candidates, {}
     t0 = time.perf_counter()
     decision = chooser_mod.decide(query, candidates, choosers)
@@ -914,8 +1043,10 @@ def expert_chat(expert_id: str, req: ExpertChatReq):
             if m.role in ("user", "assistant") and m.content:
                 messages.append({"role": m.role, "content": m.content})
         messages.append({"role": "user", "content": req.query})
+        messages = _fit_chat(messages, _prompt_budget(connector, samplers.max_tokens))
         with _PIPE_LOCK:
-            answer = connector(messages)
+            answer = _ask(connector, messages,
+                          lambda limite: _fit_chat(messages, limite))
         return {"answer": answer or NO_INFO, "fragments": [], "mode": mode, "dataset": None,
                 "expert": expert.id, "meta": {"engine": "llm", "corpus": False}}
 
@@ -1060,8 +1191,10 @@ def dataset_summary(name: str):
     Grounded by construction: the prompt only contains the dataset's own
     extracted text, so the model cannot introduce facts from elsewhere.
     """
-    connector = _require_connector()
+    # Validar el nombre ANTES de mirar el motor: un nombre con «..» es un 400 aunque no
+    # haya ningún modelo cargado. Si no, un 503 taparía el intento de salirse del directorio.
     db, _ = _require_dataset(name)
+    connector = _require_connector()
     fulltext_path = db / "fulltext.txt"
     if not fulltext_path.exists():
         raise HTTPException(404, "Este dataset no tiene texto fuente disponible para resumir.")
@@ -1073,8 +1206,10 @@ def dataset_summary(name: str):
             "No inventes información que no esté presente en el texto.")},
         {"role": "user", "content": text},
     ]
+    # 8000 caracteres de texto fuente pueden no caber en un contexto corto.
+    messages = _fit_chat(messages, _prompt_budget(connector, SUMMARY_MAX_TOKENS))
     with _PIPE_LOCK:
-        summary = connector(messages)
+        summary = _ask(connector, messages, lambda limite: _fit_chat(messages, limite))
     return {"summary": summary}
 
 
@@ -1137,8 +1272,9 @@ def chat_free(req: FreeChatReq):
         if m.role in ("user", "assistant") and m.content:
             messages.append({"role": m.role, "content": m.content})
     messages.append({"role": "user", "content": req.query})
+    messages = _fit_chat(messages, _prompt_budget(connector, req.max_tokens))
     with _PIPE_LOCK:
-        answer = connector(messages)
+        answer = _ask(connector, messages, lambda limite: _fit_chat(messages, limite))
     return {"answer": answer or NO_INFO, "fragments": [], "mode": "free"}
 
 
@@ -1199,7 +1335,7 @@ def compare_models(req: CompareReq):
         try:
             answer = _synthesize(pipe, mode, req.query, fragments, req)
         except HTTPException as e:
-            if e.status_code == 400 and mode in ("grounded", "free") and _LLAMA_CONNECTOR is None:
+            if e.status_code == 503 and mode in ("grounded", "free") and _LLAMA_CONNECTOR is None:
                 answer = "(sin motor de inferencia)"
             else:
                 raise

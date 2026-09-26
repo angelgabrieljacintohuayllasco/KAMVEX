@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import TopBar, { ExpertSelector, KnowledgeSelector, LlmSelector } from "./components/TopBar";
 import type { AgentBMode } from "./components/ModeSelector";
 import { useI18n } from "./i18n";
+import { errorMessage } from "./api/errors";
 
 export type Message = {
   role: "user" | "assistant";
@@ -127,7 +128,7 @@ export default function App() {
       wasRunning.current = true;
       return true;
     } catch (e) {
-      setError(`${t("flow.autoStartFailed")} ${String(e)}`);
+      setError(`${t("flow.autoStartFailed")} ${errorMessage(e)}`);
       return false;
     } finally {
       setAutoStarting(false);
@@ -248,7 +249,7 @@ export default function App() {
       }
       appendMessage(convId, { role: "assistant", content: res.answer, fragments: res.fragments });
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }

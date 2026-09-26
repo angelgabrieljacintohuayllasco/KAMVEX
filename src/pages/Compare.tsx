@@ -2,6 +2,7 @@ import { useState } from "react";
 import { compareModels, type CompareResult, type Dataset } from "../api/client";
 import { Badge, Button, Card, Field, Select, inputClass } from "../components/ui";
 import { useI18n } from "../i18n";
+import { errorMessage } from "../api/errors";
 
 const MODES = ["statistical", "grounded", "free"] as const;
 
@@ -23,7 +24,7 @@ export default function Compare({ datasets }: { datasets: Dataset[] }) {
       const r = await compareModels(dataset, query, modeA, modeB);
       setResult(r);
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }

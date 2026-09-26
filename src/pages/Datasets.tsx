@@ -24,6 +24,7 @@ import { Badge, Button, Card, Field, Modal, Select, inputClass } from "../compon
 import DatasetCatalog from "../components/DatasetCatalog";
 import { rebuildDataset } from "../api/client";
 import { useI18n } from "../i18n";
+import { errorMessage } from "../api/errors";
 
 const PROFILES = ["low-ram", "medium", "fast"] as const;
 type BuildMode = "file" | "text";
@@ -68,7 +69,7 @@ export default function Knowledge({
       await streamBuild(job_id, (e) => setRebuildProgress(e));
       onChanged();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setRebuilding(null);
       setRebuildProgress(null);
@@ -103,7 +104,7 @@ export default function Knowledge({
       }
       refreshEmbed();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setEmbedBusy(false);
       setEmbedPct(null);
@@ -155,7 +156,7 @@ export default function Knowledge({
       setPdfPath(null);
       refreshEmbed();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
       setProgress(null);
     } finally {
       setBusy(false);
@@ -169,7 +170,7 @@ export default function Knowledge({
       const result = await runOreganoTest(datasetName);
       setOreganoResults((prev) => ({ ...prev, [datasetName]: result }));
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setOreganoBusy(null);
     }
@@ -184,7 +185,7 @@ export default function Knowledge({
       const s = await datasetSummary(datasetName);
       setSummaries((prev) => ({ ...prev, [datasetName]: s }));
     } catch (e) {
-      setSummaryError(String(e));
+      setSummaryError(errorMessage(e));
     } finally {
       setSummaryBusy(null);
     }
@@ -213,7 +214,7 @@ export default function Knowledge({
       setConfirmDelete(false);
       onChanged();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setDeleting(false);
     }

@@ -18,6 +18,7 @@ import {
 } from "../api/client";
 import { Badge, Button, Card, Field, Select, inputClass } from "./ui";
 import { useI18n } from "../i18n";
+import { errorMessage } from "../api/errors";
 
 const PRESETS = ["eco", "balanced", "max"] as const;
 
@@ -99,7 +100,7 @@ export default function EngineCard({
     let cancelled = false;
     autotuneFlags({ modelPath: selectedModel, preset })
       .then((p) => { if (!cancelled) setPrescription(p); })
-      .catch((e) => { if (!cancelled) setError(String(e)); });
+      .catch((e) => { if (!cancelled) setError(errorMessage(e)); });
     return () => { cancelled = true; };
   }, [selectedModel, preset]);
 
@@ -136,7 +137,7 @@ export default function EngineCard({
       reloadModels();
       onModelsChanged?.();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     }
   }
 
@@ -154,7 +155,7 @@ export default function EngineCard({
       setBinaryReady(true);
       setStatus(await llamaStatus());
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
       setStage(null);
@@ -168,7 +169,7 @@ export default function EngineCard({
       await llamaStop();
       setStatus(await llamaStatus());
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }

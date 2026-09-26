@@ -12,6 +12,18 @@ const VRAM_RESERVE_DISCRETE_MB: u64 = 768;
 const VRAM_RESERVE_INTEGRATED_MB: u64 = 256;
 /// Layer count assumed when the GGUF metadata is unavailable.
 const FALLBACK_LAYERS: u32 = 32;
+/// A RAG prompt carries the question, several sources and the conversation. Below this the
+/// grounded answer simply does not fit: llama-server replies 400 "request (N tokens)
+/// exceeds the available context size" and the user sees a broken app.
+const MIN_USEFUL_CTX: u32 = 4096;
+/// Rough KV-cache cost per token, per layer, for both K and V at 8 bits (bytes).
+/// Deliberately generous: overestimating the cache costs context, underestimating costs a
+/// crash halfway through an answer.
+const KV_BYTES_PER_TOKEN_PER_LAYER: u64 = 160;
+/// Share of free RAM the KV cache may take when running on CPU.
+const RAM_SHARE_FOR_KV: f64 = 0.25;
+/// Más de esto no aporta en un chat y encarece el procesado del prompt.
+const MAX_CTX: u32 = 32_768;
 /// Full offload sentinel understood by llama.cpp (`-ngl 999`).
 pub const FULL_OFFLOAD: u32 = 999;
 
@@ -117,18 +129,40 @@ pub fn autotune(hw: &HwInfo, model: &ModelHints, preset: Preset) -> Prescription
     };
 
     let (mut ctx, ctk, ctv, flash_attn, mlock, batch) = match preset {
-        Preset::Eco => (2048, "q4_0", "q4_0", true, false, 256),
-        Preset::Balanced => (4096, "q8_0", "q8_0", true, false, 512),
-        Preset::Max => (8192, "f16", "f16", true, true, 1024),
+        // KAMVEX es una app de RAG: el prompt lleva la pregunta, varias fuentes y la
+        // conversacion. Un prompt anclado normal ya pedia 3692 tokens, asi que 4096 era
+        // justo y 2048 directamente no funcionaba. Los techos por RAM y por el contexto
+        // entrenado del modelo siguen recortando esto cuando toca.
+        Preset::Eco => (4096, "q4_0", "q4_0", true, false, 256),
+        Preset::Balanced => (8192, "q8_0", "q8_0", true, false, 512),
+        Preset::Max => (16384, "f16", "f16", true, true, 1024),
+    };
+    // El contexto lo limita la memoria donde vive el caché KV, y eso depende de dónde
+    // corren las capas. Una GPU **integrada** no tiene memoria propia: su «VRAM» es una
+    // ventana sobre la RAM del sistema, así que recortar el contexto a 2048 por su tamaño
+    // nominal era el fallo que dejaba la app inservible en una máquina con 30 GB libres
+    // (un prompt anclado normal pide 3692 tokens y llama-server devolvía 400).
+    let techo = if ngl > 0 && !integrated {
+        vram_ctx_ceiling(vram_mb, model_mb, &model)
+    } else {
+        ram_ctx_ceiling(hw, &model)
     };
     if integrated {
-        ctx = ctx.min(2048);
-        warnings.push("GPU integrada (memoria compartida): offload parcial y contexto reducido.".into());
+        warnings.push(
+            "GPU integrada (memoria compartida): el contexto se dimensiona por la RAM del sistema."
+                .into(),
+        );
     }
+    ctx = ctx.max(MIN_USEFUL_CTX).min(techo.max(1024));
     if let Some(train_ctx) = model.context_length {
         if train_ctx > 0 {
             ctx = ctx.min(train_ctx);
         }
+    }
+    if ctx < MIN_USEFUL_CTX {
+        warnings.push(format!(
+            "Contexto de {ctx} tokens: una pregunta con varias fuentes puede no caber."
+        ));
     }
     // mlock pins the whole model in RAM; only sensible when it clearly fits.
     let mlock = mlock && hw.total_ram_gb > model_gb + 2.0;
@@ -161,6 +195,42 @@ pub fn autotune(hw: &HwInfo, model: &ModelHints, preset: Preset) -> Prescription
         offloaded_layers: offloaded,
         total_layers,
     }
+}
+
+/// Tokens whose KV cache cabe en `budget_bytes`, redondeado a múltiplos de 1024.
+///
+/// Se topa en 32k: más contexto que eso encarece el procesado del prompt sin que un chat lo
+/// aproveche, y el modelo casi nunca fue entrenado para tanto.
+fn ctx_for_budget(budget_bytes: u64, model: &ModelHints) -> u32 {
+    let layers = model.block_count.unwrap_or(FALLBACK_LAYERS).max(1) as u64;
+    let per_token = layers * KV_BYTES_PER_TOKEN_PER_LAYER;
+    if per_token == 0 {
+        return MAX_CTX;
+    }
+    let cabe = (budget_bytes / per_token) as u32;
+    ((cabe / 1024) * 1024).min(MAX_CTX)
+}
+
+/// Cuánto contexto aguanta la RAM del sistema (CPU, o GPU integrada que comparte memoria).
+///
+/// Solo se usa una parte de lo que queda libre: el navegador y el resto de la máquina
+/// también necesitan memoria, y quedarse sin ella a mitad de una respuesta es peor que
+/// tener menos contexto.
+fn ram_ctx_ceiling(hw: &HwInfo, model: &ModelHints) -> u32 {
+    if hw.total_ram_gb <= 0.0 {
+        return MAX_CTX;
+    }
+    let model_gb = model.size_mb as f64 / 1024.0;
+    let libre_gb = (hw.total_ram_gb - model_gb - 2.0).max(0.0);
+    ctx_for_budget((libre_gb * RAM_SHARE_FOR_KV * 1024.0 * 1024.0 * 1024.0) as u64, model)
+}
+
+/// Cuánto contexto aguanta la VRAM libre de una GPU discreta tras cargar el modelo.
+fn vram_ctx_ceiling(vram_mb: u64, model_mb: u64, model: &ModelHints) -> u32 {
+    let libre_mb = vram_mb
+        .saturating_sub(VRAM_RESERVE_DISCRETE_MB)
+        .saturating_sub(model_mb);
+    ctx_for_budget(libre_mb * 1024 * 1024, model)
 }
 
 /// Convert a Prescription to llama-server CLI flags (everything except -m/--port/--host).
@@ -219,7 +289,8 @@ mod tests {
         let p = autotune(&hw, &hints(4000, Some(32)), Preset::Balanced);
         assert_eq!(p.backend, "vulkan");
         assert_eq!(p.ngl, FULL_OFFLOAD);
-        assert_eq!(p.ctx, 4096, "the discrete card must not inherit the iGPU ctx cap");
+        // La tarjeta discreta no hereda el recorte de la iGPU: manda su propia VRAM libre.
+        assert_eq!(p.ctx, 8192, "una RX 6700 XT con 12 GB da para el preset entero");
     }
 
     fn mock_hw(ram_gb: f64, cores: usize, gpus: Vec<GpuInfo>) -> HwInfo {
@@ -287,8 +358,9 @@ mod tests {
         let hw = mock_hw(16.0, 6, vec![gpu("AMD", "AMD Radeon Vega 8 Graphics", 512, "vulkan", true)]);
         let p = autotune(&hw, &hints(2000, Some(24)), Preset::Max);
         assert_eq!(p.backend, "vulkan");
-        assert_eq!(p.ctx, 2048);
-        assert!(p.ngl < 25);
+        assert!(p.ngl < 25, "512 MB de VRAM no cargan 2 GB de modelo");
+        // El contexto ya NO se recorta a 2048: la memoria de una iGPU es la RAM del sistema.
+        assert!(p.ctx >= MIN_USEFUL_CTX, "ctx = {}", p.ctx);
         assert!(p.warnings.iter().any(|w| w.contains("integrada")));
     }
 
@@ -297,8 +369,10 @@ mod tests {
         let hw = mock_hw(8.0, 4, vec![]);
         let p = autotune(&hw, &hints(2000, None), Preset::Eco);
         assert_eq!(p.ctk, "q4_0");
-        assert_eq!(p.ctx, 2048);
         assert_eq!(p.batch, 256);
+        // Eco ahorra memoria, pero por debajo de MIN_USEFUL_CTX el modo Anclado no
+        // funciona: el contexto es correccion, no preferencia.
+        assert!(p.ctx >= MIN_USEFUL_CTX, "ctx = {}", p.ctx);
     }
 
     #[test]
@@ -353,4 +427,62 @@ mod tests {
         assert!(p.warnings.is_empty());
         assert_eq!(prescription_to_flags(&p).len(), 16);
     }
+
+    // ── El contexto es lo que rompió la app en manos del usuario ────────────
+
+    #[test]
+    fn igpu_no_recorta_el_contexto_a_2048() {
+        // El fallo que el usuario vio en pantalla: Radeon integrada, 30 GB de RAM, contexto
+        // de 2048 y un prompt anclado de 3692 tokens que no cabia. Una iGPU no tiene memoria
+        // propia: su cache sale de la RAM del sistema.
+        let hw = mock_hw(30.0, 6, vec![gpu("AMD", "AMD Radeon Graphics", 2048, "vulkan", true)]);
+        let p = autotune(&hw, &hints(2500, Some(34)), Preset::Balanced);
+        assert!(p.ctx >= MIN_USEFUL_CTX, "ctx = {} no deja sitio a las fuentes", p.ctx);
+        assert!(p.warnings.iter().any(|w| w.contains("RAM del sistema")));
+    }
+
+    #[test]
+    fn igpu_con_offload_tambien_usa_la_ram() {
+        let hw = mock_hw(16.0, 6, vec![gpu("AMD", "AMD Radeon Graphics", 8192, "vulkan", true)]);
+        let p = autotune(&hw, &hints(1200, Some(28)), Preset::Max);
+        assert!(p.ngl > 0);
+        assert!(p.ctx >= MIN_USEFUL_CTX);
+    }
+
+    #[test]
+    fn poca_ram_baja_el_contexto() {
+        // 4 GB con un modelo de 3 GB: no queda sitio para un cache grande.
+        let apretada = autotune(&mock_hw(4.0, 4, vec![]), &hints(3000, Some(34)), Preset::Max);
+        let holgada = autotune(&mock_hw(64.0, 16, vec![]), &hints(3000, Some(34)), Preset::Max);
+        assert!(apretada.ctx < holgada.ctx, "{} vs {}", apretada.ctx, holgada.ctx);
+        assert!(holgada.ctx <= 32_768, "no tiene sentido pasar de 32k en un chat");
+    }
+
+    #[test]
+    fn el_contexto_del_modelo_manda_sobre_la_ram() {
+        let hw = mock_hw(64.0, 16, vec![]);
+        let mut h = hints(2500, Some(34));
+        h.context_length = Some(4096);           // el modelo no fue entrenado para mas
+        let p = autotune(&hw, &h, Preset::Max);
+        assert_eq!(p.ctx, 4096);
+    }
+
+    #[test]
+    fn un_contexto_corto_se_avisa() {
+        // Maquina muy justa: el modelo casi llena la RAM y no queda sitio para el cache.
+        let hw = mock_hw(4.0, 2, vec![]);
+        let p = autotune(&hw, &hints(3500, Some(40)), Preset::Eco);
+        assert!(p.ctx < MIN_USEFUL_CTX, "ctx = {}", p.ctx);
+        assert!(p.warnings.iter().any(|w| w.contains("puede no caber")));
+    }
+
+
+    #[test]
+    fn el_preset_por_defecto_da_sitio_a_un_prompt_anclado() {
+        // El caso real: prompt de 3692 tokens con las fuentes de la Constitucion.
+        let hw = mock_hw(30.0, 6, vec![gpu("AMD", "AMD Radeon Graphics", 2048, "vulkan", true)]);
+        let p = autotune(&hw, &hints(2500, Some(34)), Preset::Balanced);
+        assert!(p.ctx >= 8192, "ctx = {} deja sin sitio a la conversacion", p.ctx);
+    }
+
 }

@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
+import context as ctx_mod
 from grounding import content_terms, focus_text, normalize
 
 # Signos y comillas de apertura: "¿qué más?" empieza por "¿", no por la palabra.
@@ -154,17 +155,52 @@ def _history_messages(history: list[dict], turns: int = HISTORY_TURNS) -> list[d
 
 def messages(query: str, candidates, history: list[dict] | None = None,
              system_extra: str = "", detail: bool | None = None,
-             language: str = "es") -> list[dict]:
-    """Prompt de Agente B: candidatos + conversación + instrucciones de redacción."""
+             language: str = "es", budget: int | None = None) -> list[dict]:
+    """Prompt de Agente B: fuentes + conversación + instrucciones de redacción.
+
+    Con `budget` (en tokens) el prompt se recorta hasta caber. Se sacrifica primero la
+    conversación, luego las fuentes de más abajo, y por último el texto de cada una. Las
+    reglas y la pregunta no se tocan: sin ellas no hay nada que responder.
+    """
+    if budget is None:
+        return _build(query, candidates, history, system_extra, detail, language,
+                      MAX_CANDIDATES_IN_PROMPT, CANDIDATE_CHARS, HISTORY_TURNS)
+
+    # De lo más generoso a lo más austero. Se devuelve el primero que quepa.
+    for turnos, n_fuentes, chars in _escalones(len(candidates or [])):
+        msgs = _build(query, candidates, history, system_extra, detail, language,
+                      n_fuentes, chars, turnos)
+        if ctx_mod.messages_tokens(msgs) <= budget:
+            return msgs
+    # Ni con lo mínimo cabe: reglas y pregunta, sin fuentes. Mejor una respuesta honesta
+    # de que no hay material que un 400 del servidor.
+    return _build(query, [], None, system_extra, detail, language, 0, 0, 0)
+
+
+def _escalones(n_candidatos: int):
+    """Configuraciones de prompt, de la más completa a la más austera."""
+    fuentes = max(1, min(n_candidatos or 1, MAX_CANDIDATES_IN_PROMPT))
+    for turnos in (HISTORY_TURNS, 2, 0):
+        yield turnos, fuentes, CANDIDATE_CHARS
+    for chars in (600, 400, 250):
+        yield 0, fuentes, chars
+    for menos in range(fuentes - 1, 0, -1):
+        yield 0, menos, 250
+    yield 0, 1, 120
+
+
+def _build(query: str, candidates, history, system_extra: str, detail: bool | None,
+           language: str, max_candidates: int, chars: int, turnos: int) -> list[dict]:
     history = history or []
     more = wants_more_detail(query) if detail is None else detail
     # Una pregunta con tema propio no necesita la conversación: es ruido, y un modelo
     # pequeño se engancha al último turno y lo repite en vez de responder lo nuevo.
-    if not is_followup(query):
+    if not is_followup(query) or turnos <= 0:
         history = []
-    context = build_context(candidates, query)
+    context = (build_context(candidates, query, max_candidates, chars)
+               if max_candidates > 0 and candidates else "")
     marcada = any(getattr(c, "authority", False)
-                  for c in candidates[:MAX_CANDIDATES_IN_PROMPT])
+                  for c in (candidates or [])[:max(1, max_candidates)])
 
     if language == "en":
         rules = [
@@ -215,7 +251,8 @@ def messages(query: str, candidates, history: list[dict] | None = None,
     system = "\n".join(rules)
     if system_extra:
         system = f"{system_extra.strip()}\n\n{system}"
-    return [{"role": "system", "content": system}, *_history_messages(history),
+    return [{"role": "system", "content": system},
+            *_history_messages(history, turnos or HISTORY_TURNS),
             {"role": "user", "content": user}]
 
 

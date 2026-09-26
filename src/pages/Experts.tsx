@@ -12,6 +12,7 @@ import {
 } from "../api/client";
 import { Badge, Button, Card } from "../components/ui";
 import { useI18n } from "../i18n";
+import { errorMessage } from "../api/errors";
 
 const ICONS: Record<string, React.ReactNode> = {
   Code: <Code className="h-5 w-5" />,
@@ -60,7 +61,7 @@ export default function Experts({
   const reload = useCallback(() => {
     listExperts()
       .then((d) => setExperts(d.experts))
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -104,7 +105,7 @@ export default function Experts({
       reload();
       onSelectExpert(e.id);
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
     } finally {
       setInstalling(null);
       setStep(null);

@@ -27,6 +27,7 @@ import {
   type ModelType,
   type SizeCategory,
 } from "../catalog";
+import { errorMessage } from "../api/errors";
 
 const SIZE_OPTIONS: { value: SizeCategory | ""; label: string }[] = [
   { value: "", label: "" },
@@ -190,7 +191,7 @@ export default function Models({
       }
       if (res.download_id) track(m.id, res.download_id);
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
     }
   }
 

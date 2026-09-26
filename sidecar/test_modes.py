@@ -118,8 +118,11 @@ def test_free_chat_keeps_history_and_system_prompt(sidecar, monkeypatch):
     assert messages[-1]["content"] == "¿y ahora?"
 
 
-def test_free_chat_without_engine_is_400(sidecar):
-    assert sidecar.post("/chat/free", json={"query": "hola"}).status_code == 400
+def test_free_chat_without_engine_is_503(sidecar):
+    """Sin motor el servidor no puede servir: es 503, no culpa del cliente."""
+    r = sidecar.post("/chat/free", json={"query": "hola"})
+    assert r.status_code == 503
+    assert "modelo" in r.json()["detail"].lower()
 
 
 # ── Lo que el modelo añade de más se limpia antes de medir ─────────────────
