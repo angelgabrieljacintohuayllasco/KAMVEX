@@ -1336,7 +1336,7 @@ def compare_models(req: CompareReq):
             answer = _synthesize(pipe, mode, req.query, fragments, req)
         except HTTPException as e:
             if e.status_code == 503 and mode in ("grounded", "free") and _LLAMA_CONNECTOR is None:
-                answer = "(sin motor de inferencia)"
+                answer = errors_mod.SIN_MOTOR
             else:
                 raise
         results[label] = {"answer": answer, "mode": mode, "fragments": _fragments_json(fragments)}

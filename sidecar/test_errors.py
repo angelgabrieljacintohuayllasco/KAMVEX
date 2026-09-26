@@ -172,3 +172,67 @@ def test_ningun_mensaje_de_error_esta_vacio_o_es_un_objeto(cliente):
         detalle = r.json().get("detail", "")
         assert detalle and detalle != "[object Object]", f"{metodo} {plantilla}: «{detalle}»"
         assert len(detalle) > 10, f"{metodo} {plantilla}: mensaje demasiado corto «{detalle}»"
+
+
+# ── El streaming no se puede romper: las descargas van por SSE ─────────────
+
+def _recorrer(app) -> bytes:
+    """Ejecuta una app ASGI y junta los trozos del cuerpo.
+
+    El `receive` devuelve `http.disconnect` a partir de la segunda llamada: sin eso,
+    `StreamingResponse` se queda esperando a que el cliente se vaya y el test no termina.
+    """
+    import asyncio
+
+    partes: list[bytes] = []
+    llamadas = {"n": 0}
+
+    async def receive():
+        llamadas["n"] += 1
+        if llamadas["n"] == 1:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.body":
+            partes.append(message.get("body", b""))
+
+    async def correr():
+        await asyncio.wait_for(
+            app({"type": "http", "method": "GET", "path": "/x", "headers": []}, receive, send),
+            timeout=10)
+
+    asyncio.run(correr())
+    return b"".join(partes)
+
+
+def _app_que_devuelve(response):
+    async def app(scope, receive, send):
+        await response(scope, receive, send)
+    return app
+
+
+def test_el_middleware_no_rompe_el_streaming():
+    """`BaseHTTPMiddleware` almacenaría el cuerpo entero; por eso el nuestro es ASGI puro.
+
+    Si se bufferizara, la barra de una descarga de 5 GB no se movería hasta el final.
+    """
+    from starlette.responses import StreamingResponse
+
+    async def trozos():
+        for i in range(5):
+            yield f"data: {i}\n\n".encode()
+
+    app = server.errors_mod.ErrorMiddleware(
+        _app_que_devuelve(StreamingResponse(trozos(), media_type="text/event-stream")))
+    assert _recorrer(app).count(b"data: ") == 5, "el middleware se comió los trozos"
+
+
+def test_un_fallo_antes_de_la_cabecera_si_se_traduce():
+    async def revienta(scope, receive, send):
+        raise RuntimeError("antes de responder")
+
+    app = server.errors_mod.ErrorMiddleware(revienta)
+    cuerpo = _recorrer(app)
+    assert b"detail" in cuerpo
+    assert b"antes de responder" not in cuerpo, "no se filtra el detalle interno"

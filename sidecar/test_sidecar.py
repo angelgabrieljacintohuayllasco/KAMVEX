@@ -110,7 +110,10 @@ def test_compare_without_engine_marks_llm_side(sidecar):
     q = record_to_text(demo_records()[0])
     resp = sidecar.post("/compare", json={"dataset": "demo", "query": q}).json()
     assert resp["a"]["mode"] == "statistical" and resp["a"]["answer"]
-    assert resp["b"]["mode"] == "grounded" and resp["b"]["answer"] == "(sin motor de inferencia)"
+    # El lado sin motor dice qué hacer, no solo que falta algo.
+    import errors as errors_mod
+    assert resp["b"]["mode"] == "grounded" and resp["b"]["answer"] == errors_mod.SIN_MOTOR
+    assert "Elige uno" in resp["b"]["answer"]
 
 
 def test_openai_compatible_endpoint(sidecar):
