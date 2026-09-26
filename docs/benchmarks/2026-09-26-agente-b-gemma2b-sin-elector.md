@@ -1,7 +1,7 @@
-# Agente A + Agente B con Gemma 3 1B
+# Agente A + Agente B con Gemma 2 2B sin elector
 
-- Modelo: `gemma-3-1b-it-Q4_K_M.gguf` (cpu)
-- Fecha: 2026-09-26 07:46
+- Modelo: `gemma-2-2b-it-Q4_K_M.gguf` (cpu)
+- Fecha: 2026-09-26 08:09
 - Pila real: sidecar + llama-server + corpus instalados desde `.kamvex`.
 - **Exacto** = solo Agente A (el registro del corpus). **Anclado** = Agente A propone y Agente B (el LLM) elige y redacta.
 
@@ -10,8 +10,8 @@
 ### Turno 1: «explicame que es Pene»
 
 - Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.56, detalle: amplio
-- Latencia: Exacto 1968 ms · Anclado 2516 ms
+- Motor: `llm`, cobertura léxica 1.00, detalle: amplio
+- Latencia: Exacto 1977 ms · Anclado 3022 ms
 
 **Exacto (solo Agente A)**
 
@@ -19,7 +19,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> No hay más detalle en las fuentes disponibles. Esto es lo que recogen: pene: Órgano sexual masculino.
+> El pene es el órgano sexual masculino.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -34,7 +34,7 @@
 - Reescrito para buscar: «explicame que es Pene» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
 - Motor: `llm`, cobertura léxica 0.50, detalle: amplio
-- Latencia: Exacto 144 ms · Anclado 3177 ms
+- Latencia: Exacto 117 ms · Anclado 3810 ms
 
 **Exacto (solo Agente A)**
 
@@ -55,8 +55,8 @@
 ### Turno 3: «hazme una explicacion muy larga de la palabra pene»
 
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.10, detalle: amplio
-- Latencia: Exacto 203 ms · Anclado 6040 ms
+- Motor: `llm`, cobertura léxica 0.27, detalle: amplio
+- Latencia: Exacto 205 ms · Anclado 5230 ms
 
 **Exacto (solo Agente A)**
 
@@ -79,7 +79,7 @@
 - Reescrito para buscar: «hazme una explicacion muy larga de la palabra pene» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
 - Motor: `llm`, cobertura léxica 0.07, detalle: amplio
-- Latencia: Exacto 181 ms · Anclado 7898 ms
+- Latencia: Exacto 206 ms · Anclado 14629 ms
 
 **Exacto (solo Agente A)**
 
@@ -101,10 +101,9 @@
 
 ### Turno 1: «explicame mis derechos»
 
-- Elegido por logit: opción 1 (`Artículo 139`), 3444.1 ms
 - Predictores que propusieron: key×0, lexical×0, semantic×5, text×5
-- Motor: `llm`
-- Latencia: Exacto 36 ms · Anclado 9261 ms
+- Motor: `llm`, cobertura léxica 0.97, detalle: amplio
+- Latencia: Exacto 58 ms · Anclado 15915 ms
 
 **Exacto (solo Agente A)**
 
@@ -112,7 +111,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> La información disponible no cubre este tema.
+> Tienes derecho a la vida, a tu identidad, a tu integridad moral, psíquica y física y a tu libre desarrollo y bienestar. También tienes derecho a la igualdad ante la ley, a la libertad de informar y opinar, a la iniciativa legislativa, a la elección de autoridades, a la remoción o revocación de autoridades, a la participación en los asuntos públicos mediante referéndum, iniciativa legislativa, remoción o revocación de autoridades y demanda de rendición de cuentas. Tienes derecho a participar en el gobierno municipal de tu jurisdicción.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -126,8 +125,8 @@
 ### Turno 2: «y el articulo 35?»
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.77, detalle: breve
-- Latencia: Exacto 24 ms · Anclado 5131 ms
+- Motor: `llm`, cobertura léxica 1.00, detalle: breve
+- Latencia: Exacto 28 ms · Anclado 5217 ms
 
 **Exacto (solo Agente A)**
 
@@ -135,7 +134,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Tales organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica. La ley establece normas orientadas a asegurar el funcionamiento democrático de los partidos políticos, y la transparencia en cuanto al origen de sus recursos económicos y el acceso gratuito a los medios de comunicación social de propiedad del Estado en forma proporcional al último resultado electoral general.
+> Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Su inscripción en el registro correspondiente les concede personalidad jurídica.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -150,7 +149,7 @@
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
 - Motor: `llm`, cobertura léxica 1.00, detalle: breve
-- Latencia: Exacto 27 ms · Anclado 5635 ms
+- Latencia: Exacto 12 ms · Anclado 7596 ms
 
 **Exacto (solo Agente A)**
 
@@ -158,7 +157,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> Todo persona tiene derecho a la vida, su identidad, integridad moral, psíquica y física, y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole. No hay persecución por razón de ideas o creencias. No hay delito de opinión.
+> Toda persona tiene derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -173,8 +172,8 @@
 
 - Reescrito para buscar: «¿Qué dice el Artículo 2?» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.87, detalle: amplio
-- Latencia: Exacto 41 ms · Anclado 7915 ms
+- Motor: `llm`, cobertura léxica 0.85, detalle: amplio
+- Latencia: Exacto 29 ms · Anclado 12711 ms
 
 **Exacto (solo Agente A)**
 
@@ -182,7 +181,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> El Artículo 2 establece los derechos fundamentales de todos los ciudadanos, incluyendo la vida, la identidad, integridad física y mental, y el derecho al desarrollo personal. También define que la igualdad ante la ley es un principio fundamental, prohibiendo la discriminación por motivos como origen, raza, sexo, religión, opinión o condición económica. El Artículo 96 permite a los representantes de Congreso solicitar información a diferentes instituciones gubernamentales, con la obligación de presentar informes si se considera necesario.
+> El artículo 2 establece que todas las personas tienen derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. El artículo 96 permite a los representantes del Congreso solicitar informes a diferentes instituciones gubernamentales y organismos autónomos.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 

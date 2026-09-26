@@ -125,3 +125,46 @@ def test_expert_chat_uses_its_corpus(sidecar, monkeypatch, tmp_path):
 
     st = sidecar.get("/experts/demo-exp").json()["status"]
     assert st["ready"] is True and st["missing_datasets"] == []
+
+
+# ── El modelo recomendado se mide, no se fija en el catálogo ───────────────
+
+def _modelos(*pares):
+    return [experts_mod.ExpertModel.from_json({"id": i, "name": i, "repo": "r", "file": f"{i}.gguf",
+                                               "size_mb": mb, "reason": ""})
+            for i, mb in pares]
+
+
+MODELOS = _modelos(("q7b", 4680), ("g4b", 2490), ("q3b", 2100), ("g2b", 1710), ("q15b", 1120))
+
+
+def test_una_maquina_grande_recibe_el_modelo_grande():
+    """32 GB y un Ryzen 5 no deben quedarse con un 1.5B."""
+    assert experts_mod.recommend(MODELOS, 30_000).id == "q7b"
+    assert experts_mod.recommend(MODELOS, 16_000).id == "q7b"
+
+
+def test_una_maquina_pequena_recibe_uno_que_le_cabe():
+    assert experts_mod.recommend(MODELOS, 8_000).id == "g4b"
+    assert experts_mod.recommend(MODELOS, 4_000).id == "q15b"
+
+
+def test_sin_dato_de_ram_se_recomienda_el_mas_prudente():
+    assert experts_mod.recommend(MODELOS, None).id == "q15b"
+    assert experts_mod.recommend(MODELOS, 0).id == "q15b"
+
+
+def test_si_no_cabe_ninguno_se_ofrece_el_menor():
+    assert experts_mod.recommend(MODELOS, 1_000).id == "q15b"
+
+
+def test_sin_modelos_no_hay_recomendacion():
+    assert experts_mod.recommend([], 30_000) is None
+
+
+def test_el_estado_expone_la_recomendacion(sidecar):
+    r = sidecar.get("/experts").json()
+    for e in r["experts"]:
+        rec = e["status"]["recommended_model"]
+        if e["models"]:
+            assert rec in {m["id"] for m in e["models"]}, e["id"]

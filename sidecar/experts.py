@@ -116,14 +116,39 @@ def load_catalog(path: Path | None = None) -> list[Expert]:
     return out
 
 
-def status(expert: Expert, installed_datasets: set[str], local_model_files: set[str]) -> dict:
+# Un modelo cuantizado necesita su tamaño en RAM más el contexto y el propio programa.
+# Con estos márgenes, 8 GB dan para un 3B, 16 GB para un 7B y 32 GB para un 9B holgado.
+RAM_FRACTION = 0.45
+RAM_RESERVE_MB = 3500
+
+
+def recommend(models: list[ExpertModel], ram_total_mb: float | None) -> ExpertModel | None:
+    """El modelo más capaz que cabe en esta máquina, no el primero de la lista.
+
+    El catálogo va de mayor a menor. Elegir siempre el primero obliga a todos a bajar el
+    grande; elegir siempre el último desperdicia una máquina con 32 GB. Se mide.
+    """
+    if not models:
+        return None
+    if not ram_total_mb or ram_total_mb <= 0:
+        return models[-1]                      # sin dato fiable, el más prudente
+    budget = min(ram_total_mb * RAM_FRACTION, ram_total_mb - RAM_RESERVE_MB)
+    fits = [m for m in models if (m.size_mb or 0) <= budget]
+    if fits:
+        return max(fits, key=lambda m: m.size_mb or 0)
+    return min(models, key=lambda m: m.size_mb or 0)
+
+
+def status(expert: Expert, installed_datasets: set[str], local_model_files: set[str],
+           ram_total_mb: float | None = None) -> dict:
     """Which pieces of the expert are present on this machine."""
     missing_datasets = [d for d in expert.datasets if d not in installed_datasets]
     model_present = next((m.id for m in expert.models if m.file and m.file in local_model_files), None)
+    best = recommend(expert.models, ram_total_mb)
     return {
         "ready": not missing_datasets and (model_present is not None or expert.default_mode == "statistical"),
         "missing_datasets": missing_datasets,
         "installed_datasets": [d for d in expert.datasets if d in installed_datasets],
         "model_present": model_present,
-        "recommended_model": expert.models[0].id if expert.models else None,
+        "recommended_model": best.id if best else None,
     }

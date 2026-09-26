@@ -75,13 +75,13 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 2020.2,
-            "total_ms": 2020.3
+            "search_ms": 1844.2,
+            "total_ms": 1844.2
           },
-          "ms": 2041
+          "ms": 1867
         },
         "agent_a_b": {
-          "answer": "No hay más detalle en las fuentes disponibles. Esto es lo que recogen:\n\npene: Órgano sexual masculino.",
+          "answer": "El pene es el órgano sexual masculino.",
           "fragments": [
             {
               "text": "pene: Órgano sexual masculino.",
@@ -121,21 +121,8 @@
             "candidates": 3,
             "detail": true,
             "picked": "pene",
-            "coverage": 0.357,
-            "unsupported": [
-              "encue",
-              "ferti",
-              "funci",
-              "genit",
-              "hombr",
-              "princ",
-              "proce",
-              "produ",
-              "semen"
-            ],
-            "fallback": true,
-            "llm_answer": "Un pene, o órgano sexual masculino, se explica como un órgano genitral que se encuentra en los hombres y tiene la función principal de producir semen para el proceso de fertilización.",
-            "fallback_engine": "exact",
+            "coverage": 1.0,
+            "unsupported": [],
             "decision": {
               "skipped": "candidato autoritativo"
             },
@@ -166,10 +153,10 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 103.7,
-            "total_ms": 2974.1
+            "search_ms": 110.7,
+            "total_ms": 3746.4
           },
-          "ms": 2995
+          "ms": 3749
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -243,13 +230,13 @@
               "from": "dame mas explicacion",
               "topic": "explicame que es Pene"
             },
-            "search_ms": 130.6,
-            "total_ms": 130.7
+            "search_ms": 107.4,
+            "total_ms": 107.4
           },
-          "ms": 134
+          "ms": 110
         },
         "agent_a_b": {
-          "answer": "La información disponible no cubre este tema.",
+          "answer": "No hay más detalle en las fuentes disponibles. Esto es lo que recogen:\n\npene: Órgano sexual masculino.",
           "fragments": [
             {
               "text": "pene: Órgano sexual masculino.",
@@ -285,7 +272,27 @@
           "expert": "lengua",
           "meta": {
             "engine": "llm",
-            "reason": "empty",
+            "deterministic": true,
+            "candidates": 3,
+            "detail": true,
+            "coverage": 0.129,
+            "unsupported": [
+              "alarg",
+              "banda",
+              "caver",
+              "compu",
+              "cuerp",
+              "encue",
+              "endur",
+              "erecc",
+              "erect",
+              "facil",
+              "forma",
+              "funda"
+            ],
+            "fallback": true,
+            "llm_answer": "El pene es un órgano muscular y vascular que se encuentra en la parte inferior del cuerpo masculino. Está compuesto por una tira principal y dos bandas laterales, cada una formada por cuerpos cavernosos llenos de sangre. Cuando el pene está erecto, estos cuerpos cavernosos se inflaman y llenan con sangre, lo que permite que el pene se alargue y endurezca. Esta erección facilita la penetración sexual y es parte fundamental del proceso reproductivo masculino.",
+            "fallback_engine": "exact",
             "decision": {
               "skipped": "candidato autoritativo"
             },
@@ -318,10 +325,10 @@
               "from": "dame mas explicacion",
               "topic": "explicame que es Pene"
             },
-            "search_ms": 116.0,
-            "total_ms": 1161.8
+            "search_ms": 110.7,
+            "total_ms": 7421.3
           },
-          "ms": 1164
+          "ms": 7424
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -394,10 +401,10 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 182.0,
-            "total_ms": 182.0
+            "search_ms": 198.9,
+            "total_ms": 198.9
           },
-          "ms": 185
+          "ms": 220
         },
         "agent_a_b": {
           "answer": "No hay más detalle en las fuentes disponibles. Esto es lo que recogen:\n\npene: Órgano sexual masculino.",
@@ -440,23 +447,24 @@
             "deterministic": true,
             "candidates": 3,
             "detail": true,
-            "coverage": 0.095,
+            "picked": "pene",
+            "coverage": 0.25,
             "unsupported": [
-              "anato",
-              "celul",
-              "conec",
-              "conti",
-              "corpo",
-              "cuerp",
-              "depen",
-              "encar",
-              "encue",
-              "espan",
-              "estru",
-              "femen"
+              "abdom",
+              "adela",
+              "bajo",
+              "extie",
+              "funda",
+              "hombr",
+              "piel",
+              "proce",
+              "repro",
+              "taman",
+              "ubica",
+              "varia"
             ],
             "fallback": true,
-            "llm_answer": "La palabra \"pene\" en español, y también en otros idiomas, tiene múltiples significados dependiendo del contexto. En términos generales, el término se refiere a un órgano sexual masculino que es parte integral del cuerpo humano.\n\nEn anatomía humana, el pene (o genitália masculina) es una estructura corporal que se encuentra en la parte posterior de los hombres y en la parte inferior de las mujeres. En términos generales, el pene tiene dos partes principales: la glándula seminal y la uretra.\n\nLa glándula seminal, también conocida como \"pene\", está ubicada en la parte superior del pene y se encarga de producir semen. El semen contiene células sexuales que son necesarias para la fertilización de las óvulos femeninos.\n\nPor otro lado, la uretra es una estructura muscular que conecta el pene con el útero",
+            "llm_answer": "La palabra \"pene\" se refiere al órgano sexual masculino, que está ubicado bajo la piel del abdomen y se extiende hacia adelante. Este órgano tiene un tamaño variable y es fundamental para el proceso reproductivo en los hombres.",
             "fallback_engine": "exact",
             "decision": {
               "skipped": "candidato autoritativo"
@@ -488,10 +496,10 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 167.8,
-            "total_ms": 6555.3
+            "search_ms": 166.9,
+            "total_ms": 4167.7
           },
-          "ms": 6558
+          "ms": 4170
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -566,10 +574,10 @@
               "from": "dame una explicacion detallada",
               "topic": "hazme una explicacion muy larga de la palabra pene"
             },
-            "search_ms": 184.2,
-            "total_ms": 184.2
+            "search_ms": 192.1,
+            "total_ms": 192.1
           },
-          "ms": 187
+          "ms": 209
         },
         "agent_a_b": {
           "answer": "La información disponible no cubre este tema.",
@@ -642,10 +650,10 @@
               "from": "dame una explicacion detallada",
               "topic": "hazme una explicacion muy larga de la palabra pene"
             },
-            "search_ms": 184.9,
-            "total_ms": 1791.7
+            "search_ms": 170.6,
+            "total_ms": 3296.2
           },
-          "ms": 1794
+          "ms": 3299
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -737,13 +745,13 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 41.2,
-            "total_ms": 42.5
+            "search_ms": 41.0,
+            "total_ms": 42.1
           },
-          "ms": 56
+          "ms": 45
         },
         "agent_a_b": {
-          "answer": "1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar.\n2. A la igualdad ante la ley.\n3. Derecho de informar y opinar (incluye derechos de fundar medios de comunicación).\n4. Derecho de elección, remoción o revocación de autoridades, iniciativa legislativa y referéndum.\n5. Derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete.\n6. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad.\n\nEstos derechos se aplican en general y no afectan el derecho de gracia ni la facultad de investigación del Congreso, cuyo ejercicio debe ser independiente del procedimiento jurisdiccional. Además, los procesos judiciales por responsabilidad de funcionarios públicos y por los delitos cometidos por medio de la prensa son siempre públicos.\n\nEl derecho de defensa en ningún estado del proceso es uno de los principios que se menciona en las fuentes. También se mencionan derechos como el derecho de formular análisis y críticas de las resoluciones y sentencias judiciales, con las limitaciones de ley; el derecho de los reclusos y sentenciados de ocupar establecimientos adecuados.\n\nLos ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum; iniciativa legislativa; remoción o revocación de autoridades y demanda de rendición de cuentas. Tienen también el derecho de ser elegidos y de elegir libremente a sus representantes, conforme a las condiciones y procedimientos determinados por ley.\n\nLos ciudadanos tienen derecho al voto hasta los setenta años; es facultativo después",
+          "answer": "Mis derechos incluyen la vida, la identidad, la integridad moral, psíquica y física, así como mi libre desarrollo y bienestar. Tengo derecho a la igualdad ante la ley, a informar y opinar, a fundar medios de comunicación, a elección, remoción o revocación de autoridades, a iniciativa legislativa y referéndum. También tengo el derecho a usar mi propio idioma ante cualquier autoridad mediante un intérprete. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad. Los miembros de las Fuerzas Armadas y de la Policía Nacional sólo pueden ejercer individualmente el derecho de petición.",
           "fragments": [
             {
               "text": "Artículo 2: Toda persona tiene derecho:\n1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.\n2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.\n3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público.\n4. A las libertades de información, opinión, expresión y difusión del pensamiento mediante la palabra oral o escrita o la imagen, por cualquier medio de comunicación social, sin previa autorización ni censura ni impedimento algunos, bajo las responsabilidades de ley.Los delitos cometidos por medio del libro, la prensa y demás medios de comunicación social se tipifican en el Código Penal y se juzgan en el fuero común.Es delito toda acción que suspende o clausura algún órgano de expresión o le impide circular libremente. Los derechos de informar y opinar comprenden los de fundar medios de comunicación.\n5. A solicitar sin expresión de causa la información que requiera y a recibirla de cualquier entidad pública, en el plazo legal, con el costo que suponga el pedido. Se exceptúan las informaciones que afectan la intimidad personal y las que expresamente se excluyan por ley o por razones de seguridad nacional.El secreto bancario y la reserva tributaria pueden levantarse a pedido del juez, del Fiscal de la Nación, o de una comisión investigadora del Congreso con arreglo a ley y siempre que se refieran al caso investigado.\n6. A que los servicios informáticos, computarizados o no, públicos o privados, no suministren informaciones que afecten la intimidad personal y familiar.\n7. Al honor y a la buena reputación, a la intimidad personal y familiar así como a la voz y a la imagen propias.Toda persona afectada por afirmaciones inexactas o agraviada en cualquier medio de comunicación social tiene derecho a que éste se rectifique en forma gratuita, inmediata y proporcional, sin perjuicio de las responsabilidades de ley.\n8. A la libertad de creación intelectual, artística, técnica y científica, así como a la propiedad sobre dichas creaciones y a su producto. El Estado propicia el acceso a la cultura y fomenta su desarrollo y difusión.\n9. A la inviolabilidad del domicilio. Nadie puede ingresar en él ni efectuar investigaciones o registros sin autorización de la persona que lo habita o sin mandato judicial, salvo flagrante delito o muy grave peligro de su perpetración. Las excepciones por motivos de sanidad o de grave riesgo son reguladas por la ley.\n10. Al secreto y a la inviolabilidad de sus comunicaciones y documentos privados. Las comunicaciones, telecomunicaciones o sus instrumentos sólo pueden ser abiertos, incautados, interceptados o intervenidos por mandamiento motivado del juez, con las garantías previstas en la ley. Se guarda secreto de los asuntos ajenos al hecho que motiva su examen. Los documentos privados obtenidos con violación de este precepto no tienen efecto legal. Los libros, comprobantes y documentos contables y administrativos están sujetos a inspección o fiscalización de la autoridad competente, de conformidad con la ley. Las acciones que al respecto se tomen no pueden incluir su sustracción o incautación, salvo por orden judicial.\n11. A elegir su lugar de residencia, a transitar por el territorio nacional y a salir de él y entrar en él, salvo limitaciones por razones de sanidad o por mandato judicial o por aplicación de la ley de extranjería.\n12. A reunirse pacíficamente sin armas. Las reuniones en locales privados o abiertos al público no requieren aviso previo. Las que se convocan en plazas y vías públicas exigen anuncio anticipado a la autoridad, la que puede prohibirlas solamente por motivos probados de seguridad o de sanidad públicas.\n13. A asociarse y a constituir fundaciones y diversas formas de organización jurídica sin fines de lucro, sin autorización previa y con arreglo a ley. No pueden ser disueltas por resolución administrativa.\n14. A contratar con fines lícitos, siempre que no se contravengan leyes de orden público.\n15. A trabajar libremente, con sujeción a ley.\n16. A la propiedad y a la herencia.\n17. A participar, en forma individual o asociada, en la vida política, económica, social y cultural de la Nación. Los ciudadanos tienen, conforme a ley, los derechos de elección, de remoción o revocación de autoridades, de iniciativa legislativa y de referéndum.\n18. A mantener reserva sobre sus convicciones políticas, filosóficas, religiosas o de cualquiera otra índole, así como a guardar el secreto profesional.\n19. A su identidad étnica y cultural. El Estado reconoce y protege la pluralidad étnica y cultural de la Nación. Todo peruano tiene derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad.\n20. A formular peticiones, individual o colectivamente, por escrito ante la autoridad competente, la que está obligada a dar al interesado una respuesta también por escrito dentro del plazo legal, bajo responsabilidad. Los miembros de las Fuerzas Armadas y de la Policía Nacional sólo pueden ejercer individualmente el derecho de petición.\n21. A su nacionalidad. Nadie puede ser despojado de ella. Tampoco puede ser privado del derecho de obtener o de renovar su pasaporte dentro o fuera del territorio de la República.\n22. A la paz, a la tranquilidad, al disfrute del tiempo libre y al descanso, así como a gozar de un ambiente equilibrado y adecuado al desarrollo de su vida.\n23. A la legítima defensa.\n24. A la libertad y a la seguridad personales. En consecuencia:\n25. Nadie está obligado a hacer lo que la ley no manda, ni impedido de hacer lo que ella no prohibe.\n26. No se permite forma alguna de restricción de la libertad personal, salvo en los casos previstos por la ley. Están prohibidas la esclavitud, la servidumbre y la trata de seres humanos en cualquiera de sus formas.\n27. No hay prisión por deudas. Este principio no limita el mandato judicial por incumplimiento de deberes alimentarios.\n28. Nadie será procesado ni condenado por acto u omisión que al tiempo de cometerse no esté previamente calificado en la ley, de manera expresa e inequívoca, como infracción punible; ni sancionado con pena no prevista en la ley.\n29. Toda persona es considerada inocente mientras no se haya declarado judicialmente su responsabilidad.\n30. Nadie puede ser detenido sino por mandamiento escrito y motivado del juez o por las autoridades policiales en caso de flagrante delito. El detenido debe ser puesto a disposición del juzgado correspondiente, dentro de las veinticuatro horas o en el término de la distancia. Estos plazos no se aplican a los casos de terrorismo, espionaje y tráfico ilícito de drogas. En tales casos, las autoridades policiales pueden efectuar la detención preventiva de los presuntos implicados por un término no mayor de quince días naturales. Deben dar cuenta al Ministerio Público y al juez, quien puede asumir jurisdicción antes de vencido dicho término.\n31. Nadie puede ser incomunicado sino en caso indispensable para el esclarecimiento de un delito, y en la forma y por el tiempo previstos por la ley. La autoridad está obligada bajo responsabilidad a señalar, sin dilación y por escrito, el lugar donde se halla la persona detenida.\n32. Nadie debe ser víctima de violencia moral, psíquica o física ni sometido a tortura o a tratos inhumanos o humillantes. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.",
@@ -790,30 +798,29 @@
             "deterministic": true,
             "candidates": 4,
             "detail": true,
-            "cleaned": true,
             "picked": "Artículo 2",
-            "coverage": 0.989,
+            "coverage": 0.976,
             "unsupported": [
-              "fuent"
+              "tengo"
             ],
             "decision": {
               "source": "logit",
               "picked": 1,
               "scores": [
-                0.104,
-                0.6563,
-                0.2164,
-                0.0234
+                0.0001,
+                0.9918,
+                0.0001,
+                0.0081
               ],
               "per_chooser": {
                 "logit": [
-                  0.104,
-                  0.6563,
-                  0.2164,
-                  0.0234
+                  0.0001,
+                  0.9918,
+                  0.0001,
+                  0.0081
                 ]
               },
-              "ms": 4578.9,
+              "ms": 8527.1,
               "key": "Artículo 2"
             },
             "corpus": true,
@@ -843,29 +850,29 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 5.5,
-            "total_ms": 25118.8
+            "search_ms": 6.4,
+            "total_ms": 31335.6
           },
-          "ms": 25122
+          "ms": 31338
         },
         "decision": {
           "source": "logit",
           "picked": 1,
           "scores": [
-            0.104,
-            0.6563,
-            0.2164,
-            0.0234
+            0.0001,
+            0.9918,
+            0.0001,
+            0.0081
           ],
           "per_chooser": {
             "logit": [
-              0.104,
-              0.6563,
-              0.2164,
-              0.0234
+              0.0001,
+              0.9918,
+              0.0001,
+              0.0081
             ]
           },
-          "ms": 4578.9,
+          "ms": 8527.1,
           "key": "Artículo 2"
         }
       },
@@ -946,13 +953,13 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 9.8,
-            "total_ms": 9.8
+            "search_ms": 24.7,
+            "total_ms": 24.7
           },
-          "ms": 13
+          "ms": 27
         },
         "agent_a_b": {
-          "answer": "Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Tales organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica.\nLa ley establece normas orientadas a asegurar el funcionamiento democrático de los partidos políticos, y la transparencia en cuanto al origen de sus recursos económicos y el acceso gratuito a los medios de comunicación social de propiedad del Estado en forma proporcional al último resultado electoral general.",
+          "answer": "Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Tales organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica.",
           "fragments": [
             {
               "text": "Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Tales organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica.\nLa ley establece normas orientadas a asegurar el funcionamiento democrático de los partidos políticos, y la transparencia en cuanto al origen de sus recursos económicos y el acceso gratuito a los medios de comunicación social de propiedad del Estado en forma proporcional al último resultado electoral general.",
@@ -1003,19 +1010,8 @@
             "candidates": 1,
             "detail": false,
             "picked": "Artículo 35",
-            "coverage": 0.788,
-            "unsupported": [
-              "activ",
-              "capac",
-              "garan",
-              "legal",
-              "media",
-              "pobla",
-              "repre"
-            ],
-            "fallback": true,
-            "llm_answer": "El artículo 35 establece que los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas. Estas organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica.\n\nEsta norma asegura que los ciudadanos pueden participar activamente en la política mediante las organizaciones políticas, y garantiza su legalidad y capacidad para representar a la población.",
-            "fallback_engine": "exact",
+            "coverage": 1.0,
+            "unsupported": [],
             "decision": {
               "skipped": "candidato autoritativo"
             },
@@ -1046,10 +1042,10 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 17.3,
-            "total_ms": 4929.0
+            "search_ms": 7.8,
+            "total_ms": 7031.2
           },
-          "ms": 4932
+          "ms": 7034
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -1132,13 +1128,13 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 8.0,
-            "total_ms": 8.0
+            "search_ms": 22.3,
+            "total_ms": 22.3
           },
-          "ms": 11
+          "ms": 25
         },
         "agent_a_b": {
-          "answer": "Artículo 2: Toda persona tiene derecho:\n\n1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar.\nEl concebido es sujeto de derecho en todo cuanto le favorece.\n\n2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.\n\n3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.",
+          "answer": "Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.",
           "fragments": [
             {
               "text": "Artículo 2: Toda persona tiene derecho:\n1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.\n2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.\n3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público.\n4. A las libertades de información, opinión, expresión y difusión del pensamiento mediante la palabra oral o escrita o la imagen, por cualquier medio de comunicación social, sin previa autorización ni censura ni impedimento algunos, bajo las responsabilidades de ley.Los delitos cometidos por medio del libro, la prensa y demás medios de comunicación social se tipifican en el Código Penal y se juzgan en el fuero común.Es delito toda acción que suspende o clausura algún órgano de expresión o le impide circular libremente. Los derechos de informar y opinar comprenden los de fundar medios de comunicación.\n5. A solicitar sin expresión de causa la información que requiera y a recibirla de cualquier entidad pública, en el plazo legal, con el costo que suponga el pedido. Se exceptúan las informaciones que afectan la intimidad personal y las que expresamente se excluyan por ley o por razones de seguridad nacional.El secreto bancario y la reserva tributaria pueden levantarse a pedido del juez, del Fiscal de la Nación, o de una comisión investigadora del Congreso con arreglo a ley y siempre que se refieran al caso investigado.\n6. A que los servicios informáticos, computarizados o no, públicos o privados, no suministren informaciones que afecten la intimidad personal y familiar.\n7. Al honor y a la buena reputación, a la intimidad personal y familiar así como a la voz y a la imagen propias.Toda persona afectada por afirmaciones inexactas o agraviada en cualquier medio de comunicación social tiene derecho a que éste se rectifique en forma gratuita, inmediata y proporcional, sin perjuicio de las responsabilidades de ley.\n8. A la libertad de creación intelectual, artística, técnica y científica, así como a la propiedad sobre dichas creaciones y a su producto. El Estado propicia el acceso a la cultura y fomenta su desarrollo y difusión.\n9. A la inviolabilidad del domicilio. Nadie puede ingresar en él ni efectuar investigaciones o registros sin autorización de la persona que lo habita o sin mandato judicial, salvo flagrante delito o muy grave peligro de su perpetración. Las excepciones por motivos de sanidad o de grave riesgo son reguladas por la ley.\n10. Al secreto y a la inviolabilidad de sus comunicaciones y documentos privados. Las comunicaciones, telecomunicaciones o sus instrumentos sólo pueden ser abiertos, incautados, interceptados o intervenidos por mandamiento motivado del juez, con las garantías previstas en la ley. Se guarda secreto de los asuntos ajenos al hecho que motiva su examen. Los documentos privados obtenidos con violación de este precepto no tienen efecto legal. Los libros, comprobantes y documentos contables y administrativos están sujetos a inspección o fiscalización de la autoridad competente, de conformidad con la ley. Las acciones que al respecto se tomen no pueden incluir su sustracción o incautación, salvo por orden judicial.\n11. A elegir su lugar de residencia, a transitar por el territorio nacional y a salir de él y entrar en él, salvo limitaciones por razones de sanidad o por mandato judicial o por aplicación de la ley de extranjería.\n12. A reunirse pacíficamente sin armas. Las reuniones en locales privados o abiertos al público no requieren aviso previo. Las que se convocan en plazas y vías públicas exigen anuncio anticipado a la autoridad, la que puede prohibirlas solamente por motivos probados de seguridad o de sanidad públicas.\n13. A asociarse y a constituir fundaciones y diversas formas de organización jurídica sin fines de lucro, sin autorización previa y con arreglo a ley. No pueden ser disueltas por resolución administrativa.\n14. A contratar con fines lícitos, siempre que no se contravengan leyes de orden público.\n15. A trabajar libremente, con sujeción a ley.\n16. A la propiedad y a la herencia.\n17. A participar, en forma individual o asociada, en la vida política, económica, social y cultural de la Nación. Los ciudadanos tienen, conforme a ley, los derechos de elección, de remoción o revocación de autoridades, de iniciativa legislativa y de referéndum.\n18. A mantener reserva sobre sus convicciones políticas, filosóficas, religiosas o de cualquiera otra índole, así como a guardar el secreto profesional.\n19. A su identidad étnica y cultural. El Estado reconoce y protege la pluralidad étnica y cultural de la Nación. Todo peruano tiene derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad.\n20. A formular peticiones, individual o colectivamente, por escrito ante la autoridad competente, la que está obligada a dar al interesado una respuesta también por escrito dentro del plazo legal, bajo responsabilidad. Los miembros de las Fuerzas Armadas y de la Policía Nacional sólo pueden ejercer individualmente el derecho de petición.\n21. A su nacionalidad. Nadie puede ser despojado de ella. Tampoco puede ser privado del derecho de obtener o de renovar su pasaporte dentro o fuera del territorio de la República.\n22. A la paz, a la tranquilidad, al disfrute del tiempo libre y al descanso, así como a gozar de un ambiente equilibrado y adecuado al desarrollo de su vida.\n23. A la legítima defensa.\n24. A la libertad y a la seguridad personales. En consecuencia:\n25. Nadie está obligado a hacer lo que la ley no manda, ni impedido de hacer lo que ella no prohibe.\n26. No se permite forma alguna de restricción de la libertad personal, salvo en los casos previstos por la ley. Están prohibidas la esclavitud, la servidumbre y la trata de seres humanos en cualquiera de sus formas.\n27. No hay prisión por deudas. Este principio no limita el mandato judicial por incumplimiento de deberes alimentarios.\n28. Nadie será procesado ni condenado por acto u omisión que al tiempo de cometerse no esté previamente calificado en la ley, de manera expresa e inequívoca, como infracción punible; ni sancionado con pena no prevista en la ley.\n29. Toda persona es considerada inocente mientras no se haya declarado judicialmente su responsabilidad.\n30. Nadie puede ser detenido sino por mandamiento escrito y motivado del juez o por las autoridades policiales en caso de flagrante delito. El detenido debe ser puesto a disposición del juzgado correspondiente, dentro de las veinticuatro horas o en el término de la distancia. Estos plazos no se aplican a los casos de terrorismo, espionaje y tráfico ilícito de drogas. En tales casos, las autoridades policiales pueden efectuar la detención preventiva de los presuntos implicados por un término no mayor de quince días naturales. Deben dar cuenta al Ministerio Público y al juez, quien puede asumir jurisdicción antes de vencido dicho término.\n31. Nadie puede ser incomunicado sino en caso indispensable para el esclarecimiento de un delito, y en la forma y por el tiempo previstos por la ley. La autoridad está obligada bajo responsabilidad a señalar, sin dilación y por escrito, el lugar donde se halla la persona detenida.\n32. Nadie debe ser víctima de violencia moral, psíquica o física ni sometido a tortura o a tratos inhumanos o humillantes. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.",
@@ -1221,10 +1217,10 @@
             "rewrite": {
               "rewritten": false
             },
-            "search_ms": 8.5,
-            "total_ms": 10182.4
+            "search_ms": 8.4,
+            "total_ms": 11203.3
           },
-          "ms": 10185
+          "ms": 11206
         },
         "decision": {
           "skipped": "candidato autoritativo"
@@ -1309,13 +1305,13 @@
               "from": "dame más explicación",
               "topic": "¿Qué dice el Artículo 2?"
             },
-            "search_ms": 8.3,
-            "total_ms": 8.3
+            "search_ms": 25.9,
+            "total_ms": 26.0
           },
-          "ms": 11
+          "ms": 29
         },
         "agent_a_b": {
-          "answer": "Lo que dice el Artículo 2 es:\n\n1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar.\nEl concebido es sujeto de derecho en todo cuanto le favorece.\n\n2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.\n\n3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.\n\nEstos derechos se aplican en general y no afectan el derecho de gracia ni la facultad de investigación del Congreso, cuyo ejercicio debe ser independiente del procedimiento jurisdiccional. Además, los procesos judiciales por responsabilidad de funcionarios públicos y por los delitos cometidos por medio de la prensa son siempre públicos.\n\nEl derecho de defensa en ningún estado del proceso es uno de los principios que se menciona en las fuentes. También se mencionan derechos como el derecho de formular análisis y críticas de las resoluciones y sentencias judiciales, con las limitaciones de ley; el derecho de los reclusos y sentenciados de ocupar establecimientos adecuados.\n\nLos",
+          "answer": "Este artículo establece derechos fundamentales para todos los ciudadanos, incluyendo la vida, la identidad, la integridad moral y física, el libre desarrollo y bienestar. Además, garantiza la igualdad ante la ley sin discriminación por origen, raza, sexo, idioma, religión o cualquier otra condición. También se reconoce la libertad de conciencia y de religión, así como el derecho a pedir informes a las autoridades pertinentes.",
           "fragments": [
             {
               "text": "Artículo 2: Toda persona tiene derecho:\n1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.\n2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole.\n3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público.\n4. A las libertades de información, opinión, expresión y difusión del pensamiento mediante la palabra oral o escrita o la imagen, por cualquier medio de comunicación social, sin previa autorización ni censura ni impedimento algunos, bajo las responsabilidades de ley.Los delitos cometidos por medio del libro, la prensa y demás medios de comunicación social se tipifican en el Código Penal y se juzgan en el fuero común.Es delito toda acción que suspende o clausura algún órgano de expresión o le impide circular libremente. Los derechos de informar y opinar comprenden los de fundar medios de comunicación.\n5. A solicitar sin expresión de causa la información que requiera y a recibirla de cualquier entidad pública, en el plazo legal, con el costo que suponga el pedido. Se exceptúan las informaciones que afectan la intimidad personal y las que expresamente se excluyan por ley o por razones de seguridad nacional.El secreto bancario y la reserva tributaria pueden levantarse a pedido del juez, del Fiscal de la Nación, o de una comisión investigadora del Congreso con arreglo a ley y siempre que se refieran al caso investigado.\n6. A que los servicios informáticos, computarizados o no, públicos o privados, no suministren informaciones que afecten la intimidad personal y familiar.\n7. Al honor y a la buena reputación, a la intimidad personal y familiar así como a la voz y a la imagen propias.Toda persona afectada por afirmaciones inexactas o agraviada en cualquier medio de comunicación social tiene derecho a que éste se rectifique en forma gratuita, inmediata y proporcional, sin perjuicio de las responsabilidades de ley.\n8. A la libertad de creación intelectual, artística, técnica y científica, así como a la propiedad sobre dichas creaciones y a su producto. El Estado propicia el acceso a la cultura y fomenta su desarrollo y difusión.\n9. A la inviolabilidad del domicilio. Nadie puede ingresar en él ni efectuar investigaciones o registros sin autorización de la persona que lo habita o sin mandato judicial, salvo flagrante delito o muy grave peligro de su perpetración. Las excepciones por motivos de sanidad o de grave riesgo son reguladas por la ley.\n10. Al secreto y a la inviolabilidad de sus comunicaciones y documentos privados. Las comunicaciones, telecomunicaciones o sus instrumentos sólo pueden ser abiertos, incautados, interceptados o intervenidos por mandamiento motivado del juez, con las garantías previstas en la ley. Se guarda secreto de los asuntos ajenos al hecho que motiva su examen. Los documentos privados obtenidos con violación de este precepto no tienen efecto legal. Los libros, comprobantes y documentos contables y administrativos están sujetos a inspección o fiscalización de la autoridad competente, de conformidad con la ley. Las acciones que al respecto se tomen no pueden incluir su sustracción o incautación, salvo por orden judicial.\n11. A elegir su lugar de residencia, a transitar por el territorio nacional y a salir de él y entrar en él, salvo limitaciones por razones de sanidad o por mandato judicial o por aplicación de la ley de extranjería.\n12. A reunirse pacíficamente sin armas. Las reuniones en locales privados o abiertos al público no requieren aviso previo. Las que se convocan en plazas y vías públicas exigen anuncio anticipado a la autoridad, la que puede prohibirlas solamente por motivos probados de seguridad o de sanidad públicas.\n13. A asociarse y a constituir fundaciones y diversas formas de organización jurídica sin fines de lucro, sin autorización previa y con arreglo a ley. No pueden ser disueltas por resolución administrativa.\n14. A contratar con fines lícitos, siempre que no se contravengan leyes de orden público.\n15. A trabajar libremente, con sujeción a ley.\n16. A la propiedad y a la herencia.\n17. A participar, en forma individual o asociada, en la vida política, económica, social y cultural de la Nación. Los ciudadanos tienen, conforme a ley, los derechos de elección, de remoción o revocación de autoridades, de iniciativa legislativa y de referéndum.\n18. A mantener reserva sobre sus convicciones políticas, filosóficas, religiosas o de cualquiera otra índole, así como a guardar el secreto profesional.\n19. A su identidad étnica y cultural. El Estado reconoce y protege la pluralidad étnica y cultural de la Nación. Todo peruano tiene derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad.\n20. A formular peticiones, individual o colectivamente, por escrito ante la autoridad competente, la que está obligada a dar al interesado una respuesta también por escrito dentro del plazo legal, bajo responsabilidad. Los miembros de las Fuerzas Armadas y de la Policía Nacional sólo pueden ejercer individualmente el derecho de petición.\n21. A su nacionalidad. Nadie puede ser despojado de ella. Tampoco puede ser privado del derecho de obtener o de renovar su pasaporte dentro o fuera del territorio de la República.\n22. A la paz, a la tranquilidad, al disfrute del tiempo libre y al descanso, así como a gozar de un ambiente equilibrado y adecuado al desarrollo de su vida.\n23. A la legítima defensa.\n24. A la libertad y a la seguridad personales. En consecuencia:\n25. Nadie está obligado a hacer lo que la ley no manda, ni impedido de hacer lo que ella no prohibe.\n26. No se permite forma alguna de restricción de la libertad personal, salvo en los casos previstos por la ley. Están prohibidas la esclavitud, la servidumbre y la trata de seres humanos en cualquiera de sus formas.\n27. No hay prisión por deudas. Este principio no limita el mandato judicial por incumplimiento de deberes alimentarios.\n28. Nadie será procesado ni condenado por acto u omisión que al tiempo de cometerse no esté previamente calificado en la ley, de manera expresa e inequívoca, como infracción punible; ni sancionado con pena no prevista en la ley.\n29. Toda persona es considerada inocente mientras no se haya declarado judicialmente su responsabilidad.\n30. Nadie puede ser detenido sino por mandamiento escrito y motivado del juez o por las autoridades policiales en caso de flagrante delito. El detenido debe ser puesto a disposición del juzgado correspondiente, dentro de las veinticuatro horas o en el término de la distancia. Estos plazos no se aplican a los casos de terrorismo, espionaje y tráfico ilícito de drogas. En tales casos, las autoridades policiales pueden efectuar la detención preventiva de los presuntos implicados por un término no mayor de quince días naturales. Deben dar cuenta al Ministerio Público y al juez, quien puede asumir jurisdicción antes de vencido dicho término.\n31. Nadie puede ser incomunicado sino en caso indispensable para el esclarecimiento de un delito, y en la forma y por el tiempo previstos por la ley. La autoridad está obligada bajo responsabilidad a señalar, sin dilación y por escrito, el lugar donde se halla la persona detenida.\n32. Nadie debe ser víctima de violencia moral, psíquica o física ni sometido a tortura o a tratos inhumanos o humillantes. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.",
@@ -1366,20 +1362,10 @@
             "candidates": 2,
             "detail": true,
             "picked": "Artículo 2",
-            "coverage": 0.853,
+            "coverage": 0.933,
             "unsupported": [
-              "anali",
-              "criti",
-              "cuyo",
               "estab",
-              "facul",
-              "fuent",
-              "funci",
-              "graci",
-              "indep",
-              "menci",
-              "ningu",
-              "ocupa"
+              "perti"
             ],
             "decision": {
               "skipped": "candidato autoritativo"
@@ -1413,10 +1399,10 @@
               "from": "dame más explicación",
               "topic": "¿Qué dice el Artículo 2?"
             },
-            "search_ms": 9.0,
-            "total_ms": 23465.0
+            "search_ms": 8.5,
+            "total_ms": 18278.0
           },
-          "ms": 23468
+          "ms": 18281
         },
         "decision": {
           "skipped": "candidato autoritativo"

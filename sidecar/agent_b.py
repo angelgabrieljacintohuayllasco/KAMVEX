@@ -119,15 +119,25 @@ def wants_more_detail(query: str) -> bool:
     return bool(_MORE_RE.search(query))
 
 
+AUTHORITY_MARK = "← la pregunta nombra esta"
+
+
 def build_context(candidates, query: str, max_candidates: int = MAX_CANDIDATES_IN_PROMPT,
                   chars: int = CANDIDATE_CHARS) -> str:
-    """Los candidatos numerados, cada uno recortado a lo que responde la pregunta."""
+    """Las fuentes numeradas, cada una recortada a lo que responde la pregunta.
+
+    La fuente que la pregunta nombra entera va marcada. Sin la marca, «hazme una
+    explicación muy larga de la palabra pene» hacía que Gemma 3 4B contestara la definición
+    de *explicación*: la palabra estaba en la pregunta y pesaba más que el orden.
+    """
     lines = []
     for i, c in enumerate(candidates[:max_candidates], start=1):
         text = getattr(c, "text", str(c))
         text = focus_text(query, text, chars) if len(text) > chars else text
         key = getattr(c, "key", None) or getattr(c, "source_id", None) or ""
         head = f"[{i}]" + (f" ({key})" if key else "")
+        if getattr(c, "authority", False):
+            head += f" {AUTHORITY_MARK}"
         lines.append(f"{head} {text}")
     return "\n".join(lines)
 
@@ -153,40 +163,54 @@ def messages(query: str, candidates, history: list[dict] | None = None,
     if not is_followup(query):
         history = []
     context = build_context(candidates, query)
+    marcada = any(getattr(c, "authority", False)
+                  for c in candidates[:MAX_CANDIDATES_IN_PROMPT])
 
     if language == "en":
         rules = [
-            "You answer using ONLY the CANDIDATES that Agent A retrieved.",
-            "1) Pick the candidate that answers the question and use it. Ignore the others.",
-            "2) Never add facts, figures or names that are not in the candidates.",
-            "3) Write for a person: full sentences, no 'candidate [2] says'.",
-            ("4) The user asked for more detail: use everything relevant in the candidates. "
-             "If they do not say more, answer with what they do say and add that the "
-             "available sources record nothing further. Never pad with your own knowledge."
-             if more else
-             "4) Be brief: two or three sentences are enough."),
-            "5) If no candidate answers the question, say exactly: "
-            "'The available information does not cover this topic.'",
-            "6) Answer THIS question. Do not repeat your previous answer if the topic changed.",
+            ("Below are numbered sources. One is marked: the question names it, so that is "
+             "the one to answer from." if marcada else
+             "Below are numbered sources. Find the one that answers the question and answer "
+             "with what it says."),
+            "Never add facts, figures or names that are not in the sources.",
+            "Only if no source answers the question at all, reply with this single sentence "
+            "and nothing else: 'The available information does not cover this topic.'",
+            (("The user asked for more detail: use everything that marked source says, and "
+              "nothing from the others. If it says no more, answer with what it does say and "
+              "add one line saying so." if marcada else
+              "The user asked for more detail: use everything relevant from the source that "
+              "answers. If it says no more, answer with what it does say and add one line "
+              "saying so.") if more else "Be brief: two or three sentences."),
+            "Write one continuous text. Never paste sources one after another, and never "
+            "repeat the same one twice.",
+            "Answer THIS question, not the previous one.",
+            "Write only the answer: no preamble, no headings, no numbering, do not quote "
+            "these instructions and do not mention sources, options or candidates.",
         ]
-        user = f"CANDIDATES:\n{context}\n\nQUESTION: {query}"
+        user = f"SOURCES:\n{context}\n\nQUESTION: {query}"
     else:
         rules = [
-            "Respondes usando ÚNICAMENTE los CANDIDATOS que recuperó el Agente A.",
-            "1) Elige el candidato que responde la pregunta y úsalo. Ignora los demás.",
-            "2) Nunca añadas datos, cifras ni nombres que no estén en los candidatos.",
-            "3) Escribe para una persona: frases completas, sin decir 'el candidato [2]'.",
-            ("4) El usuario pide más detalle: aprovecha todo lo relevante de los candidatos. "
-             "Si no dicen más, responde con lo que sí dicen y avisa de que las fuentes "
-             "disponibles no recogen nada más. Nunca rellenes con lo que sepas por tu cuenta."
-             if more else
-             "4) Sé breve: con dos o tres frases basta."),
-            "5) Si ningún candidato responde la pregunta, contesta exactamente: "
-            "'La información disponible no cubre este tema.'",
-            "6) Responde ESTA pregunta. No repitas tu respuesta anterior si cambió el tema.",
-            "7) Responde en español.",
+            ("Abajo tienes fuentes numeradas. Una está marcada: la pregunta la nombra, así "
+             "que es esa la que debes usar para responder." if marcada else
+             "Abajo tienes fuentes numeradas. Busca la que responde la pregunta y contesta "
+             "con lo que dice."),
+            "Nunca añadas datos, cifras ni nombres que no estén en las fuentes.",
+            "Solo si ninguna fuente responde la pregunta, contesta con esta frase y nada "
+            "más: 'La información disponible no cubre este tema.'",
+            (("El usuario pide más detalle: aprovecha todo lo que diga esa fuente marcada, y "
+              "nada de las demás. Si no dice más, respóndelo y añade una línea diciéndolo."
+              if marcada else
+              "El usuario pide más detalle: aprovecha todo lo relevante de la fuente que "
+              "responde. Si no dice más, respóndelo y añade una línea diciéndolo.")
+             if more else "Sé breve: dos o tres frases."),
+            "Escribe un texto seguido. Nunca pegues fuentes una detrás de otra ni repitas "
+            "la misma dos veces.",
+            "Responde ESTA pregunta, no la anterior.",
+            "Responde en español y escribe solo la respuesta: sin preámbulo, sin "
+            "encabezados, sin numerar, sin repetir estas instrucciones y sin mencionar "
+            "fuentes, opciones ni candidatos.",
         ]
-        user = f"CANDIDATOS:\n{context}\n\nPREGUNTA: {query}"
+        user = f"FUENTES:\n{context}\n\nPREGUNTA: {query}"
 
     system = "\n".join(rules)
     if system_extra:
@@ -211,6 +235,109 @@ def picked_candidate(answer: str, candidates) -> int | None:
     return best if best_overlap >= 0.25 else None
 
 
+_REFUSALS = ("no cubre este tema", "does not cover this topic")
+# Una negativa pegada al final de una respuesta larga no es una negativa: es una coletilla
+# que el modelo añade por obedecer la regla al pie de la letra. Medido con Gemma 3 4B, esa
+# coletilla saltaba el guardarraíl entero y la respuesta salía sin comprobar.
+REFUSAL_SLACK = 40
+
+
+def _fold(text: str) -> tuple[str, list[int]]:
+    """Texto en minúsculas y sin acentos, con la posición original de cada carácter.
+
+    `normalize` descompone y borra tildes, así que acorta la cadena: sus posiciones no
+    sirven para recortar el original. Aquí se guarda el mapa.
+    """
+    out, idx = [], []
+    for i, ch in enumerate(text):
+        for c in unicodedata.normalize("NFD", ch.lower()):
+            if unicodedata.category(c) != "Mn":
+                out.append(c)
+                idx.append(i)
+    return "".join(out), idx
+
+
+def _refusal_span(answer: str) -> tuple[int, int] | None:
+    """Dónde empieza y acaba la frase de negativa en el texto ORIGINAL, si está."""
+    folded, idx = _fold(answer)
+    for phrase in _REFUSALS:
+        i = folded.find(phrase)
+        if i >= 0:
+            fin = i + len(phrase) - 1
+            return idx[i], idx[fin] + 1
+    return None
+
+
 def looks_like_refusal(answer: str) -> bool:
-    a = normalize(answer)
-    return "no cubre este tema" in a or "does not cover this topic" in a
+    """¿La respuesta **es** la negativa, o solo la lleva pegada al final?"""
+    span = _refusal_span(answer)
+    if span is None:
+        return False
+    resto = len(answer.strip()) - (span[1] - span[0])
+    return resto <= REFUSAL_SLACK
+
+
+def strip_refusal_tail(answer: str) -> str:
+    """Quita la negativa cuando el modelo ya había respondido antes de añadirla.
+
+    Se borra la **oración entera**, no solo la frase clave: cortar en «no cubre este
+    tema» dejaba colgando «La información disponible».
+    """
+    span = _refusal_span(answer)
+    if span is None or looks_like_refusal(answer):
+        return answer
+    ini, fin = span
+    while ini > 0 and answer[ini - 1] not in ".!?\n":
+        ini -= 1
+    while fin < len(answer) and answer[fin] not in ".!?\n":
+        fin += 1
+    if fin < len(answer):
+        fin += 1
+    resto = (answer[:ini].rstrip() + " " + answer[fin:].strip()).strip()
+    return resto or answer
+
+
+# Marcadores del prompt que un modelo pequeño copia al empezar.
+_MARKER_RE = re.compile(
+    r"^\s*(?:FUENTES|SOURCES|CANDIDATOS|CANDIDATES|PREGUNTA|QUESTION)\s*:?\s*$",
+    re.IGNORECASE)
+# El marcador «[2] (clave)» con el que se numeran las fuentes en el prompt.
+_LABEL_RE = re.compile(r"^\[\d+\]\s*(?:\([^)]*\))?\s*")
+# Arranque del tipo «ÚNICAMENTE EL CANDIDATO [1] dice lo siguiente sobre X:».
+_PREFACE_RE = re.compile(
+    r"^\s*[^.\n]{0,120}?\b(?:candidat\w*|fuente\w*|opci[oó]n\w*|source\w*|option\w*)\b"
+    r"[^.\n]{0,120}?:\s*", re.IGNORECASE)
+
+
+def strip_prompt_echo(answer: str, instructions: str = "") -> str:
+    """Quita el preámbulo cuando el modelo repite las instrucciones o los marcadores.
+
+    Medido: Gemma 3 4B devolvió «Elige el candidato que responde la pregunta y úsalo.
+    Ignora los demás.» seguido del bloque de fuentes, y Qwen2.5 3B empezó con «ÚNICAMENTE
+    EL CANDIDATO [1] Dice lo siguiente sobre el Artículo 2:».
+
+    Se comparan las líneas iniciales con las **instrucciones**, no con las fuentes: citar
+    la fuente al pie de la letra es justo lo que debe hacer una respuesta anclada, y
+    borrarla por parecerse al prompt dejaría sin respuesta al usuario.
+    """
+    fondo = _fold(instructions)[0] if instructions else ""
+    util: list[str] = []
+    saltando = True
+    for linea in answer.strip().splitlines():
+        limpia = linea.strip()
+        if saltando:
+            if not limpia:
+                continue
+            # Un «[2] » al principio es el marcador del bloque de fuentes; lo que venga
+            # detrás puede ser del modelo, así que se quita el marcador, no la línea.
+            limpia = _LABEL_RE.sub("", limpia, count=1).strip()
+            if not limpia:
+                continue
+            plegada = _fold(limpia)[0]
+            if _MARKER_RE.match(limpia) or (fondo and len(plegada) > 12 and plegada in fondo):
+                continue
+            saltando = False
+            linea = limpia
+        util.append(linea)
+    out = "\n".join(util).strip()
+    return _PREFACE_RE.sub("", out, count=1).strip()

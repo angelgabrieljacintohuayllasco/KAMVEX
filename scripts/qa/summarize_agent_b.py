@@ -40,13 +40,21 @@ def stats(runs: dict[str, list]) -> list[dict]:
                 if isinstance(t["agent_a_b"].get("meta", {}).get("coverage"), float)]
         picked = sum(1 for t in turns if t["agent_a_b"].get("meta", {}).get("picked"))
         ms = [t["agent_a_b"].get("ms", 0) for t in turns]
+        # La capa de decisión: cuántas veces opinó y cuántas movió el orden del Agente A.
+        decs = [t["agent_a_b"].get("meta", {}).get("decision") or {} for t in turns]
+        decidio = [d for d in decs if d.get("picked") is not None]
+        movio = [d for d in decidio if d["picked"] != 0]
+        dec_ms = sorted(d["ms"] for d in decs if isinstance(d.get("ms"), (int, float)))
         rows.append({
             "modelo": label,
             "turnos": len(turns),
             "redactó": kinds.count("redactó"),
             "guardarraíl": kinds.count("guardarraíl"),
             "negó": kinds.count("negó"),
-            "candidato elegido": picked,
+            "candidato usado": picked,
+            "elector decidió": len(decidio),
+            "elector cambió el orden": len(movio),
+            "elector (ms)": dec_ms[len(dec_ms) // 2] if dec_ms else None,
             "cobertura media": round(sum(covs) / len(covs), 3) if covs else None,
             "latencia mediana (ms)": sorted(ms)[len(ms) // 2] if ms else 0,
         })
@@ -62,6 +70,27 @@ def table(rows: list[dict]) -> str:
     for r in rows:
         out.append("| " + " | ".join("—" if r[c] is None else str(r[c]) for c in cols) + " |")
     return "\n".join(out)
+
+
+def compare_chooser(rows: list[dict]) -> list[str]:
+    """Con y sin elector, para el mismo modelo. Es la única forma de saber si aporta."""
+    sin = {r["modelo"].replace(" sin elector", ""): r
+           for r in rows if "sin elector" in r["modelo"]}
+    if not sin:
+        return []
+    L = ["## ¿Aporta la capa de decisión?", "",
+         "Mismo modelo, mismas preguntas, misma semilla: la única diferencia es el elector.", "",
+         "| modelo | redactó con / sin | cobertura con / sin | coste del elector |",
+         "| --- | --- | --- | --- |"]
+    for r in rows:
+        base = r["modelo"]
+        if "sin elector" in base or base not in sin:
+            continue
+        s_ = sin[base]
+        coste = f"{r['elector (ms)']} ms" if r["elector (ms)"] else "—"
+        L.append(f"| {base} | {r['redactó']} / {s_['redactó']} | "
+                 f"{r['cobertura media']} / {s_['cobertura media']} | {coste} |")
+    return L + [""]
 
 
 def main() -> None:
@@ -96,6 +125,10 @@ def main() -> None:
          "- **guardarraíl**: el LLM se salió del corpus y se devolvió la fuente. No es un fallo: "
          "es el sistema negándose a que un modelo de 1-2 B invente.",
          "- **negó**: el LLM dijo que los candidatos no responden la pregunta.",
+         "- **candidato usado**: el LLM acabó usando un candidato identificable, no inventando.",
+         "- **elector decidió / cambió el orden**: la capa de decisión (SemIf sobre "
+         "llama-server) eligió con margen, y en cuántos turnos el elegido no era el primero "
+         "del Agente A. Ahí es donde aporta.",
          "- **cobertura media**: fracción del vocabulario de la respuesta que está en el corpus.", "",
          "## Qué cambió respecto a las capturas", "", ]
 
@@ -106,6 +139,7 @@ def main() -> None:
               f"- Exacto (Agente A): {' '.join(t['agent_a']['answer'].split())[:200]}",
               f"- Anclado (A+B): {' '.join(t['agent_a_b']['answer'].split())[:200]}", ""]
 
+    L += compare_chooser(rows)
     L += ["## Detalle turno a turno", ""]
     for label, name in reports.items():
         L.append(f"- [{label}]({name})")

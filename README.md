@@ -69,15 +69,24 @@ Tauri 2 (Rust shell, src-tauri/)
 The sidecar imports `dasa` and `shard` from the **sibling repos** `DASA-main` and
 `SHARD-main` (dev) or from the PyInstaller bundle (installer). No logic is duplicated.
 
-### Agent A proposes, Agent B answers
+### Agent A proposes, a chooser decides, Agent B answers
 
 Agent A is an **ensemble**: semantic search (MiniLM + IVF-PQ), an exact key index, BM25
 over the record text, lexical overlap, and any predictor of your own behind HTTP. Their
 lists merge with weighted Reciprocal Rank Fusion plus an agreement bonus, and a record the
-question names in full wins outright. Agent B is the LLM: it resolves follow-ups against
-the conversation ("dame más explicación"), picks the candidate that answers, and writes the
-reply using only what the candidates say. A lexical guardrail rejects anything that drifts
-outside the corpus. Full description in [docs/agente-a-y-agente-b.md](docs/agente-a-y-agente-b.md),
+question names in full wins outright.
+
+A **decision layer** can then pick which candidate actually answers, which is the job of
+the open decision models — Laya, Kev, Von, SemIf, NanoJev. KAMVEX ships SemIf's technique
+running on the llama-server you already have: option labels are scored by reading their
+probability in a single forward pass, no generation. It is **off by default because it was
+measured**: with a general LLM doing the choosing it changes nothing (Gemma 3 4B answers 8
+of 8 turns either way) and costs 3 to 8.5 seconds. A purpose-built 421M decision model
+answers in milliseconds instead; plug yours in with `KAMVEX_CHOOSERS`.
+
+Agent B is the LLM: it resolves follow-ups against the conversation ("dame más explicación"),
+writes the reply using only what the candidates say, and a lexical guardrail rejects anything
+that drifts outside the corpus. Full description in [docs/agente-a-y-agente-b.md](docs/agente-a-y-agente-b.md),
 measurements in [docs/benchmarks/2026-09-26-agente-a-mas-b.md](docs/benchmarks/2026-09-26-agente-a-mas-b.md).
 
 ```
@@ -178,6 +187,8 @@ answer uses the LLM (grounded when the corpus is relevant); otherwise it is stat
 | `KAMVEX_DATASET_CATALOG_URL` | Dataset catalog manifest (`off` to use the bundled copy) |
 | `KAMVEX_ALLOWED_HOSTS` | Extra hosts allowed for downloads (default: github.com, huggingface.co) |
 | `KAMVEX_PREDICTORS` | Your own Agent A predictors: `name=url,name=url` (loopback http or https) |
+| `KAMVEX_CHOOSER` | `logit` scores the options off llama-server (SemIf's technique); `off` by default |
+| `KAMVEX_CHOOSERS` | Your own decision models (Laya, Kev, Von, SemIf, NanoJev): `name=url,name=url` |
 | `KAMVEX_CORS_ORIGINS` | Extra browser origins allowed to call the sidecar |
 | `KAMVEX_PYTHON` | Interpreter for `sidecar/server.py` in dev (default `python`) |
 | `KAMVEX_SIDECAR_BIN` / `KAMVEX_USE_SIDECAR_BIN=1` | Force a sidecar executable |

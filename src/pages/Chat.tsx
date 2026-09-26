@@ -207,6 +207,14 @@ export default function Chat({
                               ) : (
                                 cite.label && <span className="text-white/40">[{cite.label}]</span>
                               )}
+                              {/* Quien propuso este candidato: el ensemble deja de ser invisible. */}
+                              {f.predictors &&
+                                Object.keys(f.predictors).map((name) => (
+                                  <span key={name} className="text-white/30">
+                                    {name}
+                                  </span>
+                                ))}
+                              {f.authority && <Badge tone="accent">{t("chat.authority")}</Badge>}
                             </div>
                             <p className="text-white/70">{f.text}</p>
                           </div>

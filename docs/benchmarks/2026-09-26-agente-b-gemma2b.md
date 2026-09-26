@@ -1,7 +1,7 @@
 # Agente A + Agente B con Gemma 2 2B
 
 - Modelo: `gemma-2-2b-it-Q4_K_M.gguf` (cpu)
-- Fecha: 2026-09-26 02:28
+- Fecha: 2026-09-26 08:08
 - Pila real: sidecar + llama-server + corpus instalados desde `.kamvex`.
 - **Exacto** = solo Agente A (el registro del corpus). **Anclado** = Agente A propone y Agente B (el LLM) elige y redacta.
 
@@ -11,7 +11,7 @@
 
 - Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
 - Motor: `llm`, cobertura léxica 1.00, detalle: amplio
-- Latencia: Exacto 1711 ms · Anclado 3398 ms
+- Latencia: Exacto 1925 ms · Anclado 3015 ms
 
 **Exacto (solo Agente A)**
 
@@ -19,7 +19,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> Órgano sexual masculino.
+> El pene es el órgano sexual masculino.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -33,8 +33,8 @@
 
 - Reescrito para buscar: «explicame que es Pene» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.25, detalle: amplio
-- Latencia: Exacto 116 ms · Anclado 5711 ms
+- Motor: `llm`, cobertura léxica 0.50, detalle: amplio
+- Latencia: Exacto 133 ms · Anclado 3797 ms
 
 **Exacto (solo Agente A)**
 
@@ -55,8 +55,8 @@
 ### Turno 3: «hazme una explicacion muy larga de la palabra pene»
 
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.50, detalle: amplio
-- Latencia: Exacto 194 ms · Anclado 4281 ms
+- Motor: `llm`, cobertura léxica 0.27, detalle: amplio
+- Latencia: Exacto 202 ms · Anclado 5117 ms
 
 **Exacto (solo Agente A)**
 
@@ -78,8 +78,8 @@
 
 - Reescrito para buscar: «hazme una explicacion muy larga de la palabra pene» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.08, detalle: amplio
-- Latencia: Exacto 189 ms · Anclado 15637 ms
+- Motor: `llm`, cobertura léxica 0.07, detalle: amplio
+- Latencia: Exacto 225 ms · Anclado 14739 ms
 
 **Exacto (solo Agente A)**
 
@@ -101,22 +101,23 @@
 
 ### Turno 1: «explicame mis derechos»
 
+- Elegido por logit: opción 2 (`Artículo 2`), 4947.3 ms
 - Predictores que propusieron: key×0, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.86, detalle: amplio
-- Latencia: Exacto 56 ms · Anclado 18695 ms
+- Motor: `llm`, cobertura léxica 0.97, detalle: amplio
+- Latencia: Exacto 40 ms · Anclado 20367 ms
 
 **Exacto (solo Agente A)**
 
-> Artículo 139: Son principios y derechos de la función jurisdiccional: 1. Además, el principio de inaplicabilidad por analogía de la ley penal y de las normas que restrinjan derechos.
+> Artículo 139: Son principios y derechos de la función jurisdiccional: 1. El principio de inaplicabilidad por analogía de la ley penal y de las normas que restrinjan derechos.
 
 **Anclado (Agente A + Agente B)**
 
-> Los derechos que te corresponden son los enumerados en el artículo 2, que establece que tienes derecho a la vida, a tu identidad, a tu integridad moral, psíquica y física y a tu libre desarrollo y bienestar. También tienes derecho a la igualdad ante la ley, a la libertad de informar y opinar, a la elección, remoción o revocación de autoridades, a la iniciativa legislativa y a un referéndum. Recuerda que es importante consultar con un abogado para obtener asesoramiento legal específico en tu caso.
+> Toda persona tiene derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. Tienes derecho a la igualdad ante la ley. Los ciudadanos tienen los derechos de elección, de remoción o revocación de autoridades, de iniciativa legislativa y de referéndum. Todo peruano tiene derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
-1. `Artículo 139` (score 1.0; text 1.0) — Artículo 139: Son principios y derechos de la función jurisdiccional: 1. La unidad y exclusividad de la función jurisdiccional.No existe ni puede establecerse jurisdicción alguna independiente, con excepción de la milita
-2. `Artículo 2` (score 0.9839; text 0.9811) — Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la ig
+1. `Artículo 2` (score 0.9839; text 0.9811) — Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la ig
+2. `Artículo 139` (score 1.0; text 1.0) — Artículo 139: Son principios y derechos de la función jurisdiccional: 1. La unidad y exclusividad de la función jurisdiccional.No existe ni puede establecerse jurisdicción alguna independiente, con excepción de la milita
 3. `Artículo 107` (score 0.9683; text 0.9421) — Artículo 107: El Presidente de la República y los congresistas tienen derecho de iniciativa en la formación de las leyes. También tienen el mismo derecho en las materias que le son propias los otros poderes del Estado, l
 4. `Artículo 31` (score 0.9531; text 0.9123) — Artículo 31: Los ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum; iniciativa legislativa; remoción o revocación de autoridades y demanda de rendición de cuentas. Tienen también el derec
 
@@ -125,8 +126,8 @@
 ### Turno 2: «y el articulo 35?»
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.95, detalle: breve
-- Latencia: Exacto 44 ms · Anclado 6143 ms
+- Motor: `llm`, cobertura léxica 1.00, detalle: breve
+- Latencia: Exacto 33 ms · Anclado 5183 ms
 
 **Exacto (solo Agente A)**
 
@@ -134,7 +135,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> El artículo 35 establece que los ciudadanos pueden ejercer sus derechos individuales o a través de organizaciones políticas como partidos, movimientos o alianzas. Estas organizaciones se inscriben en el registro correspondiente para obtener personalidad jurídica.
+> Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Su inscripción en el registro correspondiente les concede personalidad jurídica.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -148,8 +149,8 @@
 ### Turno 3: «¿Qué dice el Artículo 2?»
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.92, detalle: breve
-- Latencia: Exacto 10 ms · Anclado 8494 ms
+- Motor: `llm`, cobertura léxica 1.00, detalle: breve
+- Latencia: Exacto 30 ms · Anclado 7669 ms
 
 **Exacto (solo Agente A)**
 
@@ -157,7 +158,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> El Artículo 2 establece que toda persona tiene derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar.
+> Toda persona tiene derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -172,8 +173,8 @@
 
 - Reescrito para buscar: «¿Qué dice el Artículo 2?» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.76, detalle: amplio
-- Latencia: Exacto 11 ms · Anclado 16285 ms
+- Motor: `llm`, cobertura léxica 0.94, detalle: amplio
+- Latencia: Exacto 11 ms · Anclado 11167 ms
 
 **Exacto (solo Agente A)**
 
@@ -181,7 +182,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> No hay más detalle en las fuentes disponibles. Esto es lo que recogen: Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole. 3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad.
+> El Artículo 2 establece que toda persona tiene derecho a la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 

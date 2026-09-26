@@ -83,6 +83,7 @@ from grounding import (DETERMINISTIC_SEED, GROUNDED_MAX_CHARS, MIN_COVERAGE,  # 
                        grounded_messages, strip_injected_connectors, trim_fragments)
 import agent_a as agent_a_mod  # noqa: E402
 import agent_b as agent_b_mod  # noqa: E402
+import chooser as chooser_mod  # noqa: E402
 import experts as experts_mod  # noqa: E402
 from jobs import BuildJob, run_build  # noqa: E402
 from keyindex import KEY_HIT_SCORE, KeyIndex  # noqa: E402
@@ -549,12 +550,21 @@ def _synthesize_ex(pipe, mode: str, query: str, fragments, s: SamplerFields,
             agent_b._llm_callable = connector
             msgs = agent_b_mod.messages(query, relevant, history=history,
                                         system_extra=free_system_prompt or "")
-            answer = (connector(msgs) or "").strip()
+            raw = (connector(msgs) or "").strip()
+            # Un modelo pequeño copia el prompt y luego añade la negativa al final. Las dos
+            # cosas se limpian antes de medir: si no, el guardarraíl mide el ruido. Se le
+            # pasa el prompt entero para reconocer el eco por comparación, no por olfato.
+            reglas = next((m.get("content", "") for m in msgs
+                           if m.get("role") == "system"), "")
+            answer = agent_b_mod.strip_refusal_tail(
+                agent_b_mod.strip_prompt_echo(raw, reglas))
             if not answer:
                 return NOT_COVERED, {"engine": "llm", "reason": "empty"}
             meta: dict = {"engine": "llm", "deterministic": s.deterministic,
                           "candidates": len(relevant),
                           "detail": agent_b_mod.wants_more_detail(query)}
+            if answer != raw:
+                meta["cleaned"] = True
             picked = agent_b_mod.picked_candidate(answer, relevant)
             if picked is not None:
                 meta["picked"] = getattr(relevant[picked], "source_id", None) or picked
@@ -625,6 +635,51 @@ def _predictors(pipe) -> list:
     if ens is None:
         ens = _PREDICTORS[name] = _build_predictors(pipe)
     return ens
+
+
+def _choosers() -> list:
+    """Los modelos de decisión que eligen entre los candidatos del Agente A.
+
+    **Apagado por defecto, y por medición.** Con un LLM general haciendo de elector no
+    cambia nada: Gemma 3 4B responde 8 de 8 turnos con y sin él, Gemma 2 2B responde 5 de 8
+    en ambos casos, y cuesta entre 3 y 8,5 segundos por pregunta. Con la regla de autoridad
+    en su sitio casi nunca tiene algo que decidir.
+
+    La cuenta cambia con un modelo de decisión de verdad: Laya son 421M y responde en
+    milisegundos, no en segundos. Para eso está `KAMVEX_CHOOSERS`, que los enchufa por HTTP
+    y los enciende solo. `KAMVEX_CHOOSER=logit` reactiva el elector local.
+    """
+    out: list = []
+    if os.environ.get("KAMVEX_CHOOSER", "off").strip().lower() == "logit":
+        connector = _LLAMA_CONNECTOR
+        if connector is not None and getattr(connector, "base_url", None):
+            out.append(chooser_mod.LogitChooser(connector.base_url))
+    out.extend(chooser_mod.choosers_from_env())
+    return out
+
+
+def _decide(query: str, candidates, mode: str) -> tuple[list, dict]:
+    """Los electores dicen cuál candidato responde; el elegido pasa al frente.
+
+    En modo Exacto no se ejecuta: ese modo promete cero llamadas al modelo, y el elector
+    por logits es una pasada del LLM aunque no genere texto.
+    """
+    if mode == "statistical":
+        return candidates, {}
+    if getattr(candidates[0], "authority", False):
+        # La pregunta nombra ese registro entero. Eso es más fuerte que la corazonada de un
+        # modelo: preguntando por el «Artículo 2», el elector llegó a preferir el «200».
+        return candidates, {"skipped": "candidato autoritativo"}
+    choosers = _choosers()
+    if len(candidates) < 2 or not choosers:
+        return candidates, {}
+    t0 = time.perf_counter()
+    decision = chooser_mod.decide(query, candidates, choosers)
+    info = decision.to_json()
+    info["ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    if decision.picked is not None:
+        info["key"] = str(getattr(candidates[decision.picked], "key", "") or "")
+    return chooser_mod.reorder(candidates, decision), info
 
 
 def _search(pipe, query: str, top_k: int | None = None) -> list:
@@ -798,7 +853,16 @@ def _expert_or_404(expert_id: str):
 def _expert_status(expert) -> dict:
     installed = {d.get("name") for d in list_datasets()}
     local_files = {m["file"] for m in list_local_models()}
-    return experts_mod.status(expert, installed, local_files)
+    return experts_mod.status(expert, installed, local_files, _ram_total_mb())
+
+
+def _ram_total_mb() -> float | None:
+    """RAM de la máquina, para recomendar el modelo más capaz que quepa."""
+    try:
+        import psutil
+        return psutil.virtual_memory().total / 1e6
+    except Exception:  # noqa: BLE001 — sin psutil se recomienda el más prudente
+        return None
 
 
 @app.get("/experts")
@@ -807,8 +871,10 @@ def list_experts():
     out = []
     installed = {d.get("name") for d in list_datasets()}
     local_files = {m["file"] for m in list_local_models()}
+    ram = _ram_total_mb()
     for e in _experts():
-        out.append({**e.to_json(), "status": experts_mod.status(e, installed, local_files)})
+        out.append({**e.to_json(),
+                    "status": experts_mod.status(e, installed, local_files, ram)})
     return {"version": 1, "experts": out}
 
 
@@ -882,9 +948,12 @@ def expert_chat(expert_id: str, req: ExpertChatReq):
     best_dataset = top[0][1]
     t_search = time.perf_counter() - t0
 
+    fragments, decision = _decide(retrieval_query, fragments, mode)
     answer, meta = _synthesize_ex(best_pipe, mode, req.query, fragments, samplers,
                                   free_system_prompt=expert.system_prompt or None,
                                   history=history, resolved_query=retrieval_query)
+    if decision:
+        meta["decision"] = decision
     return {
         "answer": answer,
         "fragments": _fragments_json(fragments),
@@ -1042,8 +1111,11 @@ def chat(req: ChatReq):
     retrieval_query, rewrite = agent_b_mod.rewrite_query(req.query, history)
     fragments, ens = _search_ex(pipe, retrieval_query)
     t_search = time.perf_counter() - t0
+    fragments, decision = _decide(retrieval_query, fragments, req.agent_b_mode)
     answer, meta = _synthesize_ex(pipe, req.agent_b_mode, req.query, fragments, req, history=history,
                                   resolved_query=retrieval_query)
+    if decision:
+        meta["decision"] = decision
     return {
         "answer": answer,
         "fragments": _fragments_json(fragments),

@@ -2,6 +2,60 @@
 
 All notable changes to KAMVEX. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-09-26
+
+### Added
+- **A decision layer between Agent A and Agent B.** Retrieval order is not the same signal
+  as "this candidate answers the question". `sidecar/chooser.py` scores the candidates and
+  moves the winner to the front. Two implementations of one contract — state + options → a
+  probability per option, in a single pass, with no text generated:
+  - `LogitChooser` runs **SemIf's technique on the llama-server already loaded**: the
+    options are numbered, the model is asked for just the number, and its probability for
+    each label is read off the logprobs. Deterministic, CPU, no new dependencies. It ships
+    **off**, and that is a measured call: with a general LLM doing the choosing it changes
+    nothing (Gemma 3 4B answers 8 of 8 turns either way, Gemma 2 2B 5 of 8 either way) and
+    costs 3 to 8.5 seconds a question. `KAMVEX_CHOOSER=logit` turns it on. Exact mode never
+    invokes it, and neither does a question that names its record outright.
+  - `ExternalChooser` plugs in the open decision models over HTTP via `KAMVEX_CHOOSERS`.
+    It reads a distribution, a bare `choice`, or Laya's nested `answers.<q>.choice/probs`.
+    Several choosers are averaged; one that is down drops out of the average.
+- **The six models the user named are now identified and wired.** They are not retrievers:
+  they are open alternatives to Jev that answer typed questions. Laya (ModernBERT-large
+  421M / mmBERT 322M, Apache-2.0), SemIf (option logits off a frozen Qwen3.5-4B), NanoJev
+  (Qwen3-0.6B with typed heads, CUDA only), Kev (LoRA on Qwen3.5 serving `/v1/systemone`),
+  Von (compact encoder) and jevlike (a trainer, not a model). Documented with repos and
+  sizes in `docs/agente-a-y-agente-b.md`.
+- Benchmarks across model sizes this machine actually runs: Qwen2.5 3B, Gemma 3 4B and
+  Qwen2.5 7B, plus Gemma 2 2B with and without the chooser to isolate its effect.
+  `prove_agent_b.py --chooser logit|off`.
+
+### Fixed
+- **A refusal glued to the end of a real answer skipped the guardrail entirely.** Gemma 3 4B
+  answers correctly and then appends "La información disponible no cubre este tema." because
+  the rule says to; the answer was then treated as a refusal and never checked. A refusal now
+  counts only when it *is* the answer, and a trailing one is removed by whole sentences.
+- **The model's own prompt came back as the answer.** Gemma 3 4B returned the instructions
+  plus the sources block verbatim; Qwen2.5 3B prefixed "ÚNICAMENTE EL CANDIDATO [1] Dice lo
+  siguiente sobre…". Leading lines that match the *instructions* are dropped, `[2] (key)`
+  markers are stripped while keeping what follows, and lines matching the sources are left
+  alone — quoting the source is what a grounded answer is supposed to do.
+- The system prompt no longer reads as a numbered rulebook the model can copy, and it now
+  says explicitly: no preamble, no headings, and the refusal goes alone or not at all.
+  Rule order matters as much as wording: with the give-up rule last, Qwen2.5 3B refused
+  three of eight turns it used to answer. It now sits in the middle, behind a "only if",
+  and the last thing the model reads is how to write.
+- An authoritative candidate is never put to a vote: asked "¿Qué dice el Artículo 2?", the
+  chooser preferred Artículo 200 with 0.996 confidence. If the question names the record,
+  there is nothing to decide.
+- A ranking tie no longer forces a choice: if the best option does not beat the second by
+  0.05, the decision layer leaves Agent A's order alone.
+- **The chooser was reading the option labels off a prompt that never produced a digit.**
+  Ending it with "…es la número" makes the model want to write ":"; no digit appeared in the
+  top 40 tokens. It now asks through the chat route, which applies the model's template, and
+  falls back to a raw completion ending in "Opción correcta: ".
+- One-click expert install downloaded `models[0]`, a fixed index. The sidecar now measures
+  RAM and recommends the most capable model that fits: a 4B on 8 GB, a 7B on 16 GB or more.
+
 ## [0.4.0] — 2026-09-26
 
 ### Added

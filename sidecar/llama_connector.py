@@ -33,6 +33,7 @@ class LlamaCppConnector:
                  max_tokens: int = DEFAULT_MAX_TOKENS):
         self._host = host
         self._port = port
+        self._root = f"http://{host}:{port}"
         self._base = f"http://{host}:{port}/v1/chat/completions"
         self._health_url = f"http://{host}:{port}/health"
         self._slots_url = f"http://{host}:{port}/slots"
@@ -64,6 +65,11 @@ class LlamaCppConnector:
         """Greedy decoding with a fixed seed: same prompt → same answer.
         A mild repeat penalty keeps small models from looping; still deterministic."""
         self.set_samplers(0.0, 1.0, 1, 1.1, max_tokens, seed=seed)
+
+    @property
+    def base_url(self) -> str:
+        """Raíz del servidor: la usa el elector por logits, que no habla OpenAI."""
+        return self._root
 
     def request_body(self, messages) -> dict:
         """Build the request payload (exposed for tests)."""

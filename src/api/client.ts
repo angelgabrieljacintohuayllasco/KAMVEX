@@ -20,7 +20,16 @@ export type Dataset = {
   license?: string;
 };
 
-export type Fragment = { text: string; score: number; source_id: string | null };
+/** Un candidato del Agente A. `predictors` dice quien lo propuso y con que score propio;
+ *  `authority` marca que la pregunta nombraba ese registro entero. */
+export type Fragment = {
+  text: string;
+  score: number;
+  source_id: string | null;
+  predictors?: Record<string, number>;
+  agreement?: number;
+  authority?: boolean;
+};
 export type ChatResponse = { answer: string; fragments: Fragment[]; mode?: string; dataset?: string | null };
 export type BuildEvent = { stage: string; pct: number; msg: string };
 

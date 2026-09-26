@@ -12,20 +12,20 @@
       ],
       "models": [
         {
-          "id": "qwen2.5-coder-3b",
-          "name": "Qwen2.5 Coder 3B",
-          "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
-          "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
-          "size_mb": 2100,
-          "reason": "Especializado en código y con contexto largo; el mejor equilibrio en CPU."
-        },
-        {
           "id": "qwen2.5-coder-7b",
           "name": "Qwen2.5 Coder 7B",
           "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
           "file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
           "size_mb": 4680,
           "reason": "Más preciso si tienes GPU o 16 GB de RAM."
+        },
+        {
+          "id": "qwen2.5-coder-3b",
+          "name": "Qwen2.5 Coder 3B",
+          "repo": "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+          "file": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Especializado en código y con contexto largo; el mejor equilibrio en CPU."
         },
         {
           "id": "qwen2.5-coder-1.5b",
@@ -62,12 +62,20 @@
       ],
       "models": [
         {
-          "id": "qwen2.5-1.5b",
-          "name": "Qwen2.5 1.5B",
-          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
-          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-          "size_mb": 1120,
-          "reason": "Redacta bien en español y basta para reformular la fuente."
+          "id": "qwen2.5-7b",
+          "name": "Qwen2.5 7B",
+          "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "size_mb": 4680,
+          "reason": "El más capaz que corre cómodo en CPU con 16 GB o más."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
         },
         {
           "id": "qwen2.5-3b",
@@ -86,12 +94,12 @@
           "reason": "Google; redacta español natural con poca memoria."
         },
         {
-          "id": "gemma-3-4b",
-          "name": "Gemma 3 4B",
-          "repo": "unsloth/gemma-3-4b-it-GGUF",
-          "file": "gemma-3-4b-it-Q4_K_M.gguf",
-          "size_mb": 2490,
-          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Redacta bien en español y basta para reformular la fuente."
         }
       ],
       "default_mode": "grounded",
@@ -120,12 +128,28 @@
       ],
       "models": [
         {
-          "id": "qwen2.5-1.5b",
-          "name": "Qwen2.5 1.5B",
-          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
-          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-          "size_mb": 1120,
-          "reason": "Suficiente: el texto legal se cita, no se reinterpreta."
+          "id": "qwen2.5-7b",
+          "name": "Qwen2.5 7B",
+          "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "size_mb": 4680,
+          "reason": "El más capaz que corre cómodo en CPU con 16 GB o más."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        },
+        {
+          "id": "qwen2.5-3b",
+          "name": "Qwen2.5 3B",
+          "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+          "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Buen equilibrio general en español."
         },
         {
           "id": "gemma-2-2b",
@@ -134,6 +158,14 @@
           "file": "gemma-2-2b-it-Q4_K_M.gguf",
           "size_mb": 1710,
           "reason": "Google; redacta español natural con poca memoria."
+        },
+        {
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Suficiente: el texto legal se cita, no se reinterpreta."
         },
         {
           "id": "gemma-3-1b",
@@ -169,6 +201,22 @@
         "diccionario-es"
       ],
       "models": [
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        },
+        {
+          "id": "qwen2.5-3b",
+          "name": "Qwen2.5 3B",
+          "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+          "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Buen equilibrio general en español."
+        },
         {
           "id": "gemma-2-2b",
           "name": "Gemma 2 2B",
@@ -220,12 +268,28 @@
       ],
       "models": [
         {
-          "id": "qwen2.5-1.5b",
-          "name": "Qwen2.5 1.5B",
-          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
-          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-          "size_mb": 1120,
-          "reason": "Redacta resúmenes correctos en español."
+          "id": "qwen2.5-7b",
+          "name": "Qwen2.5 7B",
+          "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "size_mb": 4680,
+          "reason": "El más capaz que corre cómodo en CPU con 16 GB o más."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        },
+        {
+          "id": "qwen2.5-3b",
+          "name": "Qwen2.5 3B",
+          "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+          "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "size_mb": 2100,
+          "reason": "Buen equilibrio general en español."
         },
         {
           "id": "gemma-2-2b",
@@ -236,12 +300,12 @@
           "reason": "Google; redacta español natural con poca memoria."
         },
         {
-          "id": "gemma-3-4b",
-          "name": "Gemma 3 4B",
-          "repo": "unsloth/gemma-3-4b-it-GGUF",
-          "file": "gemma-3-4b-it-Q4_K_M.gguf",
-          "size_mb": 2490,
-          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+          "id": "qwen2.5-1.5b",
+          "name": "Qwen2.5 1.5B",
+          "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+          "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+          "size_mb": 1120,
+          "reason": "Redacta resúmenes correctos en español."
         }
       ],
       "default_mode": "grounded",
@@ -268,6 +332,30 @@
       "datasets": [],
       "models": [
         {
+          "id": "gemma-2-9b",
+          "name": "Gemma 2 9B",
+          "repo": "bartowski/gemma-2-9b-it-GGUF",
+          "file": "gemma-2-9b-it-Q4_K_M.gguf",
+          "size_mb": 5760,
+          "reason": "Google; la mejor redacción de la lista si tienes 16 GB de RAM."
+        },
+        {
+          "id": "qwen2.5-7b",
+          "name": "Qwen2.5 7B",
+          "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+          "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+          "size_mb": 4680,
+          "reason": "El más capaz que corre cómodo en CPU con 16 GB o más."
+        },
+        {
+          "id": "gemma-3-4b",
+          "name": "Gemma 3 4B",
+          "repo": "unsloth/gemma-3-4b-it-GGUF",
+          "file": "gemma-3-4b-it-Q4_K_M.gguf",
+          "size_mb": 2490,
+          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
+        },
+        {
           "id": "qwen2.5-3b",
           "name": "Qwen2.5 3B",
           "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
@@ -282,22 +370,6 @@
           "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
           "size_mb": 2020,
           "reason": "Alternativa de Meta, multilingüe."
-        },
-        {
-          "id": "gemma-2-9b",
-          "name": "Gemma 2 9B",
-          "repo": "bartowski/gemma-2-9b-it-GGUF",
-          "file": "gemma-2-9b-it-Q4_K_M.gguf",
-          "size_mb": 5760,
-          "reason": "Google; la mejor redacción de la lista si tienes 16 GB de RAM."
-        },
-        {
-          "id": "gemma-3-4b",
-          "name": "Gemma 3 4B",
-          "repo": "unsloth/gemma-3-4b-it-GGUF",
-          "file": "gemma-3-4b-it-Q4_K_M.gguf",
-          "size_mb": 2490,
-          "reason": "Gemma 3 con 128K de contexto: el mejor redactor de tamaño medio."
         }
       ],
       "default_mode": "free",

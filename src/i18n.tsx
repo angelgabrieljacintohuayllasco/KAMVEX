@@ -13,6 +13,7 @@ const dict: Dict = {
   "chat.buildKnowledge": { es: "＋ Construir conocimiento", en: "＋ Build knowledge" },
   "chat.grounded": { es: "Respuestas ancladas al corpus — sin alucinaciones.", en: "Grounded answers — no hallucinations." },
   "chat.fragments": { es: "fragmento(s) fuente", en: "source fragment(s)" },
+  "chat.authority": { es: "nombrado en la pregunta", en: "named in the question" },
   "chat.noDataset": { es: "Selecciona o construye conocimiento primero (pestaña Conocimiento).", en: "Select or build knowledge first (Knowledge tab)." },
   "chat.federatedTip": { es: "Router semántico MoE: busca en todos los datasets automáticamente", en: "MoE semantic router: searches all datasets automatically" },
   "chat.auto": { es: "Auto", en: "Auto" },

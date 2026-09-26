@@ -32,6 +32,12 @@ function fmtMb(mb: number): string {
  * Experts: pick a domain and KAMVEX installs the corpus and the model that make
  * it good at that domain, then answers with the right mode, prompt and decoding.
  */
+/** El modelo que el sidecar recomienda para esta maquina, no el primero del catalogo.
+ *  El catalogo va de mayor a menor; el sidecar elige el mas capaz que cabe en la RAM. */
+function recommendedModel(e: Expert) {
+  return e.models.find((m) => m.id === e.status.recommended_model) ?? e.models[0];
+}
+
 export default function Experts({
   onChanged,
   selectedExpert,
@@ -86,7 +92,7 @@ export default function Experts({
         const res = await installDataset({ id: ds });
         await waitDownload(res.download_id, t("experts.installingDataset").replace("{name}", ds));
       }
-      const model = e.models[0];
+      const model = recommendedModel(e);
       if (model && !e.status.model_present) {
         setStep({ label: t("experts.downloadingModel").replace("{name}", model.name) });
         const res = await downloadHubModel(model.repo, model.file);
@@ -117,7 +123,7 @@ export default function Experts({
         {experts.map((e) => {
           const active = selectedExpert === e.id;
           const busy = installing === e.id;
-          const model = e.models[0];
+          const model = recommendedModel(e);
           const needs = e.status.missing_datasets.length + (model && !e.status.model_present ? 1 : 0);
           return (
             <Card key={e.id} className={active ? "border-accent/50" : ""}>

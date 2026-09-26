@@ -114,20 +114,20 @@ def test_detecta_cuando_piden_mas_detalle():
 def test_el_prompt_pide_profundidad_solo_cuando_toca():
     largo = messages("hazme una explicacion muy larga de la palabra pene", [PENE])[0]["content"]
     breve = messages("¿Qué significa efímero?", [EFIMERO])[0]["content"]
-    assert "aprovecha todo lo relevante de los candidatos" in largo
+    assert "aprovecha todo lo relevante" in largo
     assert "Sé breve" in breve
 
 
 def test_pedir_mas_detalle_prohibe_rellenar_con_lo_que_sepa_el_modelo():
     """Una definición de cuatro palabras no da para una explicación larga: hay que decirlo."""
     system = messages("hazme una explicacion muy larga de la palabra pene", [PENE])[0]["content"]
-    assert "no recogen nada más" in system
-    assert "Nunca rellenes" in system
+    assert "Si no dice más" in system
+    assert "añade una línea diciéndolo" in system
 
 
 def test_el_prompt_prohibe_repetir_la_respuesta_anterior():
     system = messages("¿Qué dice el Artículo 2?", [ART35])[0]["content"]
-    assert "No repitas tu respuesta anterior" in system
+    assert "Responde ESTA pregunta, no la anterior." in system
 
 
 # ── Construcción del contexto y del prompt ──────────────────────────────────
@@ -155,11 +155,10 @@ def test_el_prompt_lleva_reglas_candidatos_y_pregunta():
     msgs = messages("explicame que es Pene", [PENE, EFIMERO])
     assert msgs[0]["role"] == "system" and msgs[-1]["role"] == "user"
     system, user = msgs[0]["content"], msgs[-1]["content"]
-    assert "ÚNICAMENTE los CANDIDATOS" in system
-    assert "Elige el candidato que responde" in system
+    assert "Busca la que responde la pregunta" in system
     assert "Nunca añadas datos" in system
     assert "La información disponible no cubre este tema." in system
-    assert "CANDIDATOS:" in user and "PREGUNTA: explicame que es Pene" in user
+    assert "FUENTES:" in user and "PREGUNTA: explicame que es Pene" in user
     assert "cópula" in user
 
 
@@ -202,7 +201,7 @@ def test_los_turnos_vacios_o_de_sistema_no_entran():
 
 def test_prompt_en_ingles():
     system = messages("what is a penis?", [PENE], language="en")[0]["content"]
-    assert "ONLY the CANDIDATES" in system
+    assert "Find the one that answers the question" in system
     assert "does not cover this topic" in system
 
 
@@ -231,3 +230,148 @@ def test_reconoce_la_negativa_en_ambos_idiomas():
     assert looks_like_refusal("Lo siento, la información disponible NO CUBRE ESTE TEMA")
     assert looks_like_refusal("The available information does not cover this topic.")
     assert not looks_like_refusal("El pene es el órgano masculino de la cópula.")
+
+
+# ── Limpiar lo que un modelo pequeño añade de más ──────────────────────────
+
+from agent_b import strip_prompt_echo, strip_refusal_tail  # noqa: E402
+
+
+def _reglas(query="explicame mis derechos"):
+    """Solo el mensaje de sistema: es con lo que se compara el eco."""
+    return messages(query, [ART35, PENE])[0]["content"]
+
+
+def test_una_negativa_pegada_al_final_no_es_una_negativa():
+    """Gemma 3 4B respondía y luego añadía la frase por obedecer la regla al pie."""
+    largo = ("Artículo 2: Toda persona tiene derecho a la vida, a su identidad y a su "
+             "integridad moral.\n\nLa información disponible no cubre este tema.")
+    assert not looks_like_refusal(largo)
+    limpio = strip_refusal_tail(largo)
+    assert "no cubre este tema" not in limpio
+    assert limpio.startswith("Artículo 2: Toda persona")
+
+
+def test_una_negativa_sola_si_lo_es():
+    for r in ["La información disponible no cubre este tema.",
+              "Lo siento, la información disponible no cubre este tema",
+              "The available information does not cover this topic."]:
+        assert looks_like_refusal(r), r
+        assert strip_refusal_tail(r) == r
+
+
+def test_recortar_la_negativa_respeta_los_acentos():
+    """`normalize` quita tildes y acorta la cadena: las posiciones hay que mapearlas."""
+    texto = "Órgano sexual masculino según el diccionario. La información disponible no cubre este tema."
+    limpio = strip_refusal_tail(texto)
+    assert limpio == "Órgano sexual masculino según el diccionario."
+
+
+def test_sin_negativa_no_se_toca_nada():
+    t = "El pene es el órgano sexual masculino."
+    assert strip_refusal_tail(t) == t and not looks_like_refusal(t)
+
+
+def test_quita_las_instrucciones_pero_conserva_la_cita():
+    """Gemma 3 4B devolvió las instrucciones y detrás el texto de la fuente.
+
+    Las instrucciones sobran; la cita no: una respuesta anclada puede ser la fuente.
+    """
+    reglas = messages("explicame mis derechos", [ART35, PENE])[0]["content"]
+    eco = reglas.splitlines()[0] + "\n\n[1] (Artículo 35) " + ART35.text
+    limpio = strip_prompt_echo(eco, reglas)
+    assert limpio == ART35.text
+    assert "fuentes numeradas" not in limpio
+
+
+def test_quita_el_arranque_que_nombra_las_fuentes():
+    """Qwen2.5 3B empezaba con «ÚNICAMENTE EL CANDIDATO [1] dice lo siguiente sobre…»."""
+    t = ("ÚNICAMENTE EL CANDIDATO [1] Dice lo siguiente sobre el Artículo 35: "
+         "Los ciudadanos pueden ejercer sus derechos.")
+    assert strip_prompt_echo(t, _reglas()) == "Los ciudadanos pueden ejercer sus derechos."
+
+
+def test_quita_el_marcador_pero_conserva_lo_que_escribio_el_modelo():
+    t = "[2] El pene es un órgano de la reproducción."
+    assert strip_prompt_echo(t, _reglas()) == "El pene es un órgano de la reproducción."
+
+
+def test_quita_el_encabezado_de_fuentes():
+    t = "FUENTES:\n[2] El pene es un órgano de la reproducción."
+    assert strip_prompt_echo(t, _reglas()) == "El pene es un órgano de la reproducción."
+
+
+def test_una_respuesta_limpia_no_se_toca():
+    t = "El pene es el órgano sexual masculino."
+    assert strip_prompt_echo(t, _reglas()) == t
+    assert strip_prompt_echo(t, "") == t
+
+
+def test_el_prompt_prohibe_el_preambulo_y_los_encabezados():
+    system = messages("explicame mis derechos", [ART35])[0]["content"]
+    assert "sin preámbulo" in system
+    assert "sin mencionar fuentes, opciones ni candidatos" in system
+    assert "y nada más" in system              # la negativa va sola, no de coletilla
+    # La regla de rendirse no puede ser lo último que lee el modelo: medido, Qwen2.5 3B
+    # empezó a negarse en preguntas que antes contestaba.
+    lineas = system.splitlines()
+    assert "no cubre este tema" not in lineas[-1]
+
+
+# ── La marca de autoridad tiene que llegar al modelo ───────────────────────
+
+class _Auth:
+    """Candidato cuya clave está entera en la pregunta."""
+    authority = True
+
+    def __init__(self, key, text):
+        self.key, self.text, self.source_id = key, text, key
+
+
+def test_la_fuente_nombrada_va_marcada_en_el_contexto():
+    """Sin la marca, Gemma 3 4B contestaba la definición de *explicación*."""
+    from agent_b import AUTHORITY_MARK, build_context
+    pene = _Auth("pene", "pene: Órgano sexual masculino.")
+    expl = C("explicación", "explicación: Acción de explicar algo.")
+    ctx = build_context([pene, expl], "hazme una explicacion muy larga de la palabra pene")
+    assert f"[1] (pene) {AUTHORITY_MARK}" in ctx
+    assert AUTHORITY_MARK not in ctx.split("[2]")[1]
+
+
+def test_el_prompt_dice_que_use_la_marcada():
+    pene = _Auth("pene", "pene: Órgano sexual masculino.")
+    system = messages("hazme una explicacion muy larga de la palabra pene", [pene])[0]["content"]
+    assert "Una está marcada" in system
+    assert "es esa la que debes usar" in system
+
+
+def test_sin_ninguna_marcada_el_prompt_no_la_menciona():
+    system = messages("explicame mis derechos", [ART35, PENE])[0]["content"]
+    assert "marcada" not in system
+    assert "Busca la que responde la pregunta" in system
+
+
+def test_el_prompt_en_ingles_tambien_avisa_de_la_marca():
+    pene = _Auth("pene", "penis: male sexual organ.")
+    system = messages("explain the word penis", [pene], language="en")[0]["content"]
+    assert "One is marked" in system
+
+
+def test_con_fuente_marcada_el_detalle_se_limita_a_esa():
+    """Gemma 3 4B pegaba las tres fuentes: «Órgano sexual masculino. Acción de explicar…»."""
+    pene = _Auth("pene", "pene: Órgano sexual masculino.")
+    system = messages("hazme una explicacion muy larga de la palabra pene", [pene])[0]["content"]
+    assert "nada de las demás" in system
+
+
+def test_sin_fuente_marcada_el_detalle_usa_la_que_responde():
+    system = messages("dame más explicación sobre esto", [ART35, PENE])[0]["content"]
+    assert "de la fuente que responde" in system
+    assert "nada de las demás" not in system
+
+
+def test_el_prompt_prohibe_pegar_fuentes_seguidas():
+    for q in ("explicame mis derechos", "dame más detalle"):
+        system = messages(q, [ART35, PENE])[0]["content"]
+        assert "Nunca pegues fuentes una detrás de otra" in system
+        assert "ni repitas la misma dos veces" in system

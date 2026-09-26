@@ -59,7 +59,7 @@ def test_grounded_formats_relevant_fragments_under_strict_prompt(monkeypatch):
     messages = conn.calls[0]
     assert isinstance(messages, list)
     joined = " ".join(m["content"] for m in messages)
-    assert "CANDIDATOS" in joined          # prompt de Agente B
+    assert "FUENTES" in joined             # prompt de Agente B
     assert "dato número 0" in joined and "dato número 1" not in joined  # low-score fragment excluded
     assert conn.samplers[0][4] == 64  # max_tokens forwarded
     assert conn.samplers[1].get("seed") == 42  # deterministic by default
@@ -120,3 +120,44 @@ def test_free_chat_keeps_history_and_system_prompt(sidecar, monkeypatch):
 
 def test_free_chat_without_engine_is_400(sidecar):
     assert sidecar.post("/chat/free", json={"query": "hola"}).status_code == 400
+
+
+# ── Lo que el modelo añade de más se limpia antes de medir ─────────────────
+
+class _EchoConnector(FakeConnector):
+    """Devuelve el prompt de sistema seguido de una respuesta: la fuga de Gemma 3 4B."""
+
+    def __call__(self, messages):
+        self.calls.append(messages)
+        reglas = next(m["content"] for m in messages if m["role"] == "system")
+        return reglas.splitlines()[0] + "\n\nEl dato número 0 del corpus."
+
+
+def test_el_eco_del_prompt_no_llega_al_usuario(monkeypatch):
+    conn = _EchoConnector()
+    monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn)
+    answer, meta = server._synthesize_ex(_pipe(), "grounded", "¿qué dato hay?",
+                                         _fragments(0.95, 0.1), _samplers(max_tokens=64))
+    assert answer == "El dato número 0 del corpus."
+    assert meta["cleaned"] is True
+    assert "Responde la pregunta usando" not in answer
+
+
+def test_una_negativa_pegada_al_final_no_salta_el_guardarrail(monkeypatch):
+    """El fallo grave: la coletilla hacía que la respuesta saliera sin comprobar."""
+    conn = FakeConnector(reply="El dato número 0 del corpus.\n\n"
+                               "La información disponible no cubre este tema.")
+    monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn)
+    answer, meta = server._synthesize_ex(_pipe(), "grounded", "¿qué dato hay?",
+                                         _fragments(0.95, 0.1), _samplers(max_tokens=64))
+    assert "no cubre este tema" not in answer
+    assert "coverage" in meta, "el guardarraíl tiene que haberse ejecutado"
+
+
+def test_una_negativa_de_verdad_sigue_siendo_una_negativa(monkeypatch):
+    conn = FakeConnector(reply="La información disponible no cubre este tema.")
+    monkeypatch.setattr(server, "_LLAMA_CONNECTOR", conn)
+    answer, meta = server._synthesize_ex(_pipe(), "grounded", "¿qué dato hay?",
+                                         _fragments(0.95, 0.1), _samplers(max_tokens=64))
+    assert answer == "La información disponible no cubre este tema."
+    assert "coverage" not in meta, "no se mide la cobertura de una negativa"

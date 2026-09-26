@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -70,7 +71,8 @@ def run(base: str) -> list[dict]:
             solo = ask(base, conv["expert"], query, "statistical", history)
             # Agente A + Agente B.
             full = ask(base, conv["expert"], query, "grounded", history)
-            turns.append({"query": query, "agent_a": solo, "agent_a_b": full})
+            turns.append({"query": query, "agent_a": solo, "agent_a_b": full,
+                          "decision": (full.get("meta") or {}).get("decision")})
             # La conversación avanza con la respuesta buena, que es la que ve el usuario.
             history = history + [{"role": "user", "content": query},
                                  {"role": "assistant", "content": full["answer"]}]
@@ -97,6 +99,11 @@ def md(results: list[dict], label: str, model: Path, backend: str) -> str:
                 for name, info in (per or {}).items():
                     votes[name] = votes.get(name, 0) + (info or {}).get("n", 0)
             L += [f"### Turno {i}: «{t['query']}»", ""]
+            dec = (meta.get("decision") or {})
+            if dec.get("picked") is not None:
+                L.append(f"- Elegido por {dec.get('source', '?')}: opción {dec['picked'] + 1}"
+                         + (f" (`{dec['key']}`)" if dec.get("key") else "")
+                         + f", {dec['ms']} ms")
             if rw.get("rewritten"):
                 L.append(f"- Reescrito para buscar: «{rw['topic']}» "
                          f"(la pregunta sola no tenía tema)")
@@ -139,7 +146,12 @@ def main() -> None:
                     default=[str(REPO / "datasets-out" / "diccionario-es.kamvex"),
                              str(REPO / "datasets-out" / "constitucion-peru-1993.kamvex")])
     ap.add_argument("--out", default=None)
+    ap.add_argument("--chooser", default="logit", choices=["logit", "off"],
+                    help="capa de decisión entre Agente A y Agente B (SemIf sobre llama-server)")
     args = ap.parse_args()
+
+    # El Stack hereda el entorno: así se mide con y sin electores.
+    os.environ["KAMVEX_CHOOSER"] = args.chooser
 
     model = Path(args.model).resolve()
     if not model.is_file():

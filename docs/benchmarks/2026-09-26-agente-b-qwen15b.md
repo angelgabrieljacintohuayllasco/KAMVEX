@@ -1,7 +1,7 @@
 # Agente A + Agente B con Qwen2.5 1.5B
 
 - Modelo: `qwen2.5-1.5b-instruct-q4_k_m.gguf` (cpu)
-- Fecha: 2026-09-26 02:27
+- Fecha: 2026-09-26 07:48
 - Pila real: sidecar + llama-server + corpus instalados desde `.kamvex`.
 - **Exacto** = solo Agente A (el registro del corpus). **Anclado** = Agente A propone y Agente B (el LLM) elige y redacta.
 
@@ -10,31 +10,8 @@
 ### Turno 1: «explicame que es Pene»
 
 - Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 1.00, detalle: amplio
-- Latencia: Exacto 1725 ms · Anclado 2632 ms
-
-**Exacto (solo Agente A)**
-
-> pene: Órgano sexual masculino.
-
-**Anclado (Agente A + Agente B)**
-
-> El pene es un órgano sexual masculino.
-
-<details><summary>Candidatos que recibió el LLM</summary>
-
-1. `pene` (score 1.0; key 1.0) — pene: Órgano sexual masculino.
-2. `explicable` (score 0.4667; text 1.0) — explicable: que se puede explicar.
-3. `explicablemente` (score 0.4591; text 1.0) — explicablemente: de manera que puede ser explicada.
-
-</details>
-
-### Turno 2: «dame mas explicacion»
-
-- Reescrito para buscar: «explicame que es Pene» (la pregunta sola no tenía tema)
-- Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.15, detalle: amplio
-- Latencia: Exacto 106 ms · Anclado 2234 ms
+- Motor: `llm`, cobertura léxica 0.36, detalle: amplio
+- Latencia: Exacto 2041 ms · Anclado 2995 ms
 
 **Exacto (solo Agente A)**
 
@@ -52,11 +29,34 @@
 
 </details>
 
+### Turno 2: «dame mas explicacion»
+
+- Reescrito para buscar: «explicame que es Pene» (la pregunta sola no tenía tema)
+- Predictores que propusieron: key×1, lexical×0, semantic×5, text×5
+- Motor: `llm`
+- Latencia: Exacto 134 ms · Anclado 1164 ms
+
+**Exacto (solo Agente A)**
+
+> pene: Órgano sexual masculino.
+
+**Anclado (Agente A + Agente B)**
+
+> La información disponible no cubre este tema.
+
+<details><summary>Candidatos que recibió el LLM</summary>
+
+1. `pene` (score 1.0; key 1.0) — pene: Órgano sexual masculino.
+2. `explicable` (score 0.4667; text 1.0) — explicable: que se puede explicar.
+3. `explicablemente` (score 0.4591; text 1.0) — explicablemente: de manera que puede ser explicada.
+
+</details>
+
 ### Turno 3: «hazme una explicacion muy larga de la palabra pene»
 
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
 - Motor: `llm`, cobertura léxica 0.10, detalle: amplio
-- Latencia: Exacto 203 ms · Anclado 6918 ms
+- Latencia: Exacto 185 ms · Anclado 6558 ms
 
 **Exacto (solo Agente A)**
 
@@ -78,8 +78,8 @@
 
 - Reescrito para buscar: «hazme una explicacion muy larga de la palabra pene» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×3, lexical×0, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.10, detalle: amplio
-- Latencia: Exacto 191 ms · Anclado 7968 ms
+- Motor: `llm`
+- Latencia: Exacto 187 ms · Anclado 1794 ms
 
 **Exacto (solo Agente A)**
 
@@ -87,7 +87,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> No hay más detalle en las fuentes disponibles. Esto es lo que recogen: pene: Órgano sexual masculino.
+> La información disponible no cubre este tema.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -101,22 +101,23 @@
 
 ### Turno 1: «explicame mis derechos»
 
+- Elegido por logit: opción 2 (`Artículo 2`), 4578.9 ms
 - Predictores que propusieron: key×0, lexical×0, semantic×5, text×5
-- Motor: `llm`, detalle: amplio
-- Latencia: Exacto 76 ms · Anclado 9716 ms
+- Motor: `llm`, cobertura léxica 0.99, detalle: amplio
+- Latencia: Exacto 56 ms · Anclado 25122 ms
 
 **Exacto (solo Agente A)**
 
-> Artículo 139: Son principios y derechos de la función jurisdiccional: 1. Además, el principio de inaplicabilidad por analogía de la ley penal y de las normas que restrinjan derechos.
+> Artículo 139: Son principios y derechos de la función jurisdiccional: 1. El principio de inaplicabilidad por analogía de la ley penal y de las normas que restrinjan derechos.
 
 **Anclado (Agente A + Agente B)**
 
-> La información disponible no cubre este tema.
+> 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. 2. A la igualdad ante la ley. 3. Derecho de informar y opinar (incluye derechos de fundar medios de comunicación). 4. Derecho de elección, remoción o revocación de autoridades, iniciativa legislativa y referéndum. 5. Derecho a usar su propio idioma ante cualquier autoridad mediante un intérprete. 6. Los extranjeros tienen este mismo derecho cuando son citados por cualquier autoridad. Estos derechos se aplican en general y no afectan el derecho de gracia ni la facultad de investigación del Congreso, cuyo ejercicio debe ser independiente del procedimiento jurisdiccional. Además, los procesos judiciales por responsabilidad de funcionarios públicos y por los delitos cometidos por medio de la prensa son siempre públicos. El derecho de defensa en ningún estado del proceso es uno de los principios que se menciona en las fuentes. También se mencionan derechos como el derecho de formular análisis y críticas de las resoluciones y sentencias judiciales, con las limitaciones de ley; el derecho de los reclusos y sentenciados de ocupar establecimientos adecuados. Los ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum; iniciativa legislativa; remoción o revocación de autoridades y demanda de rendición de cuentas. Tienen también el derecho de ser elegidos y de elegir libremente a sus representantes, conforme a las condiciones y procedimientos determinados por ley. Los ciudadanos tienen derecho al voto hasta los setenta años; es facultativo después
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
-1. `Artículo 139` (score 1.0; text 1.0) — Artículo 139: Son principios y derechos de la función jurisdiccional: 1. La unidad y exclusividad de la función jurisdiccional.No existe ni puede establecerse jurisdicción alguna independiente, con excepción de la milita
-2. `Artículo 2` (score 0.9839; text 0.9811) — Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la ig
+1. `Artículo 2` (score 0.9839; text 0.9811) — Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la ig
+2. `Artículo 139` (score 1.0; text 1.0) — Artículo 139: Son principios y derechos de la función jurisdiccional: 1. La unidad y exclusividad de la función jurisdiccional.No existe ni puede establecerse jurisdicción alguna independiente, con excepción de la milita
 3. `Artículo 107` (score 0.9683; text 0.9421) — Artículo 107: El Presidente de la República y los congresistas tienen derecho de iniciativa en la formación de las leyes. También tienen el mismo derecho en las materias que le son propias los otros poderes del Estado, l
 4. `Artículo 31` (score 0.9531; text 0.9123) — Artículo 31: Los ciudadanos tienen derecho a participar en los asuntos públicos mediante referéndum; iniciativa legislativa; remoción o revocación de autoridades y demanda de rendición de cuentas. Tienen también el derec
 
@@ -125,8 +126,8 @@
 ### Turno 2: «y el articulo 35?»
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 1.00, detalle: breve
-- Latencia: Exacto 33 ms · Anclado 6060 ms
+- Motor: `llm`, cobertura léxica 0.79, detalle: breve
+- Latencia: Exacto 13 ms · Anclado 4932 ms
 
 **Exacto (solo Agente A)**
 
@@ -134,7 +135,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> El artículo 35 establece que los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas. Estas organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica. La ley establece normas orientadas a asegurar el funcionamiento democrático de los partidos políticos, y la transparencia en cuanto al origen de sus recursos económicos y el acceso gratuito a los medios de comunicación social de propiedad del Estado en forma proporcional al último resultado electoral general.
+> Artículo 35: Los ciudadanos pueden ejercer sus derechos individualmente o a través de organizaciones políticas como partidos, movimientos o alianzas, conforme a ley. Tales organizaciones concurren a la formación y manifestación de la voluntad popular. Su inscripción en el registro correspondiente les concede personalidad jurídica. La ley establece normas orientadas a asegurar el funcionamiento democrático de los partidos políticos, y la transparencia en cuanto al origen de sus recursos económicos y el acceso gratuito a los medios de comunicación social de propiedad del Estado en forma proporcional al último resultado electoral general.
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
@@ -148,8 +149,8 @@
 ### Turno 3: «¿Qué dice el Artículo 2?»
 
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.83, detalle: breve
-- Latencia: Exacto 23 ms · Anclado 6132 ms
+- Motor: `llm`, cobertura léxica 1.00, detalle: breve
+- Latencia: Exacto 11 ms · Anclado 10185 ms
 
 **Exacto (solo Agente A)**
 
@@ -172,8 +173,8 @@
 
 - Reescrito para buscar: «¿Qué dice el Artículo 2?» (la pregunta sola no tenía tema)
 - Predictores que propusieron: key×1, lexical×5, semantic×5, text×5
-- Motor: `llm`, cobertura léxica 0.89, detalle: amplio
-- Latencia: Exacto 33 ms · Anclado 20632 ms
+- Motor: `llm`, cobertura léxica 0.85, detalle: amplio
+- Latencia: Exacto 11 ms · Anclado 23468 ms
 
 **Exacto (solo Agente A)**
 
@@ -181,7 +182,7 @@
 
 **Anclado (Agente A + Agente B)**
 
-> Artículo 2: Toda persona tiene derecho: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole. 3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad. Esta norma establece los derechos fundamentales que todos los ciudadanos tienen, independientemente del género, origen, raza, sexo, idioma, religión o condición económica. Además, garantiza la libertad de conciencia y de religión, permitiendo a las personas practicar sus creencias sin discriminación ni persecución por parte del Estado. El artículo 96, en su lugar, se refiere específicamente al derecho de los representantes a Congreso a solicitar informes a diferentes instituciones gubernamentales.
+> Lo que dice el Artículo 2 es: 1. A la vida, a su identidad, a su integridad moral, psíquica y física y a su libre desarrollo y bienestar. El concebido es sujeto de derecho en todo cuanto le favorece. 2. A la igualdad ante la ley. Nadie debe ser discriminado por motivo de origen, raza, sexo, idioma, religión, opinión, condición económica o de cualquiera otra índole. 3. A la libertad de conciencia y de religión, en forma individual o asociada. No hay persecución por razón de ideas o creencias. No hay delito de opinión. El ejercicio público de todas las confesiones es libre, siempre que no ofenda la moral ni altere el orden público. Cualquiera puede pedir de inmediato el examen médico de la persona agraviada o de aquélla imposibilitada de recurrir por sí misma a la autoridad. Carecen de valor las declaraciones obtenidas por la violencia. Quien la emplea incurre en responsabilidad. Estos derechos se aplican en general y no afectan el derecho de gracia ni la facultad de investigación del Congreso, cuyo ejercicio debe ser independiente del procedimiento jurisdiccional. Además, los procesos judiciales por responsabilidad de funcionarios públicos y por los delitos cometidos por medio de la prensa son siempre públicos. El derecho de defensa en ningún estado del proceso es uno de los principios que se menciona en las fuentes. También se mencionan derechos como el derecho de formular análisis y críticas de las resoluciones y sentencias judiciales, con las limitaciones de ley; el derecho de los reclusos y sentenciados de ocupar establecimientos adecuados. Los
 
 <details><summary>Candidatos que recibió el LLM</summary>
 
