@@ -236,3 +236,68 @@ def test_un_fallo_antes_de_la_cabecera_si_se_traduce():
     cuerpo = _recorrer(app)
     assert b"detail" in cuerpo
     assert b"antes de responder" not in cuerpo, "no se filtra el detalle interno"
+
+
+# ── El disco lleno se avisa antes, no a mitad de 40 GB ─────────────────────
+
+def test_avisa_antes_de_empezar_si_no_cabe(monkeypatch, tmp_path):
+    """El catálogo ofrece un modelo de 42 GB; el disco puede tener 2 GB libres."""
+    import downloads
+
+    monkeypatch.setattr(downloads, "remote_size", lambda *a, **k: 42_000_000_000)
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 2_500_000_000)
+    with pytest.raises(downloads.DiskSpaceError) as exc:
+        downloads.DownloadManager().start("r", "f.gguf", tmp_path / "f.gguf")
+    mensaje = str(exc.value)
+    assert "42.0 GB" in mensaje and "2.5 GB" in mensaje
+    assert "Libera espacio" in mensaje and "pequeño" in mensaje
+
+
+def test_si_cabe_la_descarga_arranca(monkeypatch, tmp_path):
+    import downloads
+
+    monkeypatch.setattr(downloads, "remote_size", lambda *a, **k: 500_000_000)
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 80_000_000_000)
+    monkeypatch.setattr(downloads, "run_download", lambda state: None)
+    estado = downloads.DownloadManager().start("r", "f.gguf", tmp_path / "f.gguf")
+    assert estado.id
+
+
+def test_sin_saber_el_tamano_no_se_bloquea(monkeypatch, tmp_path):
+    """Si el servidor no dice cuánto pesa, se intenta: se comprobará al vuelo."""
+    import downloads
+
+    monkeypatch.setattr(downloads, "remote_size", lambda *a, **k: 0)
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 1)
+    monkeypatch.setattr(downloads, "run_download", lambda state: None)
+    assert downloads.DownloadManager().start("r", "f.gguf", tmp_path / "f.gguf").id
+
+
+def test_el_margen_deja_el_disco_respirando(monkeypatch, tmp_path):
+    """Justo lo que ocupa no basta: llenar el disco al 100 % rompe otras cosas."""
+    import downloads
+
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 1_000_000_000)
+    assert downloads.check_space(tmp_path / "x", 900_000_000) is not None
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 10_000_000_000)
+    assert downloads.check_space(tmp_path / "x", 900_000_000) is None
+
+
+def test_el_margen_es_proporcional_no_fijo(monkeypatch, tmp_path):
+    """Un margen fijo y grande impediria bajar 60 MB en un disco con 1 GB libre."""
+    import downloads
+
+    monkeypatch.setattr(downloads, "free_space", lambda *a, **k: 1_000_000_000)
+    assert downloads.check_space(tmp_path / "x", 60_000_000) is None, "60 MB deberian caber"
+    assert downloads.disk_margin(60_000_000) == downloads.DISK_MARGIN_MIN
+    assert downloads.disk_margin(42_000_000_000) == downloads.DISK_MARGIN_MAX
+
+
+def test_el_disco_lleno_es_un_507_con_su_mensaje():
+    import downloads
+    from errors import classify
+
+    codigo, mensaje = classify(downloads.DiskSpaceError(
+        "No hay espacio suficiente: el archivo ocupa 42.0 GB y en el disco quedan 2.5 GB."))
+    assert codigo == 507
+    assert "42.0 GB" in mensaje

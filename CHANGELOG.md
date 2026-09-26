@@ -45,6 +45,12 @@ this release comes from chasing that one line.
   The catalog now spans 0.5B to 70B, and the RAM-aware recommender picks what fits.
 - Context presets raised to 4096 / 8192 / 16384. KAMVEX is a RAG app: the prompt carries a
   question, several sources and the conversation, and 2048 never fit any of it.
+- **A download that will not fit is refused before it starts.** The catalog now offers a
+  42 GB model, and a disk can have 2 GB free. The size is asked of the server (Hugging Face
+  sends the real one in `x-linked-size`; `Content-Length` is the LFS pointer), checked
+  against free space with a proportional margin, and refused with a 507 naming both
+  numbers. Finding out at 90 % of a 40 GB download, with the disk already full, helps
+  nobody. It is checked again mid-flight in case something else fills the disk.
 - `src/api/errors.ts`: one place that turns any failure into a sentence. Twenty call sites
   across the UI stopped printing `String(e)`, which is how "TypeError: Failed to fetch" and
   "[object Object]" reached the screen.

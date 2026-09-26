@@ -164,6 +164,71 @@ def _request_headers(resume_from: int) -> dict:
     return headers
 
 
+class DiskSpaceError(OSError):
+    """No cabe. Se avisa antes de empezar, no a mitad de una descarga de 40 GB."""
+
+
+# Margen que se deja libre después de la descarga. Llenar el disco al 100 % rompe cosas
+# que no tienen nada que ver con KAMVEX. El margen es proporcional: uno fijo y grande
+# impediría bajar 60 MB en un disco con 1 GB libre, que es perfectamente razonable.
+DISK_MARGIN_MIN = 200_000_000
+DISK_MARGIN_MAX = 2_000_000_000
+DISK_MARGIN_SHARE = 0.10
+
+
+def disk_margin(needed: int) -> int:
+    """Cuánto hay que dejar libre además del propio fichero."""
+    return int(min(DISK_MARGIN_MAX, max(DISK_MARGIN_MIN, needed * DISK_MARGIN_SHARE)))
+
+
+def free_space(path: Path) -> int:
+    """Bytes libres en el disco donde caería `path`, o -1 si no se puede saber."""
+    import shutil
+    carpeta = path if path.is_dir() else path.parent
+    while not carpeta.exists() and carpeta != carpeta.parent:
+        carpeta = carpeta.parent
+    try:
+        return shutil.disk_usage(carpeta).free
+    except OSError:
+        return -1
+
+
+def remote_size(url: str, timeout: float = 20.0) -> int:
+    """Lo que pesa el fichero según el servidor, o 0 si no lo dice.
+
+    Hugging Face manda el tamaño real en `x-linked-size` cuando el fichero vive en LFS;
+    `Content-Length` en ese caso es el del puntero, que son unos cientos de bytes.
+    """
+    try:
+        req = urllib.request.Request(url, headers=_request_headers(0), method="HEAD")
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            for cabecera in ("x-linked-size", "Content-Length"):
+                valor = r.headers.get(cabecera)
+                if valor and valor.isdigit() and int(valor) > 0:
+                    return int(valor)
+    except Exception:  # noqa: BLE001 — sin dato se sigue y se comprueba al vuelo
+        return 0
+    return 0
+
+
+def check_space(dest: Path, needed: int) -> str | None:
+    """Mensaje de error si no cabe, o None si hay sitio.
+
+    Se comprueba ANTES de empezar: enterarse al 90 % de una descarga de 40 GB, con el
+    disco ya lleno y el sistema dando problemas, no le sirve a nadie.
+    """
+    if needed <= 0:
+        return None
+    libre = free_space(dest)
+    if libre < 0:
+        return None
+    if libre < needed + disk_margin(needed):
+        return (f"No hay espacio suficiente: el archivo ocupa {needed / 1e9:.1f} GB y en el "
+                f"disco quedan {libre / 1e9:.1f} GB. Libera espacio o elige un modelo más "
+                f"pequeño.")
+    return None
+
+
 def run_download(state: DownloadState) -> None:
     """Worker: chunked download with pause/cancel/resume. Never raises."""
     part = Path(str(state.dest) + ".part")
@@ -187,6 +252,14 @@ def run_download(state: DownloadState) -> None:
             # Server ignored the Range header (or nothing to resume): start over.
             state.downloaded = 0
             state.total = int(content_length) if content_length else 0
+
+        falta = check_space(state.dest, state.total - state.downloaded)
+        if falta:
+            state.status = "error"
+            state.error = falta
+            state.emit()
+            resp.close()
+            return
 
         state.emit()
 
@@ -288,6 +361,11 @@ class DownloadManager:
         existing = self.active_for(dest)
         if existing is not None:
             return existing
+        # Se pregunta el tamaño y se comprueba el disco ANTES de arrancar el hilo.
+        destino_url = url or hf_resolve_url(repo, file)
+        falta = check_space(dest, remote_size(destino_url))
+        if falta:
+            raise DiskSpaceError(falta)
         dl_id = uuid.uuid4().hex[:12]
         state = DownloadState(dl_id, repo, file, dest, url or hf_resolve_url(repo, file),
                               kind=kind, expected_sha256=sha256, post_process=post_process)

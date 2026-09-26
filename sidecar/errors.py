@@ -105,6 +105,9 @@ def classify(exc: BaseException) -> tuple[int, str]:
     if "sigue cargando" in bajo or "loading model" in bajo or "503" in bajo:
         return 503, CARGANDO
     if isinstance(exc, OSError):
+        if type(exc).__name__ == "DiskSpaceError":
+            # Ya trae el detalle medido: cuanto ocupa y cuanto queda.
+            return 507, texto
         if getattr(exc, "errno", None) == 28 or "no space" in bajo or "espacio" in bajo:
             return 507, SIN_ESPACIO
         if "getaddrinfo" in bajo or "timed out" in bajo or "urlopen" in bajo:
