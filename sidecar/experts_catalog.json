@@ -12,6 +12,14 @@
       ],
       "models": [
         {
+          "id": "qwen2.5-coder-14b",
+          "name": "Qwen2.5 Coder 14B",
+          "repo": "bartowski/Qwen2.5-Coder-14B-Instruct-GGUF",
+          "file": "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+          "size_mb": 8988,
+          "reason": "Entiende proyectos, no solo funciones sueltas."
+        },
+        {
           "id": "qwen2.5-coder-7b",
           "name": "Qwen2.5 Coder 7B",
           "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
@@ -61,6 +69,14 @@
         "medlineplus-salud-es"
       ],
       "models": [
+        {
+          "id": "qwen3-14b",
+          "name": "Qwen3 14B",
+          "repo": "unsloth/Qwen3-14B-GGUF",
+          "file": "Qwen3-14B-Q4_K_M.gguf",
+          "size_mb": 9002,
+          "reason": "Razona mejor y sigue instrucciones largas. Pide 24 GB de RAM."
+        },
         {
           "id": "qwen2.5-7b",
           "name": "Qwen2.5 7B",
@@ -127,6 +143,14 @@
         "constitucion-peru-1993"
       ],
       "models": [
+        {
+          "id": "qwen3-14b",
+          "name": "Qwen3 14B",
+          "repo": "unsloth/Qwen3-14B-GGUF",
+          "file": "Qwen3-14B-Q4_K_M.gguf",
+          "size_mb": 9002,
+          "reason": "Razona mejor y sigue instrucciones largas. Pide 24 GB de RAM."
+        },
         {
           "id": "qwen2.5-7b",
           "name": "Qwen2.5 7B",
@@ -202,6 +226,14 @@
       ],
       "models": [
         {
+          "id": "qwen3-14b",
+          "name": "Qwen3 14B",
+          "repo": "unsloth/Qwen3-14B-GGUF",
+          "file": "Qwen3-14B-Q4_K_M.gguf",
+          "size_mb": 9002,
+          "reason": "Razona mejor y sigue instrucciones largas. Pide 24 GB de RAM."
+        },
+        {
           "id": "gemma-3-4b",
           "name": "Gemma 3 4B",
           "repo": "unsloth/gemma-3-4b-it-GGUF",
@@ -268,6 +300,14 @@
       ],
       "models": [
         {
+          "id": "qwen3-14b",
+          "name": "Qwen3 14B",
+          "repo": "unsloth/Qwen3-14B-GGUF",
+          "file": "Qwen3-14B-Q4_K_M.gguf",
+          "size_mb": 9002,
+          "reason": "Razona mejor y sigue instrucciones largas. Pide 24 GB de RAM."
+        },
+        {
           "id": "qwen2.5-7b",
           "name": "Qwen2.5 7B",
           "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
@@ -331,6 +371,22 @@
       "description": "Conversación libre con el modelo, sin base de conocimiento. Útil para redactar, traducir o razonar sobre lo que le pegues en el chat.",
       "datasets": [],
       "models": [
+        {
+          "id": "gemma-3-27b",
+          "name": "Gemma 3 27B",
+          "repo": "unsloth/gemma-3-27b-it-GGUF",
+          "file": "gemma-3-27b-it-Q4_K_M.gguf",
+          "size_mb": 16500,
+          "reason": "La mejor redacción del catálogo. Pide 40 GB de RAM."
+        },
+        {
+          "id": "qwen3-14b",
+          "name": "Qwen3 14B",
+          "repo": "unsloth/Qwen3-14B-GGUF",
+          "file": "Qwen3-14B-Q4_K_M.gguf",
+          "size_mb": 9002,
+          "reason": "Razona mejor y sigue instrucciones largas. Pide 24 GB de RAM."
+        },
         {
           "id": "gemma-2-9b",
           "name": "Gemma 2 9B",
